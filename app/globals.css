@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&family=Space+Grotesk:wght@500;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #e50914;
+  --color-background: #0a0a0a;
+  --color-surface: #121212;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-accent: "Bebas Neue", sans-serif;
+}
+
+@layer base {
+
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  .lenis.lenis-scrolling iframe {
+    pointer-events: none;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: #ffffff;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .hero-gradient {
+    background: linear-gradient(0deg, #0a0a0a 0%, transparent 100%),
+      linear-gradient(90deg, #0a0a0a 20%, transparent 60%);
+  }
+
+  .glow-hover:hover {
+    box-shadow: 0 0 20px rgba(229, 9, 20, 0.4);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px rgba(229, 9, 20, 0.3);
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .bg-accent-red {
+    background-color: #e50914;
+  }
+
+  .text-accent-red {
+    color: #e50914;
+  }
+}
+
+/* Real Frosted Glassmorphism Styles (Only for Navbar) */
+.glass-nav {
+  background: transparent !important;
+  -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
+  backdrop-filter: blur(10px) saturate(200%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.glass-nav::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  background-color: rgba(255, 255, 255, 0.14) !important;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E") !important;
+  pointer-events: none !important;
+}
