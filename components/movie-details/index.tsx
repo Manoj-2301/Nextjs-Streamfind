@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { Star, Clock, Calendar, ChevronLeft, Share2, Info, Bookmark, Check, Play, Pause, Loader2 } from 'lucide-react';
+import { Star, Clock, Calendar, ChevronLeft, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil } from 'lucide-react';
 import WatchProviderCard from '@/components/ui/watch-provider-card';
 import ErrorMessage from '@/components/ui/error-message';
 import Link from 'next/link';
@@ -26,12 +26,21 @@ export default function MovieDetails() {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const reviewSectionRef = useRef<HTMLDivElement>(null);
+  const reviewTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
 
   // Review & Feed states
   const [reviewInput, setReviewInput] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+
+  const handleEditReview = () => {
+    reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      reviewTextAreaRef.current?.focus();
+    }, 500);
+  };
 
   const [communityReviews, setCommunityReviews] = useState<{
     userId: string;
@@ -40,6 +49,7 @@ export default function MovieDetails() {
     rating: number;
     reviewText: string;
     isCritic?: boolean;
+    isCurrentUser?: boolean;
   }[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -188,6 +198,29 @@ export default function MovieDetails() {
 
   const saved = movie ? isInWatchlist(movie.id) : false;
   const userRating = movie ? getUserRating(movie.id) : 0;
+
+  // Filter out our own review from the community feed to avoid duplicate rendering,
+  // then prepend our latest review if it exists so it's always at the top!
+  const displayedReviews = (() => {
+    let list = [...communityReviews];
+    if (user && movie) {
+      list = list.filter(r => r.userId !== user.uid);
+      const userReviewText = getUserReviewText(movie.id);
+      const userRatingVal = getUserRating(movie.id);
+      if (userReviewText) {
+        list.unshift({
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'You',
+          userPhoto: user.photoURL || '',
+          rating: userRatingVal || 5,
+          reviewText: userReviewText,
+          isCritic: false,
+          isCurrentUser: true
+        });
+      }
+    }
+    return list;
+  })();
 
   // Calculate a mock average based on IMDb + user rating (scaled to 10 for consistency)
   const displayedRating = (movie && userRating)
@@ -455,7 +488,7 @@ export default function MovieDetails() {
               )}
 
               {/* Interactive Rate & Review Section */}
-              <div className="mb-12 md:mb-16 bg-surface/30 rounded-2xl p-6 md:p-8 border border-white/5">
+              <div ref={reviewSectionRef} className="mb-12 md:mb-16 bg-surface/30 rounded-2xl p-6 md:p-8 border border-white/5">
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
                   <span className="w-1 h-3 bg-brand"></span> RATE & WRITE A REVIEW
                 </h3>
@@ -486,6 +519,7 @@ export default function MovieDetails() {
                 {/* Critique Text Box */}
                 <div className="space-y-4">
                   <textarea
+                    ref={reviewTextAreaRef}
                     value={reviewInput}
                     onChange={(e) => setReviewInput(e.target.value)}
                     placeholder={user ? "Tell other cinephiles what you thought of this masterpiece... (your thoughts will instantly sync to your Director's Notes)" : "Log in to share your written review!"}
@@ -527,17 +561,17 @@ export default function MovieDetails() {
               {/* Community & Critic Reviews Section (Paginated 5 per page) */}
               <div className="mb-12 md:mb-16">
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
-                  <span className="w-1 h-3 bg-brand"></span> COMMUNITY & CRITIC REVIEWS ({communityReviews.length})
+                  <span className="w-1 h-3 bg-brand"></span> COMMUNITY & CRITIC REVIEWS ({displayedReviews.length})
                 </h3>
 
-                {communityReviews.length === 0 ? (
+                {displayedReviews.length === 0 ? (
                   <div className="p-8 bg-white/5 border border-white/5 rounded-2xl text-center">
                     <p className="text-white/40 text-sm font-medium italic">No reviews submitted yet. Be the first to critique this movie!</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {/* Paginated Reviews List */}
-                    {communityReviews
+                    {displayedReviews
                       .slice((currentPage - 1) * reviewsPerPage, currentPage * reviewsPerPage)
                       .map((rev, index) => (
                         <div key={rev.userId + '-' + index} className="p-6 bg-surface/30 border border-white/5 rounded-2xl flex gap-4 items-start hover:bg-surface/40 transition-colors">
@@ -552,7 +586,7 @@ export default function MovieDetails() {
                             <div className="flex items-center justify-between mb-2">
                               <div>
                                 <span className="text-xs font-black uppercase text-white/80 tracking-tight block">
-                                  {rev.userName}
+                                  {rev.userName} {rev.isCurrentUser && <span className="text-[9px] font-black uppercase text-brand/60 ml-1.5">(You)</span>}
                                 </span>
                                 {rev.isCritic && (
                                   <span className="text-[9px] font-black uppercase text-brand tracking-widest">
@@ -560,16 +594,28 @@ export default function MovieDetails() {
                                   </span>
                                 )}
                               </div>
-                              {!rev.isCritic && (
-                                <div className="flex gap-0.5">
-                                  {Array.from({ length: 5 }).map((_, s) => (
-                                    <Star
-                                      key={s}
-                                      className={`w-2.5 h-2.5 ${s < rev.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
-                                    />
-                                  ))}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-3">
+                                {!rev.isCritic && (
+                                  <div className="flex gap-0.5">
+                                    {Array.from({ length: 5 }).map((_, s) => (
+                                      <Star
+                                        key={s}
+                                        className={`w-2.5 h-2.5 ${s < rev.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                                {rev.isCurrentUser && (
+                                  <button
+                                    onClick={handleEditReview}
+                                    className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand transition-colors text-[9px] font-black uppercase tracking-wider"
+                                    title="Edit Review"
+                                  >
+                                    <Pencil className="w-2.5 h-2.5" />
+                                    Edit
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <p className="text-white/60 text-sm leading-relaxed font-medium italic whitespace-pre-wrap">
                               "{rev.reviewText}"
@@ -579,7 +625,7 @@ export default function MovieDetails() {
                       ))}
 
                     {/* Small / Compact Pagination Component */}
-                    {communityReviews.length > reviewsPerPage && (
+                    {displayedReviews.length > reviewsPerPage && (
                       <div className="flex items-center justify-center gap-4 mt-6 pt-4">
                         <button
                           disabled={currentPage === 1}
@@ -589,12 +635,12 @@ export default function MovieDetails() {
                           Prev
                         </button>
                         <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                          Page {currentPage} of {Math.ceil(communityReviews.length / reviewsPerPage)}
+                          Page {currentPage} of {Math.ceil(displayedReviews.length / reviewsPerPage)}
                         </span>
                         <button
-                          disabled={currentPage === Math.ceil(communityReviews.length / reviewsPerPage)}
+                          disabled={currentPage === Math.ceil(displayedReviews.length / reviewsPerPage)}
                           onClick={() => {
-                            setCurrentPage(prev => Math.min(prev + 1, Math.ceil(communityReviews.length / reviewsPerPage)));
+                            setCurrentPage(prev => Math.min(prev + 1, Math.ceil(displayedReviews.length / reviewsPerPage)));
                           }}
                           className="px-3 py-1.5 rounded bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-white/60"
                         >

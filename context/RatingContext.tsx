@@ -61,7 +61,8 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
           movieTitle: data.movieTitle || 'Unknown Movie',
           moviePoster: data.moviePoster || '',
           reviewText: data.reviewText || '',
-          updatedAt: data.updatedAt
+          updatedAt: data.updatedAt,
+          liked: !!data.liked
         });
       });
       setUserRatings(ratings);
