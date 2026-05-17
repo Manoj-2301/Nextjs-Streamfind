@@ -16,6 +16,17 @@ export default function Navbar() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const pathname = usePathname();
 
+  if (pathname === '/profile') {
+    return (
+      <nav className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-white/10 px-4 py-4 flex items-center justify-center h-16">
+        <Link href="/" className="flex items-center gap-2 group">
+          <span className="text-xl min-[931px]:text-2xl font-black tracking-tighter text-brand">
+            STREAMFIND
+          </span>
+        </Link>
+      </nav>
+    );
+  }
 
   const getDesktopLinkClass = (path: string) =>
     `transition-colors ${pathname === path ? 'text-brand font-bold' : 'text-white/70 hover:text-brand'}`;

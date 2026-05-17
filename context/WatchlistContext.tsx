@@ -16,14 +16,64 @@ interface WatchlistContextType {
 
 const WatchlistContext = createContext<WatchlistContextType | undefined>(undefined);
 
+const LOCAL_STORAGE_KEY = 'streamfind_anonymous_watchlist';
+const EXPIRY_TIME_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+interface LocalWatchlistItem {
+  movie: Movie;
+  addedAt: number;
+}
+
 export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const [watchlist, setWatchlist] = useState<Movie[]>([]);
   const { user } = useAuth();
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     if (!user) {
-      setWatchlist([]);
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed: LocalWatchlistItem[] = JSON.parse(stored);
+          const now = Date.now();
+          const validItems = parsed.filter(item => now - item.addedAt < EXPIRY_TIME_MS);
+          
+          if (validItems.length !== parsed.length) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(validItems));
+          }
+          
+          setWatchlist(validItems.map(item => item.movie));
+        } catch (e) {
+          console.error("Error parsing local watchlist:", e);
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+        }
+      } else {
+        setWatchlist([]);
+      }
       return;
+    }
+
+    // User is logged in: Merge local items to Firebase
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed: LocalWatchlistItem[] = JSON.parse(stored);
+        const now = Date.now();
+        const validItems = parsed.filter(item => now - item.addedAt < EXPIRY_TIME_MS);
+        
+        validItems.forEach(async (item) => {
+          const path = `users/${user.uid}/watchlist/${item.movie.id}`;
+          await setDoc(doc(db, path), {
+            ...item.movie,
+            addedAt: serverTimestamp()
+          }, { merge: true });
+        });
+        
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      } catch (e) {
+        console.error("Error merging local watchlist:", e);
+      }
     }
 
     const path = `users/${user.uid}/watchlist`;
@@ -43,7 +93,21 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const addToWatchlist = async (movie: Movie) => {
-    if (!user) return;
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        const now = Date.now();
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        let items: LocalWatchlistItem[] = stored ? JSON.parse(stored) : [];
+        
+        items = items.filter(i => i.movie.id !== movie.id);
+        items.push({ movie, addedAt: now });
+        
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+        setWatchlist(items.map(i => i.movie));
+      }
+      return;
+    }
+
     const path = `users/${user.uid}/watchlist/${movie.id}`;
     try {
       await setDoc(doc(db, path), {
@@ -56,7 +120,19 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeFromWatchlist = async (movieId: number) => {
-    if (!user) return;
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (stored) {
+          let items: LocalWatchlistItem[] = JSON.parse(stored);
+          items = items.filter(i => i.movie.id !== movieId);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+          setWatchlist(items.map(i => i.movie));
+        }
+      }
+      return;
+    }
+
     const path = `users/${user.uid}/watchlist/${movieId}`;
     try {
       await deleteDoc(doc(db, path));

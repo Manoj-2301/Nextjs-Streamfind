@@ -13,6 +13,7 @@ export interface UserReview {
   moviePoster: string;
   reviewText?: string;
   updatedAt: any;
+  liked?: boolean;
 }
 
 interface RatingContextType {
@@ -80,6 +81,7 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
   ) => {
     if (!user) return;
     const path = `users/${user.uid}/ratings/${movieId}`;
+    const globalPath = `movies/${movieId}/reviews/${user.uid}`;
     try {
       const dataToSet: any = {
         movieId,
@@ -97,6 +99,24 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
       }
 
       await setDoc(doc(db, path), dataToSet, { merge: true });
+
+      // Save to global reviews as well (wrapped in individual try-catch to be resilient to security rule restrictions)
+      try {
+        const existingReview = userReviews.find(r => r.movieId === movieId);
+        const textToWrite = reviewText !== undefined ? reviewText : (existingReview?.reviewText || '');
+
+        const globalData = {
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'Anonymous Film Buff',
+          userPhoto: user.photoURL || '',
+          rating,
+          reviewText: textToWrite,
+          updatedAt: serverTimestamp()
+        };
+        await setDoc(doc(db, globalPath), globalData, { merge: true });
+      } catch (globalErr) {
+        console.warn("Failed to write to public global reviews collection (check security rules):", globalErr);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }

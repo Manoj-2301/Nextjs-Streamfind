@@ -9,13 +9,17 @@ import Link from 'next/link';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings } from '@/context/RatingContext';
 import { useState, useEffect, useRef } from 'react';
-import { getMovieDetails } from '@/services/tmdbService';
+import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
 import { Movie } from '@/types';
+import { db } from '@/lib/firebase';
+import { collection, query, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
 
 export default function MovieDetails() {
   const params = useParams<{ id: string }>(); const id = params.id;
+  const { user } = useAuth();
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
-  const { setUserRating, getUserRating } = useRatings();
+  const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -23,6 +27,23 @@ export default function MovieDetails() {
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
+
+  // Review & Feed states
+  const [reviewInput, setReviewInput] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+
+  const [communityReviews, setCommunityReviews] = useState<{
+    userId: string;
+    userName: string;
+    userPhoto: string;
+    rating: number;
+    reviewText: string;
+    isCritic?: boolean;
+  }[]>([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const reviewsPerPage = 5;
 
   const togglePlay = () => {
     if (iframeRef.current && iframeRef.current.contentWindow) {
@@ -48,6 +69,82 @@ export default function MovieDetails() {
       }
     };
     fetchDetails();
+  }, [id]);
+
+  // Load existing critique text when movie is resolved
+  useEffect(() => {
+    if (movie) {
+      setReviewInput(getUserReviewText(movie.id) || '');
+    }
+  }, [movie, getUserReviewText]);
+
+  // Real-time listener for community reviews + fallback to TMDB critics
+  useEffect(() => {
+    if (!id) return;
+
+    // 1. Subscribe to Firestore community reviews
+    const path = `movies/${id}/reviews`;
+    const q = query(collection(db, path));
+    
+    let unsubscribeFirestore = () => {};
+
+    const loadAllReviews = async () => {
+      // 2. Fetch TMDB critic reviews
+      let tmdbReviews: CriticReview[] = [];
+      try {
+        tmdbReviews = await getMovieReviews(Number(id));
+      } catch (e) {
+        console.error("Error fetching TMDB reviews:", e);
+      }
+
+      unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        const firestoreList: any[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.reviewText) {
+            firestoreList.push({
+              userId: docSnap.id,
+              userName: data.userName || 'Anonymous Film Buff',
+              userPhoto: data.userPhoto || '',
+              rating: data.rating || 5,
+              reviewText: data.reviewText,
+              isCritic: false
+            });
+          }
+        });
+
+        // Map TMDB critic reviews to matching structure
+        const mappedCritics = tmdbReviews.map((r, idx) => ({
+          userId: `critic-${idx}`,
+          userName: r.author,
+          userPhoto: '',
+          rating: 5,
+          reviewText: r.content,
+          isCritic: true
+        }));
+
+        // Combine feeds: custom community first, followed by professional critics
+        setCommunityReviews([...firestoreList, ...mappedCritics]);
+      }, (err) => {
+        console.warn("Firestore reviews subscription failed (please update security rules in Firebase Console). Falling back to TMDB reviews only.", err);
+        // Fall back gracefully to TMDB critic reviews only
+        const mappedCritics = tmdbReviews.map((r, idx) => ({
+          userId: `critic-${idx}`,
+          userName: r.author,
+          userPhoto: '',
+          rating: 5,
+          reviewText: r.content,
+          isCritic: true
+        }));
+        setCommunityReviews(mappedCritics);
+      });
+    };
+
+    loadAllReviews();
+
+    return () => {
+      unsubscribeFirestore();
+    };
   }, [id]);
 
   const getPartnerStyles = (name: string) => {
@@ -357,12 +454,14 @@ export default function MovieDetails() {
                 </div>
               )}
 
-              {/* Rating Section */}
-              <div className="mb-12 md:mb-16">
+              {/* Interactive Rate & Review Section */}
+              <div className="mb-12 md:mb-16 bg-surface/30 rounded-2xl p-6 md:p-8 border border-white/5">
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
-                  <span className="w-1 h-3 bg-brand"></span> RATE THIS MOVIE (5 STARS)
+                  <span className="w-1 h-3 bg-brand"></span> RATE & WRITE A REVIEW
                 </h3>
-                <div className="flex items-center gap-3">
+                
+                {/* Star Rating Selector */}
+                <div className="flex items-center gap-3 mb-6">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -379,10 +478,132 @@ export default function MovieDetails() {
                       />
                     </button>
                   ))}
-                  <span className="ml-4 text-3xl font-black text-white/20 italic">
+                  <span className="ml-4 text-2xl font-black text-white/20 italic">
                     {(hoverRating ?? userRating ?? '—')} / 5
                   </span>
                 </div>
+
+                {/* Critique Text Box */}
+                <div className="space-y-4">
+                  <textarea
+                    value={reviewInput}
+                    onChange={(e) => setReviewInput(e.target.value)}
+                    placeholder={user ? "Tell other cinephiles what you thought of this masterpiece... (your thoughts will instantly sync to your Director's Notes)" : "Log in to share your written review!"}
+                    disabled={!user}
+                    className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm placeholder-white/30 focus:outline-none focus:border-brand/50 transition-colors resize-none font-medium disabled:opacity-40"
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                      {reviewInput.length} characters
+                    </p>
+                    <button
+                      disabled={isSubmittingReview || !userRating || !user}
+                      onClick={async () => {
+                        setIsSubmittingReview(true);
+                        try {
+                          await setUserRating(movie.id, userRating || 5, { title: movie.title, posterUrl: movie.posterUrl }, reviewInput);
+                          setReviewSuccess(true);
+                          setTimeout(() => setReviewSuccess(false), 3000);
+                        } catch (e) {
+                          console.error("Error submitting review:", e);
+                        } finally {
+                          setIsSubmittingReview(false);
+                        }
+                      }}
+                      className="px-6 py-2.5 rounded-lg bg-brand text-white font-black uppercase text-xs tracking-widest hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-brand/20"
+                    >
+                      {isSubmittingReview ? (
+                        <>Saving Review...</>
+                      ) : reviewSuccess ? (
+                        <>✓ Saved Successfully</>
+                      ) : (
+                        <>Save Critique</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Community & Critic Reviews Section (Paginated 5 per page) */}
+              <div className="mb-12 md:mb-16">
+                <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
+                  <span className="w-1 h-3 bg-brand"></span> COMMUNITY & CRITIC REVIEWS ({communityReviews.length})
+                </h3>
+
+                {communityReviews.length === 0 ? (
+                  <div className="p-8 bg-white/5 border border-white/5 rounded-2xl text-center">
+                    <p className="text-white/40 text-sm font-medium italic">No reviews submitted yet. Be the first to critique this movie!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Paginated Reviews List */}
+                    {communityReviews
+                      .slice((currentPage - 1) * reviewsPerPage, currentPage * reviewsPerPage)
+                      .map((rev, index) => (
+                        <div key={rev.userId + '-' + index} className="p-6 bg-surface/30 border border-white/5 rounded-2xl flex gap-4 items-start hover:bg-surface/40 transition-colors">
+                          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center font-black text-brand text-xs uppercase shadow-md">
+                            {rev.userPhoto ? (
+                              <img src={rev.userPhoto} className="w-full h-full object-cover" alt={rev.userName} />
+                            ) : (
+                              rev.userName.slice(0, 2)
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <span className="text-xs font-black uppercase text-white/80 tracking-tight block">
+                                  {rev.userName}
+                                </span>
+                                {rev.isCritic && (
+                                  <span className="text-[9px] font-black uppercase text-brand tracking-widest">
+                                    Top Critic
+                                  </span>
+                                )}
+                              </div>
+                              {!rev.isCritic && (
+                                <div className="flex gap-0.5">
+                                  {Array.from({ length: 5 }).map((_, s) => (
+                                    <Star
+                                      key={s}
+                                      className={`w-2.5 h-2.5 ${s < rev.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-white/60 text-sm leading-relaxed font-medium italic whitespace-pre-wrap">
+                              "{rev.reviewText}"
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+
+                    {/* Small / Compact Pagination Component */}
+                    {communityReviews.length > reviewsPerPage && (
+                      <div className="flex items-center justify-center gap-4 mt-6 pt-4">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          className="px-3 py-1.5 rounded bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-white/60"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                          Page {currentPage} of {Math.ceil(communityReviews.length / reviewsPerPage)}
+                        </span>
+                        <button
+                          disabled={currentPage === Math.ceil(communityReviews.length / reviewsPerPage)}
+                          onClick={() => {
+                            setCurrentPage(prev => Math.min(prev + 1, Math.ceil(communityReviews.length / reviewsPerPage)));
+                          }}
+                          className="px-3 py-1.5 rounded bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-white/60"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Where to Watch Section */}

@@ -256,3 +256,58 @@ export const getCastMovies = async (id: number): Promise<Movie[]> => {
         return [];
     }
 };
+
+export interface MovieAdditionalDetails {
+  director?: string;
+  topCriticReview?: {
+    author: string;
+    content: string;
+  };
+}
+
+export const getMovieAdditionalDetails = async (movieId: number): Promise<MovieAdditionalDetails> => {
+    if (!TMDB_API_KEY) return {};
+    try {
+        const [creditsRes, reviewsRes] = await Promise.all([
+            fetch(`${BASE_URL}/movie/${movieId}/credits?api_key=${TMDB_API_KEY}`),
+            fetch(`${BASE_URL}/movie/${movieId}/reviews?api_key=${TMDB_API_KEY}`)
+        ]);
+
+        const creditsData = await creditsRes.json();
+        const reviewsData = await reviewsRes.json();
+
+        const directorInfo = creditsData.crew?.find((member: any) => member.job === 'Director');
+        const review = reviewsData.results?.[0];
+
+        return {
+            director: directorInfo?.name,
+            topCriticReview: review ? {
+                author: review.author,
+                content: review.content
+            } : undefined
+        };
+    } catch (error) {
+        console.error('Error fetching additional movie details:', error);
+        return {};
+    }
+};
+
+export interface CriticReview {
+  author: string;
+  content: string;
+}
+
+export const getMovieReviews = async (movieId: number): Promise<CriticReview[]> => {
+    if (!TMDB_API_KEY) return [];
+    try {
+        const response = await fetch(`${BASE_URL}/movie/${movieId}/reviews?api_key=${TMDB_API_KEY}`);
+        const data = await response.json();
+        return data.results.map((r: any) => ({
+            author: r.author,
+            content: r.content
+        }));
+    } catch (error) {
+        console.error('Error fetching movie reviews from TMDB:', error);
+        return [];
+    }
+};
