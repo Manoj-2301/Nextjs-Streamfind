@@ -2,14 +2,14 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, signInWithPopup, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from '@/lib/firebase';
+import { auth, signInWithPopup, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, updateProfile } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (e: string, p: string) => Promise<void>;
-  signupWithEmail: (e: string, p: string) => Promise<void>;
+  signupWithEmail: (e: string, p: string, n: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -40,8 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, pass);
   };
 
-  const signupWithEmail = async (email: string, pass: string) => {
+  const signupWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(userCredential.user, { displayName: name });
     await sendEmailVerification(userCredential.user);
     // Sign out immediately so they have to verify their email before fully logging in
     await signOut(auth);

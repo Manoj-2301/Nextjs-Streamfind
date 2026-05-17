@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,12 +25,17 @@ export default function AuthPage() {
     
     try {
       if (isSignUp) {
+        if (!name.trim()) {
+          setError("Please enter your name.");
+          setIsSubmitting(false);
+          return;
+        }
         if (password !== confirmPassword) {
           setError("Passwords do not match.");
           setIsSubmitting(false);
           return;
         }
-        await signupWithEmail(email, password);
+        await signupWithEmail(email, password, name);
         setVerificationSent(true);
       } else {
         await loginWithEmail(email, password);
@@ -126,6 +132,24 @@ export default function AuthPage() {
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="space-y-4">
+                  {isSignUp && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }} 
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="relative group overflow-hidden"
+                    >
+                      <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
+                      <input 
+                        type="text" 
+                        required={isSignUp}
+                        placeholder="Full Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
+                      />
+                    </motion.div>
+                  )}
+
                   <div className="relative group">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                     <input 
@@ -213,6 +237,7 @@ export default function AuthPage() {
                   onClick={() => {
                     setIsSignUp(!isSignUp);
                     setError('');
+                    setName('');
                   }}
                   className="text-brand font-bold hover:underline"
                 >

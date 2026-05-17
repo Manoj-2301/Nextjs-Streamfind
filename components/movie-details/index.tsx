@@ -368,7 +368,7 @@ export default function MovieDetails() {
                       key={star}
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(null)}
-                      onClick={() => setUserRating(movie.id, star)}
+                      onClick={() => setUserRating(movie.id, star, { title: movie.title, posterUrl: movie.posterUrl })}
                       className="transition-transform hover:scale-125"
                     >
                       <Star

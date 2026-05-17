@@ -55,8 +55,14 @@ export default function Navbar() {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2 border border-white/10 p-1 pr-3 rounded-full hover:bg-white/5 transition-colors"
               >
-                <img src={user.photoURL || ''} alt="" className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
-                <span className="text-xs font-bold text-white/80">{user.displayName?.split(' ')[0]}</span>
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full border border-white/20 bg-white/5 flex items-center justify-center">
+                    <UserIcon className="w-4 h-4 text-white/60" />
+                  </div>
+                )}
+                <span className="text-xs font-bold text-white/80">{user.displayName ? user.displayName.split(' ')[0] : user.email?.split('@')[0]}</span>
               </button>
 
               <AnimatePresence>
@@ -65,14 +71,22 @@ export default function Navbar() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-full right-0 mt-2 w-48 glass-dark border border-white/10 rounded-lg p-2 shadow-2xl"
+                    className="absolute top-full right-0 mt-2 w-48 glass-dark border border-white/10 rounded-lg p-2 shadow-2xl flex flex-col gap-1"
                   >
+                    <Link
+                      href="/profile"
+                      onClick={() => setShowProfileMenu(false)}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-white/70 hover:bg-white/10 hover:text-brand transition-all font-semibold"
+                    >
+                      <UserIcon className="w-4 h-4" /> My Profile
+                    </Link>
+                    <div className="border-t border-white/5 my-1" />
                     <button
                       onClick={() => {
                         logout();
                         setShowProfileMenu(false);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-white/70 hover:bg-white/10 hover:text-brand transition-all"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-white/70 hover:bg-white/10 hover:text-brand transition-all font-semibold"
                     >
                       <LogOut className="w-4 h-4" /> Sign Out
                     </button>
@@ -123,9 +137,15 @@ export default function Navbar() {
           >
             {user && (
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full border border-white/20 bg-white/5 flex items-center justify-center">
+                    <UserIcon className="w-5 h-5 text-white/60" />
+                  </div>
+                )}
                 <div>
-                  <p className="text-white font-bold">{user.displayName}</p>
+                  <p className="text-white font-bold">{user.displayName || user.email?.split('@')[0]}</p>
                   <p className="text-white/40 text-xs">{user.email}</p>
                 </div>
               </div>
@@ -161,17 +181,26 @@ export default function Navbar() {
               Search
             </Link>
 
-            <div className="pt-4 border-t border-white/10">
+            <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
               {user ? (
-                <button
-                  onClick={() => {
-                    logout();
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 font-bold text-white/60 hover:text-brand"
-                >
-                  <LogOut className="w-5 h-5" /> Sign Out
-                </button>
+                <>
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full flex items-center gap-2 font-bold text-white/60 hover:text-brand"
+                  >
+                    <UserIcon className="w-5 h-5" /> My Profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 font-bold text-white/60 hover:text-brand"
+                  >
+                    <LogOut className="w-5 h-5" /> Sign Out
+                  </button>
+                </>
               ) : (
                 <Link
                   href="/auth"
