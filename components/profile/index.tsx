@@ -530,7 +530,7 @@ export default function ProfileComponent() {
   return (
     <div className="min-h-screen bg-background text-white selection:bg-brand/30">
       {/* 1. Identity & Visuals: Aura Header */}
-      <div className={`h-[55vh] relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${getAuraColor(primaryFavGenre)}`}>
+      <div className={`min-h-0 lg:min-h-[55vh] lg:h-auto flex flex-col justify-end relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${getAuraColor(primaryFavGenre)}`}>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
         
@@ -542,17 +542,17 @@ export default function ProfileComponent() {
            />
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 z-20 px-6 md:px-12 pb-20">
+        <div className="relative z-20 px-6 lg:px-12 pt-20 lg:pt-36 pb-10 lg:pb-20 w-full">
           <div className="container mx-auto max-w-7xl">
-            <div className="flex flex-col md:flex-row items-end gap-8 md:gap-12">
+            <div className="flex flex-col lg:flex-row items-center lg:items-end gap-8 lg:gap-12">
               
               {/* Avatar with dynamic frame */}
               <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative group shrink-0 mx-auto md:mx-0"
+                className="relative group shrink-0 mx-auto lg:mx-0"
               >
-                <div className={`w-36 h-36 md:w-56 md:h-56 rounded-[48px] overflow-hidden border-[6px] transition-all p-1 bg-surface ${currentFrame.class}`}>
+                <div className={`w-36 h-36 sm:w-44 sm:h-44 lg:w-56 lg:h-56 rounded-[48px] overflow-hidden border-[6px] transition-all p-1 bg-surface ${currentFrame.class}`}>
                   {(profile.photoURL || user.photoURL) ? (
                     <img 
                       src={profile.photoURL || user.photoURL || ""} 
@@ -562,7 +562,7 @@ export default function ProfileComponent() {
                     />
                   ) : (
                     <div className="w-full h-full rounded-[40px] bg-white/5 flex items-center justify-center">
-                      <UserIcon className="w-16 h-16 md:w-20 md:h-20 text-white/30" />
+                      <UserIcon className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 text-white/30" />
                     </div>
                   )}
                 </div>
@@ -585,8 +585,8 @@ export default function ProfileComponent() {
                 />
               </motion.div>
 
-              <div className="flex-1 space-y-4 text-center md:text-left w-full">
-                <div className="flex items-center justify-center md:justify-start gap-3">
+              <div className="flex-1 space-y-4 text-center lg:text-left w-full">
+                <div className="flex items-center justify-center lg:justify-start gap-3">
                   <span className="text-brand font-black text-[10px] tracking-[0.2em] uppercase bg-brand/10 px-3 py-1 rounded-full">
                     {profile.avatarFrame !== 'none' ? `${currentFrame.name} Member` : 'Standard Member'}
                   </span>
@@ -596,17 +596,17 @@ export default function ProfileComponent() {
                 </div>
 
                 <div>
-                  <h1 className="text-5xl md:text-8xl font-black tracking-tighter uppercase italic leading-[0.8] mb-4">
+                  <h1 className="text-4xl sm:text-5xl lg:text-7xl xl:text-8xl font-black tracking-tighter uppercase italic leading-[0.9] lg:leading-[0.8] mb-4">
                     {user.displayName || user.email?.split('@')[0]}
                   </h1>
                   
                   {/* Bio & Glowing Tags */}
-                  <div className="max-w-2xl mx-auto md:mx-0">
+                  <div className="max-w-2xl mx-auto lg:mx-0">
                     <p className="text-white/60 font-medium text-lg leading-relaxed">
                       {profile.bio}
                     </p>
 
-                    <div className="flex flex-wrap gap-2 mt-6 justify-center md:justify-start">
+                    <div className="flex flex-wrap gap-2 mt-6 justify-center lg:justify-start">
                       {AVAILABLE_GENRES.map((genre) => {
                         const isActive = profile.favoriteGenres.includes(genre);
                         return (
@@ -629,14 +629,14 @@ export default function ProfileComponent() {
               </div>
 
               {/* Share & Privacy Actions */}
-              <div className="flex md:flex-col gap-3 shrink-0 justify-center">
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto shrink-0 justify-center">
                 <button 
                   onClick={() => setIsEditModalOpen(true)}
-                  className="bg-white text-black px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all shadow-xl"
+                  className="bg-white text-black w-full lg:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all shadow-xl"
                 >
                   Edit Profile
                 </button>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full lg:w-auto">
                    <button 
                      onClick={() => handleTogglePref('isPublic')}
                      className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
@@ -659,7 +659,7 @@ export default function ProfileComponent() {
       </div>
 
       {/* Main Stats & Analytics Grid */}
-      <div className="container mx-auto max-w-7xl px-6 md:px-12 py-12 relative z-30 -mt-10">
+      <div className="container mx-auto max-w-7xl px-6 lg:px-12 py-12 relative z-30 -mt-6 lg:-mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* 2. Stats & Analytics ("The Reel") */}

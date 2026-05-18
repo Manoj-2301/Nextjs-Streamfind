@@ -136,8 +136,8 @@ export default function HeroSection({ movies }: HeroSectionProps) {
     if (platformName.includes('youtube')) {
       return 'bg-[#FF0000] text-white hover:bg-[#CC0000] shadow-[0_0_20px_rgba(255,0,0,0.4)] border-none';
     }
-    return sponsorPlatform.isSponsored 
-      ? 'bg-brand text-white hover:bg-red-700 shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none' 
+    return sponsorPlatform.isSponsored
+      ? 'bg-brand text-white hover:bg-red-700 shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none'
       : 'glass border border-white/10 text-white hover:bg-white/10';
   };
 
