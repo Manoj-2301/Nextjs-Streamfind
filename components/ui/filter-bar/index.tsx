@@ -58,8 +58,12 @@ export default function FilterBar({
         setActiveDropdown(null);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside as EventListener);
+    document.addEventListener('touchstart', handleClickOutside as EventListener);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside as EventListener);
+      document.removeEventListener('touchstart', handleClickOutside as EventListener);
+    };
   }, []);
 
   const togglePlatform = (p: string) => {
@@ -89,7 +93,7 @@ export default function FilterBar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl max-h-60 overflow-y-auto p-2 z-40"
+              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl max-h-60 overflow-y-auto p-2 z-[9999] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             >
               {genres.map(g => (
                 <button
@@ -119,7 +123,7 @@ export default function FilterBar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl p-2 z-40"
+              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl p-2 z-[9999]"
             >
               <button
                 onClick={() => { onRatingChange(null); setActiveDropdown(null); }}
@@ -155,7 +159,7 @@ export default function FilterBar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-56 glass-dark border border-white/10 rounded-xl p-2 z-40"
+              className="absolute top-full left-0 mt-2 w-56 glass-dark border border-white/10 rounded-xl p-2 z-[9999]"
             >
               {years.map(y => (
                 <button
@@ -185,12 +189,12 @@ export default function FilterBar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-56 glass-dark border border-white/10 rounded-xl p-2 z-40"
+              className="absolute top-full left-0 mt-2 w-56 glass-dark border border-white/10 rounded-xl p-2 z-[9999]"
             >
               <div className="px-4 py-2 border-b border-white/5 mb-2">
                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Select Platforms</span>
               </div>
-              <div className="max-h-60 overflow-y-auto custom-scrollbar">
+              <div className="max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {platforms.map(p => (
                   <button
                     key={p}
@@ -233,7 +237,7 @@ export default function FilterBar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl p-2 z-40"
+              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl p-2 z-[9999]"
             >
               {sortOptions.map(option => (
                 <div key={option.value} className="flex flex-col mb-2 last:mb-0">
