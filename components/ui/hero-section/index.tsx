@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
-import { Movie } from '@/types';
+import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -100,45 +100,40 @@ export default function HeroSection({ movies }: HeroSectionProps) {
 
   const movie = movies[currentIndex];
 
-  // Find a prioritized sponsored platform if it exists
-  const sponsorPlatform = movie.platforms?.find(p => p.isSponsored) ||
-    movie.platforms?.find(p =>
-      p.name.toLowerCase().includes('hotstar') ||
-      p.name.toLowerCase().includes('netflix') ||
-      p.name.toLowerCase().includes('prime')
-    ) || movie.platforms?.[0];
+  // Select the primary watch platform for the CTA button
+  const primaryPlatform = movie.platforms?.[0];
 
-  if (!sponsorPlatform) {
+  if (!primaryPlatform) {
     // Fallback if no platforms are found for some reason
     return null;
   }
 
-  const getPartnerStyles = (name: string) => {
-    const platformName = name.toLowerCase();
+  const getPartnerStyles = (platform: Platform) => {
+    const isPartner = platform.isSponsored || (platform as any).isPartner;
+    const platformName = platform.name.toLowerCase();
+    
     if (platformName.includes('netflix')) {
-      return 'bg-[#E50914] text-white hover:bg-[#B80710] shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none';
+      return `bg-[#E50914] text-white hover:bg-[#B80710] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(229,9,20,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('prime') || platformName.includes('amazon')) {
-      return 'bg-[#00A8E8] text-white hover:bg-[#008CC2] shadow-[0_0_20px_rgba(0,168,232,0.4)] border-none';
+      return `bg-[#00A8E8] text-white hover:bg-[#008CC2] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(0,168,232,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('hotstar') || platformName.includes('disney')) {
-      return 'bg-[#1F80E0] text-white hover:bg-[#1565C0] shadow-[0_0_20px_rgba(31,128,224,0.4)] border-none';
+      return `bg-[#1F80E0] text-white hover:bg-[#1565C0] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(31,128,224,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('apple') || platformName.includes('itunes')) {
-      return 'bg-white text-black hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.1)] border-none';
+      return `bg-white text-black hover:bg-white/90 border-none ${isPartner ? 'shadow-[0_0_20px_rgba(255,255,255,0.1)] animate-pulse' : ''}`;
     }
     if (platformName.includes('hulu')) {
-      return 'bg-[#1CE783] text-black hover:bg-[#15B868] shadow-[0_0_20px_rgba(28,231,131,0.4)] border-none';
+      return `bg-[#1CE783] text-black hover:bg-[#15B868] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(28,231,131,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('hbo') || platformName.includes('max')) {
-      return 'bg-[#7B2CBF] text-white hover:bg-[#5A189A] shadow-[0_0_20px_rgba(123,44,191,0.4)] border-none';
+      return `bg-[#7B2CBF] text-white hover:bg-[#5A189A] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(123,44,191,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('youtube')) {
-      return 'bg-[#FF0000] text-white hover:bg-[#CC0000] shadow-[0_0_20px_rgba(255,0,0,0.4)] border-none';
+      return `bg-[#FF0000] text-white hover:bg-[#CC0000] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(255,0,0,0.4)] animate-pulse' : ''}`;
     }
-    return sponsorPlatform.isSponsored
-      ? 'bg-brand text-white hover:bg-red-700 shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none'
-      : 'glass border border-white/10 text-white hover:bg-white/10';
+    return 'glass border border-white/10 text-white hover:bg-white/10';
   };
 
   const variants = {
@@ -239,11 +234,6 @@ export default function HeroSection({ movies }: HeroSectionProps) {
               className="max-w-3xl"
             >
               <div className="flex items-center gap-3 mb-4 md:mb-6 text-[10px] md:text-xs font-bold transition-opacity duration-700">
-                {sponsorPlatform.isSponsored && (
-                  <span className="bg-brand text-white px-2 py-0.5 rounded flex items-center gap-1">
-                    SPONSORED
-                  </span>
-                )}
                 <span className="bg-yellow-500 text-black px-2 py-0.5 rounded shadow-lg font-black">IMDb {movie.rating}</span>
                 <span className="text-white color-white uppercase tracking-widest drop-shadow-md font-bold">{movie.year} • {movie.genre[0]} • {movie.runtime}</span>
               </div>
@@ -262,7 +252,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
 
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                 <a
-                  href={sponsorPlatform.watchUrl}
+                  href={primaryPlatform.watchUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto"
@@ -270,9 +260,9 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all uppercase flex items-center justify-center gap-2 ${getPartnerStyles(sponsorPlatform.name)}`}
+                    className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all uppercase flex items-center justify-center gap-2 ${getPartnerStyles(primaryPlatform)}`}
                   >
-                    <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {sponsorPlatform.name}
+                    <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
                   </motion.button>
                 </a>
                 <Link href={`/movie/${movie.id}`} className="w-full sm:w-auto">

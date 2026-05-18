@@ -81,19 +81,23 @@ export default function MovieCard({ movie }: MovieCardProps) {
           </div>
 
           <div className="flex flex-wrap gap-1 mb-1">
-            {(movie.platforms || []).sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)).map((p, i) => (
-              <div
-                key={i}
-                className={`text-[8px] md:text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 transition-colors ${
-                  p.isSponsored 
-                    ? 'border-brand bg-brand/20 text-white font-black animate-pulse' 
-                    : 'border-white/10 bg-black/60 text-white/80'
-                }`}
-                title={p.name}
-              >
-                {p.name}
-              </div>
-            ))}
+            {(movie.platforms || []).map((p, i) => {
+              const isPartner = p.isSponsored || (p as any).isPartner;
+              return (
+                <div
+                  key={i}
+                  className={`text-[8px] md:text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                    isPartner 
+                      ? 'border-brand bg-brand/20 text-white font-black animate-pulse' 
+                      : 'border-white/10 bg-black/60 text-white/80'
+                  }`}
+                  title={p.name}
+                >
+                  {p.name}
+                  {isPartner && <span className="text-[6px] font-black tracking-widest text-brand uppercase ml-0.5">Partner</span>}
+                </div>
+              );
+            })}
           </div>
 
           {/* VIEW DETAILS Button (Hover only - expands dynamically from bottom) */}

@@ -1,8 +1,8 @@
 [
   {
-    "origin": ["*"],
-    "method": ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
+    "origin": ["http://localhost:3000", "https://streamfinds.vercel.app"],
+    "method": ["GET", "PUT", "POST", "DELETE", "HEAD", "OPTIONS"],
     "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization"]
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Authorization", "X-Firebase-Storage-Version"]
   }
 ]

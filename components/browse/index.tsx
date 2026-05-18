@@ -9,6 +9,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import ErrorMessage from '@/components/ui/error-message';
 import { Movie } from '@/types';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { searchMovies, getTrendingMovies, getMoviesByGenre, browseSearchMovies, browseDiscoverMovies } from '@/services/tmdbService';
 
 const ITEMS_PER_PAGE = 20;
@@ -50,6 +53,39 @@ export default function Browse() {
 
   const [apiTotalPages, setApiTotalPages] = useState(1);
 
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+    const docRef = doc(db, `users/${user.uid}`);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfile({
+          subscriptions: data.subscriptions || [],
+          autoFilter: data.autoFilter ?? false
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const matchPlatform = (userSub: string, moviePlatform: string) => {
+    const norm = (s: string) => s.toLowerCase().replace(/amazon/g, '').replace(/video/g, '').replace(/prime/g, 'prime').trim();
+    return norm(userSub) === norm(moviePlatform);
+  };
+
+  const activePlatforms = useMemo(() => {
+    if (profile && profile.autoFilter && profile.subscriptions.length > 0) {
+      return profile.subscriptions;
+    }
+    return platforms;
+  }, [profile, platforms]);
+
   useEffect(() => {
     const loadMovies = async () => {
       setIsLoading(true);
@@ -84,9 +120,15 @@ export default function Browse() {
 
           // Note: Platforms filter is still client-side because TMDB requires Watch Providers API
           // which requires a region parameter. To keep it simple, we filter the returned page if needed.
-          if (platforms.length > 0) {
-            results = results.filter(m => m.platforms?.some(p => platforms.includes(p.name)));
+          // Filter by active platforms
+          if (activePlatforms.length > 0) {
+            // Inline platforms filter disabled
           }
+        }
+
+        // Apply activePlatforms filter at the top level for both Search and Discover
+        if (activePlatforms.length > 0) {
+          results = results.filter(m => m.platforms?.some(p => activePlatforms.some(sub => matchPlatform(sub, p.name))));
         }
 
         setMovies(results);
@@ -101,7 +143,7 @@ export default function Browse() {
 
     const timer = setTimeout(loadMovies, 500);
     return () => clearTimeout(timer);
-  }, [search, genre, rating, yearRange, platforms, sortBy, sortOrder, currentPage]);
+  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage]);
 
   const totalPages = apiTotalPages;
   const currentMovies = movies;
@@ -198,6 +240,70 @@ export default function Browse() {
           onPageChange={setCurrentPage}
         />
       )}
+      {/* Premium Floating Subscription DNA Pill */}
+      <AnimatePresence>
+        {profile && profile.subscriptions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+            className="fixed bottom-6 right-6 z-50 max-w-xs md:max-w-sm"
+          >
+            {profile.autoFilter ? (
+              <div className="bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] rounded-3xl p-5 backdrop-blur-md">
+                <div className="flex gap-4">
+                  <div className="w-9 h-9 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 animate-pulse text-lg">
+                    🍿
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black uppercase text-brand tracking-widest">Subscription DNA Active</p>
+                    <p className="text-[10px] text-white/50 mt-1.5 leading-relaxed">
+                      Filtering library to show only movies on your active subscriptions: <strong className="text-white font-bold">{profile.subscriptions.join(', ')}</strong>.
+                    </p>
+                    <div className="flex gap-2 mt-4">
+                      <button 
+                        onClick={async () => {
+                          try {
+                            await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="text-[9px] font-black uppercase tracking-wider bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 active:scale-95"
+                      >
+                        Disable Filter
+                      </button>
+                      <a 
+                        href="/profile"
+                        className="text-[9px] font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center"
+                      >
+                        Customize DNA
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="bg-black/95 hover:bg-black/100 border border-white/10 hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-white/80 hover:text-brand cursor-pointer transition-all duration-300 backdrop-blur-md animate-bounce-subtle"
+              >
+                <span>🍿</span>
+                <span>Enable Subs DNA Filter</span>
+              </motion.button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

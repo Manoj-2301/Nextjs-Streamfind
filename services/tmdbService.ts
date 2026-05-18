@@ -6,13 +6,95 @@ const POSTER_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
 const PROFILE_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
-// Mock platforms since TMDB doesn't provide direct watch URLs for all regions easily without Watch Providers API
+// Mock platforms fallback if TMDB watch providers are completely empty
 const MOCK_PLATFORMS: Platform[] = [
     { name: 'Netflix', logo: 'https://www.edigitalagency.com.au/wp-content/uploads/Netflix-logo-red-black-png.png', watchUrl: 'https://www.netflix.com' },
     { name: 'Amazon Prime', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/f1/Prime_Video.png', watchUrl: 'https://www.amazon.com/gp/video/storefront' },
     { name: 'Disney+', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Disney%2B_logo.svg/1200px-Disney%2B_logo.svg.png', watchUrl: 'https://www.disneyplus.com' },
     { name: 'Apple TV', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Apple_TV_Plus_Logo.svg/2560px-Apple_TV_Plus_Logo.svg.png', watchUrl: 'https://tv.apple.com' },
 ];
+
+const getMoviePlatforms = (movieId: number): Platform[] => {
+    const idx1 = movieId % MOCK_PLATFORMS.length;
+    let idx2 = (movieId + 1) % MOCK_PLATFORMS.length;
+    if (idx1 === idx2) {
+        idx2 = (movieId + 2) % MOCK_PLATFORMS.length;
+    }
+    return [MOCK_PLATFORMS[idx1], MOCK_PLATFORMS[idx2]];
+};
+
+// Parser to extract and normalize real watch providers from TMDB API
+const parseWatchProviders = (watchProvidersObj: any, movieId: number): Platform[] => {
+    if (!watchProvidersObj || !watchProvidersObj.results) {
+        return getMoviePlatforms(movieId);
+    }
+    const results = watchProvidersObj.results;
+    
+    // Check preferred regions
+    const regions = ['US', 'IN', 'GB', 'CA'];
+    let selectedRegionData = null;
+    
+    for (const r of regions) {
+        if (results[r] && (results[r].flatrate || results[r].rent || results[r].buy)) {
+            selectedRegionData = results[r];
+            break;
+        }
+    }
+    
+    if (!selectedRegionData) {
+        const availableRegion = Object.keys(results).find(k => results[k] && (results[k].flatrate || results[k].rent || results[k].buy));
+        if (availableRegion) {
+            selectedRegionData = results[availableRegion];
+        }
+    }
+    
+    if (!selectedRegionData) {
+        return getMoviePlatforms(movieId);
+    }
+    
+    const providers = selectedRegionData.flatrate || selectedRegionData.rent || selectedRegionData.buy || [];
+    if (providers.length === 0) {
+        return getMoviePlatforms(movieId);
+    }
+    
+    const mapped: Platform[] = providers.map((prov: any) => {
+        let name = prov.provider_name;
+        const lowerName = name.toLowerCase();
+        
+        if (lowerName.includes('netflix')) {
+            name = 'Netflix';
+        } else if (lowerName.includes('prime') || lowerName.includes('amazon')) {
+            name = 'Amazon Prime';
+        } else if (lowerName.includes('disney') || lowerName.includes('hotstar')) {
+            name = 'Disney+';
+        } else if (lowerName.includes('apple') || lowerName.includes('itunes')) {
+            name = 'Apple TV';
+        }
+        
+        let watchUrl = selectedRegionData.link || 'https://www.themoviedb.org';
+        if (name === 'Netflix') watchUrl = 'https://www.netflix.com';
+        else if (name === 'Amazon Prime') watchUrl = 'https://www.amazon.com/gp/video/storefront';
+        else if (name === 'Disney+') watchUrl = 'https://www.disneyplus.com';
+        else if (name === 'Apple TV') watchUrl = 'https://tv.apple.com';
+        
+        return {
+            name,
+            logo: prov.logo_path ? `https://image.tmdb.org/t/p/original${prov.logo_path}` : 'https://placehold.co/100x100?text=Logo',
+            watchUrl
+        };
+    });
+    
+    const unique: Platform[] = [];
+    const seen = new Set<string>();
+    for (const p of mapped) {
+        if (!seen.has(p.name)) {
+            seen.add(p.name);
+            unique.push(p);
+        }
+    }
+    
+    return unique;
+};
 
 let genresMap: Record<number, string> = {};
 
@@ -34,13 +116,15 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
         id: tmdbMovie.id,
         title: tmdbMovie.title,
         year: tmdbMovie.release_date ? new Date(tmdbMovie.release_date).getFullYear() : 0,
-        genre: tmdbMovie.genre_ids ? tmdbMovie.genre_ids.map((id: number) => genresMap[id] || 'Unknown') : [],
-        rating: Number(tmdbMovie.vote_average.toFixed(1)),
+        genre: tmdbMovie.genre_ids ? tmdbMovie.genre_ids.map((id: number) => genresMap[id] || 'Unknown') : (tmdbMovie.genres ? tmdbMovie.genres.map((g: any) => g.name) : []),
+        rating: Number(tmdbMovie.vote_average?.toFixed(1) || 0),
         description: tmdbMovie.overview,
-        runtime: 'N/A',
+        runtime: tmdbMovie.runtime ? `${Math.floor(tmdbMovie.runtime / 60)}H ${tmdbMovie.runtime % 60}M` : 'N/A',
         posterUrl: tmdbMovie.poster_path ? `${POSTER_IMAGE_BASE_URL}${tmdbMovie.poster_path}` : 'https://placehold.co/500x750?text=No+Poster',
         backdropUrl: tmdbMovie.backdrop_path ? `${BACKDROP_IMAGE_BASE_URL}${tmdbMovie.backdrop_path}` : 'https://placehold.co/1920x1080?text=No+Backdrop',
-        platforms: [...MOCK_PLATFORMS].sort(() => 0.5 - Math.random()).slice(0, 2),
+        platforms: tmdbMovie['watch/providers'] 
+            ? parseWatchProviders(tmdbMovie['watch/providers'], tmdbMovie.id) 
+            : getMoviePlatforms(tmdbMovie.id),
         cast: [],
     };
 };
@@ -58,17 +142,19 @@ export const getTrendingMovies = async (): Promise<Movie[]> => {
         const moviesWithTrailers = await Promise.all(
             data.results.map(async (movie: any) => {
                 try {
-                    const videoRes = await fetch(`${BASE_URL}/movie/${movie.id}/videos?api_key=${TMDB_API_KEY}`);
-                    const videoData = await videoRes.json();
-                    const trailer = videoData.results?.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') ||
-                        videoData.results?.find((v: any) => v.site === 'YouTube');
+                    const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=videos,watch/providers`);
+                    const detailData = await detailRes.json();
+                    
+                    const trailer = detailData.videos?.results?.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') ||
+                        detailData.videos?.results?.find((v: any) => v.site === 'YouTube');
 
                     return {
-                        ...mapTmdbMovie(movie),
-                        trailerYoutubeId: trailer?.key
+                        ...mapTmdbMovie(detailData),
+                        trailerYoutubeId: trailer?.key,
+                        runtime: detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A',
                     };
                 } catch (error) {
-                    console.error(`Error fetching video for movie ${movie.id}:`, error);
+                    console.error(`Error fetching details for movie ${movie.id}:`, error);
                     return mapTmdbMovie(movie);
                 }
             })
@@ -84,36 +170,26 @@ export const getMovieDetails = async (id: number): Promise<Movie> => {
     if (!TMDB_API_KEY) throw new Error('API key missing');
     await fetchGenres();
     try {
-        const [movieRes, videosRes, creditsRes] = await Promise.all([
-            fetch(`${BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}`),
-            fetch(`${BASE_URL}/movie/${id}/videos?api_key=${TMDB_API_KEY}`),
-            fetch(`${BASE_URL}/movie/${id}/credits?api_key=${TMDB_API_KEY}`)
-        ]);
+        const response = await fetch(`${BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&append_to_response=videos,credits,watch/providers`);
+        const movieData = await response.json();
 
-        const movieData = await movieRes.json();
-        const videosData = await videosRes.json();
-        const creditsData = await creditsRes.json();
-
-        const trailer = videosData.results?.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') ||
-            videosData.results?.find((v: any) => v.site === 'YouTube');
-        const cast: CastMember[] = creditsData.cast.slice(0, 10).map((c: any) => ({
+        const trailer = movieData.videos?.results?.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') ||
+            movieData.videos?.results?.find((v: any) => v.site === 'YouTube');
+            
+        const cast: CastMember[] = movieData.credits?.cast?.slice(0, 10).map((c: any) => ({
             id: c.id,
             name: c.name,
             role: c.character,
             imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image'
-        }));
+        })) || [];
 
         return {
             ...mapTmdbMovie(movieData),
-            genre: movieData.genres.map((g: any) => g.name),
+            genre: movieData.genres?.map((g: any) => g.name) || [],
             runtime: movieData.runtime ? `${Math.floor(movieData.runtime / 60)}H ${movieData.runtime % 60}M` : 'N/A',
             tagline: movieData.tagline,
             trailerYoutubeId: trailer?.key,
-            cast,
-            platforms: [
-                { ...MOCK_PLATFORMS[0], isSponsored: true },
-                ...MOCK_PLATFORMS.slice(1, 4)
-            ]
+            cast
         };
     } catch (error) {
         console.error('Error fetching movie details:', error);
@@ -127,7 +203,19 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
     try {
         const response = await fetch(`${BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
         const data = await response.json();
-        return data.results.map(mapTmdbMovie);
+        
+        const moviesWithDetails = await Promise.all(
+            data.results.slice(0, 10).map(async (movie: any) => {
+                try {
+                    const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+                    const detailData = await detailRes.json();
+                    return mapTmdbMovie(detailData);
+                } catch (e) {
+                    return mapTmdbMovie(movie);
+                }
+            })
+        );
+        return moviesWithDetails;
     } catch (error) {
         console.error('Error searching movies:', error);
         return [];
@@ -140,7 +228,19 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
   try {
     const response = await fetch(`${BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${genreId}`);
     const data = await response.json();
-    return data.results.map(mapTmdbMovie);
+    
+    const moviesWithDetails = await Promise.all(
+      data.results.slice(0, 10).map(async (movie: any) => {
+        try {
+          const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+          const detailData = await detailRes.json();
+          return mapTmdbMovie(detailData);
+        } catch (e) {
+          return mapTmdbMovie(movie);
+        }
+      })
+    );
+    return moviesWithDetails;
   } catch (error) {
     console.error('Error fetching movies by genre:', error);
     return [];
@@ -153,8 +253,21 @@ export const browseSearchMovies = async (query: string, page: number = 1): Promi
   try {
     const response = await fetch(`${BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=${page}`);
     const data = await response.json();
+    
+    const moviesWithDetails = await Promise.all(
+      data.results.map(async (movie: any) => {
+        try {
+          const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+          const detailData = await detailRes.json();
+          return mapTmdbMovie(detailData);
+        } catch (e) {
+          return mapTmdbMovie(movie);
+        }
+      })
+    );
+    
     return {
-      movies: data.results.map(mapTmdbMovie),
+      movies: moviesWithDetails,
       totalPages: Math.min(data.total_pages, 500)
     };
   } catch (error) {
@@ -190,8 +303,20 @@ export const browseDiscoverMovies = async (
     const response = await fetch(url);
     const data = await response.json();
     
+    const moviesWithDetails = await Promise.all(
+      data.results.map(async (movie: any) => {
+        try {
+          const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+          const detailData = await detailRes.json();
+          return mapTmdbMovie(detailData);
+        } catch (e) {
+          return mapTmdbMovie(movie);
+        }
+      })
+    );
+    
     return {
-      movies: data.results.map(mapTmdbMovie),
+      movies: moviesWithDetails,
       totalPages: Math.min(data.total_pages, 500)
     };
   } catch (error) {
@@ -206,7 +331,19 @@ export const getRecommendations = async (movieId: number): Promise<Movie[]> => {
     try {
         const response = await fetch(`${BASE_URL}/movie/${movieId}/recommendations?api_key=${TMDB_API_KEY}`);
         const data = await response.json();
-        return data.results.map(mapTmdbMovie);
+        
+        const moviesWithDetails = await Promise.all(
+          data.results.map(async (movie: any) => {
+            try {
+              const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+              const detailData = await detailRes.json();
+              return mapTmdbMovie(detailData);
+            } catch (e) {
+              return mapTmdbMovie(movie);
+            }
+          })
+        );
+        return moviesWithDetails;
     } catch (error) {
         console.error('Error fetching recommendations:', error);
         return [];
@@ -219,7 +356,19 @@ export const getPopularMovies = async (): Promise<Movie[]> => {
     try {
         const response = await fetch(`${BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}`);
         const data = await response.json();
-        return data.results.map(mapTmdbMovie);
+        
+        const moviesWithDetails = await Promise.all(
+          data.results.map(async (movie: any) => {
+            try {
+              const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+              const detailData = await detailRes.json();
+              return mapTmdbMovie(detailData);
+            } catch (e) {
+              return mapTmdbMovie(movie);
+            }
+          })
+        );
+        return moviesWithDetails;
     } catch (error) {
         console.error('Error fetching popular movies:', error);
         return [];
@@ -252,7 +401,20 @@ export const getCastMovies = async (id: number): Promise<Movie[]> => {
     try {
         const response = await fetch(`${BASE_URL}/person/${id}/movie_credits?api_key=${TMDB_API_KEY}`);
         const data = await response.json();
-        return data.cast.sort((a: any, b: any) => b.popularity - a.popularity).slice(0, 12).map(mapTmdbMovie);
+        const castMovies = data.cast.sort((a: any, b: any) => b.popularity - a.popularity).slice(0, 12);
+        
+        const moviesWithDetails = await Promise.all(
+          castMovies.map(async (movie: any) => {
+            try {
+              const detailRes = await fetch(`${BASE_URL}/movie/${movie.id}?api_key=${TMDB_API_KEY}&append_to_response=watch/providers`);
+              const detailData = await detailRes.json();
+              return mapTmdbMovie(detailData);
+            } catch (e) {
+              return mapTmdbMovie(movie);
+            }
+          })
+        );
+        return moviesWithDetails;
     } catch (error) {
         console.error('Error fetching cast movies:', error);
         return [];

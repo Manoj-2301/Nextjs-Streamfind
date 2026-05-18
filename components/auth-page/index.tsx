@@ -45,10 +45,17 @@ export default function AuthPage() {
       console.error("Auth error:", err);
       // Clean up firebase error message
       let errorMsg = "An error occurred during authentication.";
-      if (err.code === 'auth/email-already-in-use') errorMsg = "This email is already in use.";
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') errorMsg = "Invalid email or password.";
-      if (err.code === 'auth/weak-password') errorMsg = "Password should be at least 6 characters.";
-      if (err.code === 'auth/operation-not-allowed') errorMsg = "This sign-in method is not enabled in Firebase.";
+      if (err.message && err.message.includes("verify your email")) {
+        errorMsg = err.message;
+      } else if (err.code === 'auth/email-already-in-use') {
+        errorMsg = "This email is already in use.";
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        errorMsg = "Invalid email or password.";
+      } else if (err.code === 'auth/weak-password') {
+        errorMsg = "Password should be at least 6 characters.";
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMsg = "This sign-in method is not enabled in Firebase.";
+      }
       setError(errorMsg);
     } finally {
       setIsSubmitting(false);
