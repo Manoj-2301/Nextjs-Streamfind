@@ -2,7 +2,9 @@ import { Movie, Platform, CastMember } from '@/types';
 
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
-const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/original';
+const POSTER_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+const BACKDROP_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
+const PROFILE_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 // Mock platforms since TMDB doesn't provide direct watch URLs for all regions easily without Watch Providers API
 const MOCK_PLATFORMS: Platform[] = [
@@ -36,8 +38,8 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
         rating: Number(tmdbMovie.vote_average.toFixed(1)),
         description: tmdbMovie.overview,
         runtime: 'N/A',
-        posterUrl: tmdbMovie.poster_path ? `${IMAGE_BASE_URL}${tmdbMovie.poster_path}` : 'https://placehold.co/500x750?text=No+Poster',
-        backdropUrl: tmdbMovie.backdrop_path ? `${IMAGE_BASE_URL}${tmdbMovie.backdrop_path}` : 'https://placehold.co/1920x1080?text=No+Backdrop',
+        posterUrl: tmdbMovie.poster_path ? `${POSTER_IMAGE_BASE_URL}${tmdbMovie.poster_path}` : 'https://placehold.co/500x750?text=No+Poster',
+        backdropUrl: tmdbMovie.backdrop_path ? `${BACKDROP_IMAGE_BASE_URL}${tmdbMovie.backdrop_path}` : 'https://placehold.co/1920x1080?text=No+Backdrop',
         platforms: [...MOCK_PLATFORMS].sort(() => 0.5 - Math.random()).slice(0, 2),
         cast: [],
     };
@@ -233,7 +235,7 @@ export const getCastDetails = async (id: number): Promise<CastMember> => {
             id: data.id,
             name: data.name,
             role: '',
-            imageUrl: data.profile_path ? `${IMAGE_BASE_URL}${data.profile_path}` : 'https://placehold.co/500x750?text=No+Image',
+            imageUrl: data.profile_path ? `${PROFILE_IMAGE_BASE_URL}${data.profile_path}` : 'https://placehold.co/500x750?text=No+Image',
             biography: data.biography,
             birthday: data.birthday,
             placeOfBirth: data.place_of_birth
