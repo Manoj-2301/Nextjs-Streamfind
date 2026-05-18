@@ -1042,13 +1042,13 @@ export default function ProfileComponent() {
         {/* Edit Profile Modal */}
         <AnimatePresence>
           {isEditModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-12">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsEditModalOpen(false)}
-                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
               />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1124,13 +1124,13 @@ export default function ProfileComponent() {
         {/* Share Profile Modal */}
         <AnimatePresence>
           {isShareModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-12">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsShareModalOpen(false)}
-                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
               />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
