@@ -42,7 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
+    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+    if (!userCredential.user.emailVerified) {
+      await signOut(auth);
+      throw new Error("Please verify your email before logging in. Check your inbox.");
+    }
   };
 
   const signupWithEmail = async (email: string, pass: string, name: string) => {

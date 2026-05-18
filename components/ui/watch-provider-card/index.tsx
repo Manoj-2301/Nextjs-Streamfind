@@ -11,18 +11,21 @@ interface WatchProviderCardProps {
 }
 
 export default function WatchProviderCard({ platform }: WatchProviderCardProps) {
+  const isPartner = platform.isSponsored || (platform as any).isPartner;
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className={`relative p-6 rounded-2xl glass border-white/5 flex flex-col items-center gap-4 transition-all hover:border-brand/40 group overflow-hidden ${
-        platform.isSponsored ? 'shadow-[0_0_30px_rgba(229,9,20,0.15)] bg-brand/5 border-brand/20' : ''
+      className={`relative p-6 rounded-2xl flex flex-col items-center gap-4 transition-all group overflow-hidden ${
+        isPartner 
+          ? 'bg-brand/10 border border-brand/30 shadow-[0_0_25px_rgba(229,9,20,0.15)] hover:border-brand/60' 
+          : 'glass border-white/5 hover:border-brand/40'
       }`}
     >
-      {/* Sponsor Badge */}
-      {platform.isSponsored && (
-        <div className="absolute top-0 right-0 bg-brand text-white text-[10px] font-black px-3 py-1 rounded-bl-xl flex items-center gap-1 shadow-lg">
-          <ShieldCheck className="w-3 h-3" /> FEATURED PARTNER
-        </div>
+      {isPartner && (
+        <span className="absolute top-3 right-3 bg-brand text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md shadow-brand/20 animate-pulse">
+          <ShieldCheck className="w-2.5 h-2.5" /> Partner
+        </span>
       )}
 
       <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center overflow-hidden shadow-inner group-hover:scale-110 transition-transform p-4">
@@ -44,9 +47,9 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
         target="_blank" 
         rel="noopener noreferrer"
         className={`w-full py-2.5 rounded-lg font-black text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all uppercase ${
-          platform.isSponsored 
-          ? 'bg-brand text-white hover:bg-red-700 shadow-[0_0_15px_rgba(229,9,20,0.3)]' 
-          : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+          isPartner
+            ? 'bg-brand text-white hover:bg-red-700 shadow-[0_0_15px_rgba(229,9,20,0.3)]'
+            : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
         }`}
       >
         Watch Now <ExternalLink className="w-4 h-4" />

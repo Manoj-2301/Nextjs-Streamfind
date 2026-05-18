@@ -10,7 +10,7 @@ import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings } from '@/context/RatingContext';
 import { useState, useEffect, useRef } from 'react';
 import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
-import { Movie } from '@/types';
+import { Movie, Platform } from '@/types';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
@@ -95,8 +95,8 @@ export default function MovieDetails() {
     // 1. Subscribe to Firestore community reviews
     const path = `movies/${id}/reviews`;
     const q = query(collection(db, path));
-    
-    let unsubscribeFirestore = () => {};
+
+    let unsubscribeFirestore = () => { };
 
     const loadAllReviews = async () => {
       // 2. Fetch TMDB critic reviews
@@ -157,30 +157,35 @@ export default function MovieDetails() {
     };
   }, [id]);
 
-  const getPartnerStyles = (name: string) => {
-    const platformName = name.toLowerCase();
+  const getPartnerStyles = (platform: Platform) => {
+    const isPartner = platform.isSponsored || (platform as any).isPartner;
+    const platformName = platform.name.toLowerCase();
+
     if (platformName.includes('netflix')) {
-      return 'bg-[#E50914] text-white hover:bg-[#B80710] shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none';
+      return `bg-[#E50914] text-white hover:bg-[#B80710] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(229,9,20,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('prime') || platformName.includes('amazon')) {
-      return 'bg-[#00A8E8] text-white hover:bg-[#008CC2] shadow-[0_0_20px_rgba(0,168,232,0.4)] border-none';
+      return `bg-[#00A8E8] text-white hover:bg-[#008CC2] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(0,168,232,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('hotstar') || platformName.includes('disney')) {
-      return 'bg-[#1F80E0] text-white hover:bg-[#1565C0] shadow-[0_0_20px_rgba(31,128,224,0.4)] border-none';
+      return `bg-[#1F80E0] text-white hover:bg-[#1565C0] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(31,128,224,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('apple') || platformName.includes('itunes')) {
-      return 'bg-white text-black hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.1)] border-none';
+      return `bg-white text-black hover:bg-white/90 border-none ${isPartner ? 'shadow-[0_0_20px_rgba(255,255,255,0.1)] animate-pulse' : ''}`;
     }
     if (platformName.includes('hulu')) {
-      return 'bg-[#1CE783] text-black hover:bg-[#15B868] shadow-[0_0_20px_rgba(28,231,131,0.4)] border-none';
+      return `bg-[#1CE783] text-black hover:bg-[#15B868] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(28,231,131,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('hbo') || platformName.includes('max')) {
-      return 'bg-[#7B2CBF] text-white hover:bg-[#5A189A] shadow-[0_0_20px_rgba(123,44,191,0.4)] border-none';
+      return `bg-[#7B2CBF] text-white hover:bg-[#5A189A] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(123,44,191,0.4)] animate-pulse' : ''}`;
     }
     if (platformName.includes('youtube')) {
-      return 'bg-[#FF0000] text-white hover:bg-[#CC0000] shadow-[0_0_20px_rgba(255,0,0,0.4)] border-none';
+      return `bg-[#FF0000] text-white hover:bg-[#CC0000] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(255,0,0,0.4)] animate-pulse' : ''}`;
     }
-    return 'bg-brand text-white hover:bg-red-700 shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none';
+
+    return isPartner
+      ? 'bg-brand text-white hover:bg-red-700 shadow-[0_0_20px_rgba(229,9,20,0.4)] border-none animate-pulse'
+      : 'bg-white/10 text-white hover:bg-white/20 border border-white/10';
   };
 
   if (isLoading) {
@@ -254,6 +259,19 @@ export default function MovieDetails() {
       console.error('Error sharing:', err);
     }
   };
+
+  // Find the primary watch platform (prioritizing partner platforms)
+  const primaryPlatform = (() => {
+    if (!movie || !movie.platforms || movie.platforms.length === 0) {
+      return {
+        name: 'Netflix',
+        logo: 'https://image.tmdb.org/t/p/original/9A1eGgyqbOI46UrG58Z3rRgyv4q.jpg',
+        watchUrl: 'https://www.netflix.com',
+      };
+    }
+    const partner = movie.platforms.find(p => p.isSponsored || (p as any).isPartner);
+    return partner || movie.platforms[0];
+  })();
 
   return (
     <motion.div
@@ -367,21 +385,15 @@ export default function MovieDetails() {
             </motion.div>
 
             <div className="mt-6 md:mt-8 flex flex-col gap-3 md:gap-4">
-              {movie.platforms?.find(p => p.isSponsored) ? (
-                <a
-                  href={movie.platforms.find(p => p.isSponsored)?.watchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <button className={`w-full py-2.5 md:py-3.5 rounded-md font-black tracking-widest transition-all uppercase text-xs md:text-[13px] ${getPartnerStyles(movie.platforms.find(p => p.isSponsored)?.name || '')}`}>
-                    WATCH ON {movie.platforms.find(p => p.isSponsored)?.name}
-                  </button>
-                </a>
-              ) : (
-                <button className="w-full py-2.5 md:py-3.5 rounded-md bg-white/10 text-white font-black tracking-widest hover:bg-white/20 transition-all uppercase text-xs md:text-[13px] border border-white/10">
-                  GET TICKETS
+              <a
+                href={primaryPlatform.watchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <button className={`w-full py-2.5 md:py-3.5 rounded-md font-black tracking-widest transition-all uppercase text-xs md:text-[13px] ${getPartnerStyles(primaryPlatform)}`}>
+                  WATCH ON {primaryPlatform.name}
                 </button>
-              )}
+              </a>
               <button
                 onClick={toggleWatchlist}
                 className={`w-full py-2.5 md:py-3.5 rounded-md font-bold border transition-all uppercase text-xs md:text-[13px] tracking-widest flex items-center justify-center gap-2 ${saved ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-white/5 hover:bg-white/10 text-white border-white/10'}`}
@@ -492,7 +504,7 @@ export default function MovieDetails() {
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
                   <span className="w-1 h-3 bg-brand"></span> RATE & WRITE A REVIEW
                 </h3>
-                
+
                 {/* Star Rating Selector */}
                 <div className="flex items-center gap-3 mb-6">
                   {[1, 2, 3, 4, 5].map((star) => (

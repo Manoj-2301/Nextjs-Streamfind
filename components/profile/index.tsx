@@ -17,7 +17,7 @@ import {
   User as UserIcon, Settings, Star, Film, Tv, Award, Plus, Trash2,
   Zap, Activity, History, Shield, Bell, Lock, Globe, Share2,
   Check, Mail, ArrowUp, ArrowDown, Search, Heart, LogOut, CheckCircle2,
-  Coffee, Trophy, Clock, Camera, X
+  Coffee, Trophy, Clock, Camera, X, CornerDownRight
 } from 'lucide-react';
 import { 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip 
@@ -28,12 +28,15 @@ interface ProfileSettings {
   favoriteGenres: string[];
   subscriptions: string[];
   notifyNewRelease: boolean;
+  notifyFavGenres: boolean;
   notifyLeavingSoon: boolean;
   isPublic: boolean;
   avatarFrame: 'none' | 'neon' | 'gold' | 'ghost';
   top10: Movie[];
   autoFilter?: boolean;
   photoURL?: string;
+  email?: string;
+  displayName?: string;
 }
 
 const AVAILABLE_GENRES = [
@@ -72,6 +75,7 @@ export default function ProfileComponent() {
     favoriteGenres: ['Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'],
     subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
     notifyNewRelease: true,
+    notifyFavGenres: true,
     notifyLeavingSoon: true,
     isPublic: true,
     avatarFrame: 'none',
@@ -189,39 +193,65 @@ export default function ProfileComponent() {
 
     setIsUploadingImage(true);
     try {
-      const storageRef = ref(storage, `users/${user.uid}/profile_${Date.now()}`);
+      let finalImageUrl = "";
+      const formData = new FormData();
+      formData.append('image', file);
       
-      // Wrap uploadBytes in a 12-second timeout to handle CORS preflight hanging behavior elegantly
-      const uploadPromise = uploadBytes(storageRef, file);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("CORS_TIMEOUT")), 12000)
-      );
+      const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
+      if (!IMGBB_API_KEY) throw new Error("Missing NEXT_PUBLIC_IMGBB_API_KEY");
+      
+      try {
+        // PRIMARY UPLOAD: Attempt ImgBB
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+          method: 'POST',
+          body: formData,
+        });
 
-      await Promise.race([uploadPromise, timeoutPromise]);
-      const url = await getDownloadURL(storageRef);
-      
-      // Update Firebase Auth profile
-      await updateProfile(user, { photoURL: url });
+        if (!imgbbResponse.ok) throw new Error("ImgBB upload failed");
+        
+        const data = await imgbbResponse.json();
+        finalImageUrl = data.data.url;
+        
+      } catch (imgbbError) {
+        console.warn("ImgBB Upload Failed, falling back to Cloudinary...", imgbbError);
+        
+        // FALLBACK UPLOAD: Attempt Cloudinary
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        
+        if (!cloudName || !uploadPreset) {
+          throw new Error("ImgBB failed and Cloudinary fallback is not configured in .env.local");
+        }
+
+        const cloudinaryData = new FormData();
+        cloudinaryData.append('file', file);
+        cloudinaryData.append('upload_preset', uploadPreset);
+
+        const cloudResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: 'POST',
+          body: cloudinaryData,
+        });
+
+        if (!cloudResponse.ok) throw new Error("Cloudinary fallback upload failed");
+
+        const cloudJson = await cloudResponse.json();
+        finalImageUrl = cloudJson.secure_url;
+      }
+
+      // Update Firebase Auth profile with the successful URL (from either service)
+      await updateProfile(user, { photoURL: finalImageUrl });
 
       // Save photoURL to Firestore as a robust backup/sync mechanism
       const docRef = doc(db, `users/${user.uid}`);
-      await setDoc(docRef, { photoURL: url }, { merge: true });
+      await setDoc(docRef, { photoURL: finalImageUrl }, { merge: true });
       
-      setProfile(prev => ({ ...prev, photoURL: url }));
+      setProfile(prev => ({ ...prev, photoURL: finalImageUrl }));
       
       // Force a reload to guarantee Next.js app-wide components reload the new photo URL from Auth session
       window.location.reload(); 
     } catch (err: any) {
       console.error("Error uploading image:", err);
-      if (err.message === "CORS_TIMEOUT") {
-        alert(
-          "⚠️ Upload Timed Out / CORS Blocker Detected!\n\n" +
-          "Your browser blocked the upload request. This is because your Firebase Storage CORS settings have not been configured yet to allow uploads from http://localhost:3000.\n\n" +
-          "Please follow the simple copy-paste steps in our conversation window to configure your Firebase Storage bucket CORS rules in Google Cloud Shell!"
-        );
-      } else {
-        alert("Error uploading image: " + err.message);
-      }
+      alert("Error uploading image: " + err.message + ". Please try again.");
     } finally {
       setIsUploadingImage(false);
     }
@@ -236,7 +266,16 @@ export default function ProfileComponent() {
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data() as ProfileSettings & { frameId?: string };
+        const data = docSnap.data() as ProfileSettings & { frameId?: string; email?: string; displayName?: string };
+        
+        // Proactively write email/displayName to Firestore if they are missing
+        if (!data.email || !data.displayName) {
+          setDoc(docRef, {
+            email: user.email || '',
+            displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
+          }, { merge: true }).catch(console.error);
+        }
+
         setProfile(prev => ({
           ...prev,
           ...data,
@@ -246,8 +285,26 @@ export default function ProfileComponent() {
           avatarFrame: data.avatarFrame || data.frameId || prev.avatarFrame,
           bio: data.bio || prev.bio,
           autoFilter: data.autoFilter !== undefined ? data.autoFilter : prev.autoFilter,
-          photoURL: data.photoURL || prev.photoURL
+          photoURL: data.photoURL || prev.photoURL,
+          notifyFavGenres: data.notifyFavGenres !== undefined ? data.notifyFavGenres : prev.notifyFavGenres,
         }));
+      } else {
+        // Initialize user document in Firestore if it doesn't exist
+        setDoc(docRef, {
+          bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
+          favoriteGenres: [],
+          subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
+          notifyNewRelease: true,
+          notifyFavGenres: true,
+          notifyLeavingSoon: true,
+          isPublic: true,
+          avatarFrame: 'none',
+          top10: [],
+          autoFilter: true,
+          photoURL: user.photoURL || '',
+          email: user.email || '',
+          displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
+        }).catch(console.error);
       }
     }, (error) => {
       console.error("Profile onSnapshot error:", error);
@@ -311,7 +368,7 @@ export default function ProfileComponent() {
     }
   };
 
-  const handleTogglePref = async (field: 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter') => {
+  const handleTogglePref = async (field: 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter' | 'notifyFavGenres') => {
     if (!user) return;
     try {
       const docRef = doc(db, `users/${user.uid}`);
@@ -324,15 +381,33 @@ export default function ProfileComponent() {
   const handleToggleGenre = async (genre: string) => {
     if (!user) return;
     let updatedGenres = [...profile.favoriteGenres];
+    let isFirstGenreSelection = false;
+
     if (updatedGenres.includes(genre)) {
       updatedGenres = updatedGenres.filter(g => g !== genre);
     } else {
       updatedGenres.push(genre);
+      if (profile.favoriteGenres.length === 0) {
+        isFirstGenreSelection = true;
+      }
     }
     
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { favoriteGenres: updatedGenres }, { merge: true });
+
+      if (isFirstGenreSelection) {
+        fetch('/api/notify/welcome-genre', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: user.uid,
+            email: profile.email || user.email,
+            displayName: profile.displayName || user.displayName || user.email,
+            genre: genre
+          })
+        }).catch(console.error);
+      }
     } catch (err) {
       console.error("Error updating genres:", err);
     }
@@ -838,7 +913,7 @@ export default function ProfileComponent() {
                          </div>
                          <button 
                           onClick={() => handleToggleSub(sub.name)}
-                          className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isActive ? 'bg-brand' : 'bg-white/10'}`}
+                          className={`w-12 h-6 rounded-full relative transition-all duration-300 cursor-pointer ${isActive ? 'bg-brand' : 'bg-white/10'}`}
                          >
                             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
                          </button>
@@ -856,7 +931,7 @@ export default function ProfileComponent() {
                      <span>Auto-filter by my subs</span>
                      <button 
                       onClick={() => handleTogglePref('autoFilter')}
-                      className={`w-10 h-5 rounded-full relative transition-all ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
+                      className={`w-10 h-5 rounded-full relative transition-all cursor-pointer ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
                      >
                         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile.autoFilter ? 'left-6' : 'left-1'}`} />
                      </button>
@@ -870,21 +945,33 @@ export default function ProfileComponent() {
                  <Bell className="w-5 h-5 text-brand" />
                  <h3 className="text-sm font-black uppercase tracking-widest text-brand">Vigilance Hub</h3>
                </div>
-               <div className="space-y-6">
+               <div className="flex flex-col gap-6">
                   {[
-                    { key: 'notifyNewRelease', label: "New Release in Genre", desc: "Get alerted when a favorite genre epic drops." },
+                    { key: 'notifyNewRelease', label: "New Release", desc: "Get alerted when any new movie epic drops." },
+                    { key: 'notifyFavGenres', label: "Your Favorite Genres", desc: "Get alerts matching your favorite genres selected above." },
                     { key: 'notifyLeavingSoon', label: "Leaving Platform", desc: "Don't miss movies exiting your subs." }
                   ].map((item) => (
-                    <div key={item.key} className="flex gap-4 items-center justify-between">
+                    <div 
+                      key={item.key} 
+                      className="flex gap-4 items-center justify-between transition-all duration-300"
+                    >
                        <div>
                          <p className="text-xs font-black text-white uppercase">{item.label}</p>
                          <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
                        </div>
                        <button 
                         onClick={() => handleTogglePref(item.key as any)}
-                        className={`w-10 h-5 rounded-full relative transition-all ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon'] ? 'bg-brand' : 'bg-white/10'}`}
+                        className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${
+                          profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
+                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(255,40,78,0.4)]'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                        }`}
                        >
-                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon'] ? 'left-6' : 'left-1'}`} />
+                          <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${
+                            profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres'] 
+                              ? 'left-[23px]' 
+                              : 'left-[3px]'
+                          }`} />
                        </button>
                     </div>
                   ))}
@@ -955,13 +1042,13 @@ export default function ProfileComponent() {
         {/* Edit Profile Modal */}
         <AnimatePresence>
           {isEditModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-12">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsEditModalOpen(false)}
-                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
               />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1037,13 +1124,13 @@ export default function ProfileComponent() {
         {/* Share Profile Modal */}
         <AnimatePresence>
           {isShareModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-12">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsShareModalOpen(false)}
-                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
               />
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
