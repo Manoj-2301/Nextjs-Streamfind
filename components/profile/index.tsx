@@ -193,39 +193,65 @@ export default function ProfileComponent() {
 
     setIsUploadingImage(true);
     try {
-      const storageRef = ref(storage, `users/${user.uid}/profile_${Date.now()}`);
+      let finalImageUrl = "";
+      const formData = new FormData();
+      formData.append('image', file);
       
-      // Wrap uploadBytes in a 12-second timeout to handle CORS preflight hanging behavior elegantly
-      const uploadPromise = uploadBytes(storageRef, file);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("CORS_TIMEOUT")), 12000)
-      );
+      const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
+      if (!IMGBB_API_KEY) throw new Error("Missing NEXT_PUBLIC_IMGBB_API_KEY");
+      
+      try {
+        // PRIMARY UPLOAD: Attempt ImgBB
+        const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+          method: 'POST',
+          body: formData,
+        });
 
-      await Promise.race([uploadPromise, timeoutPromise]);
-      const url = await getDownloadURL(storageRef);
-      
-      // Update Firebase Auth profile
-      await updateProfile(user, { photoURL: url });
+        if (!imgbbResponse.ok) throw new Error("ImgBB upload failed");
+        
+        const data = await imgbbResponse.json();
+        finalImageUrl = data.data.url;
+        
+      } catch (imgbbError) {
+        console.warn("ImgBB Upload Failed, falling back to Cloudinary...", imgbbError);
+        
+        // FALLBACK UPLOAD: Attempt Cloudinary
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+        
+        if (!cloudName || !uploadPreset) {
+          throw new Error("ImgBB failed and Cloudinary fallback is not configured in .env.local");
+        }
+
+        const cloudinaryData = new FormData();
+        cloudinaryData.append('file', file);
+        cloudinaryData.append('upload_preset', uploadPreset);
+
+        const cloudResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+          method: 'POST',
+          body: cloudinaryData,
+        });
+
+        if (!cloudResponse.ok) throw new Error("Cloudinary fallback upload failed");
+
+        const cloudJson = await cloudResponse.json();
+        finalImageUrl = cloudJson.secure_url;
+      }
+
+      // Update Firebase Auth profile with the successful URL (from either service)
+      await updateProfile(user, { photoURL: finalImageUrl });
 
       // Save photoURL to Firestore as a robust backup/sync mechanism
       const docRef = doc(db, `users/${user.uid}`);
-      await setDoc(docRef, { photoURL: url }, { merge: true });
+      await setDoc(docRef, { photoURL: finalImageUrl }, { merge: true });
       
-      setProfile(prev => ({ ...prev, photoURL: url }));
+      setProfile(prev => ({ ...prev, photoURL: finalImageUrl }));
       
       // Force a reload to guarantee Next.js app-wide components reload the new photo URL from Auth session
       window.location.reload(); 
     } catch (err: any) {
       console.error("Error uploading image:", err);
-      if (err.message === "CORS_TIMEOUT") {
-        alert(
-          "⚠️ Upload Timed Out / CORS Blocker Detected!\n\n" +
-          "Your browser blocked the upload request. This is because your Firebase Storage CORS settings have not been configured yet to allow uploads from http://localhost:3000.\n\n" +
-          "Please follow the simple copy-paste steps in our conversation window to configure your Firebase Storage bucket CORS rules in Google Cloud Shell!"
-        );
-      } else {
-        alert("Error uploading image: " + err.message);
-      }
+      alert("Error uploading image: " + err.message + ". Please try again.");
     } finally {
       setIsUploadingImage(false);
     }
