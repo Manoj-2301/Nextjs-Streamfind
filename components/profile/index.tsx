@@ -12,6 +12,7 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { 
   User as UserIcon, Settings, Star, Film, Tv, Award, Plus, Trash2,
@@ -629,12 +630,16 @@ export default function ProfileComponent() {
               >
                 <div className={`w-36 h-36 sm:w-44 sm:h-44 lg:w-56 lg:h-56 rounded-[48px] overflow-hidden border-[6px] transition-all p-1 bg-surface ${currentFrame.class}`}>
                   {(profile.photoURL || user.photoURL) ? (
-                    <img 
-                      src={profile.photoURL || user.photoURL || ""} 
-                      className="w-full h-full rounded-[40px] object-cover"
-                      alt={user.displayName || ""} 
-                      referrerPolicy="no-referrer"
-                    />
+                    <div className="relative w-full h-full rounded-[40px] overflow-hidden">
+                      <Image 
+                        src={profile.photoURL || user.photoURL || ""} 
+                        fill
+                        sizes="(max-width: 768px) 144px, 224px"
+                        className="object-cover"
+                        alt={user.displayName || ""} 
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
                   ) : (
                     <div className="w-full h-full rounded-[40px] bg-white/5 flex items-center justify-center">
                       <UserIcon className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 text-white/30" />
