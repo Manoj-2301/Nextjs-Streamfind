@@ -5,6 +5,8 @@ import { motion } from 'motion/react';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { auth } from '@/lib/firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
@@ -14,9 +16,35 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   
   const { loginWithEmail, signupWithEmail, loginWithGoogle } = useAuth();
   const router = useRouter();
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setSuccessMessage('');
+    if (!email) {
+      setError('Please enter your email address to reset your password.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMessage('Password reset email sent! Please check your inbox.');
+    } catch (err: any) {
+      console.error("Password reset error:", err);
+      let errorMsg = "Failed to send password reset email.";
+      if (err.code === 'auth/invalid-email') {
+        errorMsg = "Invalid email address.";
+      } else if (err.code === 'auth/user-not-found') {
+        errorMsg = "No user found with this email.";
+      }
+      setError(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +154,17 @@ export default function AuthPage() {
                 </p>
               </div>
 
+              {successMessage && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-green-500/10 border border-green-500/20 text-green-400 p-3 rounded-lg mb-6 flex items-center gap-2 text-sm"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0 text-green-400" />
+                  <p>{successMessage}</p>
+                </motion.div>
+              )}
+
               {error && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
@@ -181,6 +220,18 @@ export default function AuthPage() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
                     />
                   </div>
+
+                  {!isSignUp && (
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="text-xs text-brand hover:underline font-bold bg-transparent border-none cursor-pointer p-0"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
 
                   {isSignUp && (
                     <motion.div 

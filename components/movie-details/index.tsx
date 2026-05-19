@@ -6,6 +6,7 @@ import { Star, Clock, Calendar, ChevronLeft, Share2, Info, Bookmark, Check, Play
 import WatchProviderCard from '@/components/ui/watch-provider-card';
 import ErrorMessage from '@/components/ui/error-message';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings } from '@/context/RatingContext';
 import { useState, useEffect, useRef } from 'react';
@@ -87,6 +88,15 @@ export default function MovieDetails() {
       setReviewInput(getUserReviewText(movie.id) || '');
     }
   }, [movie, getUserReviewText]);
+
+  // Track genre view when movie is loaded
+  useEffect(() => {
+    if (movie && movie.genre) {
+      import('@/lib/genreTracker').then(({ trackGenreView }) => {
+        trackGenreView(movie.genre);
+      });
+    }
+  }, [movie]);
 
   // Real-time listener for community reviews + fallback to TMDB critics
   useEffect(() => {
@@ -376,11 +386,14 @@ export default function MovieDetails() {
               transition={{ delay: 0.2 }}
               className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border border-white/10"
             >
-              <img
+              <Image
                 src={movie.posterUrl}
                 alt={movie.title}
+                width={320}
+                height={480}
                 className="w-full h-auto aspect-[2/3] object-cover"
                 referrerPolicy="no-referrer"
+                priority
               />
             </motion.div>
 
@@ -417,6 +430,12 @@ export default function MovieDetails() {
               transition={{ delay: 0.3 }}
             >
               <div className="flex flex-wrap items-center gap-3 mb-4">
+                {movie.rating >= 7.5 && (
+                  <span className="px-2.5 md:px-3 py-1 rounded-full bg-brand/90 border border-brand/50 text-[8px] md:text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-1 shadow-[0_4px_12px_rgba(255,40,78,0.25)] animate-pulse">
+                    <span>🍿</span>
+                    <span>Binge Worthy</span>
+                  </span>
+                )}
                 {movie.genre.map(g => (
                   <span key={g} className="px-2 md:px-3 py-1 rounded bg-black/60 border border-white/10 text-[8px] md:text-[10px] font-black text-brand uppercase tracking-widest">
                     {g}
@@ -465,9 +484,11 @@ export default function MovieDetails() {
                   {movie.cast.map((actor, i) => (
                     <Link key={i} href={`/cast/${actor.id}-${actor.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className="flex items-center gap-2.5 md:gap-4 group cursor-pointer bg-white/5 p-2 md:p-3 rounded-lg md:rounded-xl hover:bg-white/10 transition-all border border-white/5 hover:border-brand/30">
                       <div className="w-10 h-10 md:w-16 md:h-16 rounded-full overflow-hidden shrink-0 border border-white/10 group-hover:border-brand transition-all shadow-xl">
-                        <img
+                        <Image
                           src={actor.imageUrl}
                           alt={actor.name}
+                          width={64}
+                          height={64}
                           className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all scale-110 group-hover:scale-100"
                           referrerPolicy="no-referrer"
                         />

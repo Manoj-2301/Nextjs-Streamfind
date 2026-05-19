@@ -9,20 +9,21 @@ import { searchMovies, getMovieAdditionalDetails, MovieAdditionalDetails } from 
 import { Movie } from '@/types';
 import { db, storage } from '@/lib/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   User as UserIcon, Settings, Star, Film, Tv, Award, Plus, Trash2,
   Zap, Activity, History, Shield, Bell, Lock, Globe, Share2,
   Check, Mail, ArrowUp, ArrowDown, Search, Heart, LogOut, CheckCircle2,
-  Coffee, Trophy, Clock, Camera, X, CornerDownRight
+  Coffee, Trophy, Clock, Camera, X, CornerDownRight, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { 
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip 
+import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip
 } from 'recharts';
+import { computeRadarData, getUserActivities, clearUserActivities, UserActivity } from '@/lib/genreTracker';
 
 interface ProfileSettings {
   bio: string;
@@ -68,6 +69,16 @@ export default function ProfileComponent() {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('streamfind_cleared_timeline_ids');
+      if (stored) {
+        try {
+          setClearedTimelineIds(JSON.parse(stored));
+        } catch (e) {
+          console.error("Error parsing cleared timeline IDs:", e);
+        }
+      }
+    }
   }, []);
 
   // Profile data syncing with Firestore
@@ -92,13 +103,55 @@ export default function ProfileComponent() {
   const [isSaving, setIsSaving] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(user?.displayName || "");
   const [editFrameId, setEditFrameId] = useState(profile.avatarFrame);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [reauthNeeded, setReauthNeeded] = useState(false);
+  const [reauthAction, setReauthAction] = useState<'email' | 'password' | 'both' | null>(null);
+  const [modalError, setModalError] = useState('');
+  const [modalSuccess, setModalSuccess] = useState('');
+  const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
+  const [showActivityPopup, setShowActivityPopup] = useState(false);
 
   // Dynamic Director & Critic insights from TMDB for Rated Movies
   const [additionalDetails, setAdditionalDetails] = useState<Record<number, MovieAdditionalDetails>>({});
 
+  // Carousel gesture drag settings for Director's Notes
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!carouselRef.current) return;
+    isDragging.current = true;
+    startX.current = e.pageX - carouselRef.current.offsetLeft;
+    scrollLeft.current = carouselRef.current.scrollLeft;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !carouselRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - carouselRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5; // scroll speed multiplier
+    carouselRef.current.scrollLeft = scrollLeft.current - walk;
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const { scrollLeft, clientWidth } = carouselRef.current;
+      const scrollTo = direction === 'left' ? scrollLeft - clientWidth * 0.8 : scrollLeft + clientWidth * 0.8;
+      carouselRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
   useEffect(() => {
     if (userReviews.length === 0) return;
-    
+
     const fetchAdditionalDetails = async () => {
       const details: Record<number, MovieAdditionalDetails> = {};
       await Promise.all(
@@ -197,10 +250,10 @@ export default function ProfileComponent() {
       let finalImageUrl = "";
       const formData = new FormData();
       formData.append('image', file);
-      
+
       const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
       if (!IMGBB_API_KEY) throw new Error("Missing NEXT_PUBLIC_IMGBB_API_KEY");
-      
+
       try {
         // PRIMARY UPLOAD: Attempt ImgBB
         const imgbbResponse = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
@@ -209,17 +262,17 @@ export default function ProfileComponent() {
         });
 
         if (!imgbbResponse.ok) throw new Error("ImgBB upload failed");
-        
+
         const data = await imgbbResponse.json();
         finalImageUrl = data.data.url;
-        
+
       } catch (imgbbError) {
         console.warn("ImgBB Upload Failed, falling back to Cloudinary...", imgbbError);
-        
+
         // FALLBACK UPLOAD: Attempt Cloudinary
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        
+
         if (!cloudName || !uploadPreset) {
           throw new Error("ImgBB failed and Cloudinary fallback is not configured in .env.local");
         }
@@ -245,11 +298,11 @@ export default function ProfileComponent() {
       // Save photoURL to Firestore as a robust backup/sync mechanism
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { photoURL: finalImageUrl }, { merge: true });
-      
+
       setProfile(prev => ({ ...prev, photoURL: finalImageUrl }));
-      
+
       // Force a reload to guarantee Next.js app-wide components reload the new photo URL from Auth session
-      window.location.reload(); 
+      window.location.reload();
     } catch (err: any) {
       console.error("Error uploading image:", err);
       alert("Error uploading image: " + err.message + ". Please try again.");
@@ -264,11 +317,11 @@ export default function ProfileComponent() {
 
     const path = `users/${user.uid}`;
     const docRef = doc(db, path);
-    
+
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as ProfileSettings & { frameId?: string; email?: string; displayName?: string };
-        
+
         // Proactively write email/displayName to Firestore if they are missing
         if (!data.email || !data.displayName) {
           setDoc(docRef, {
@@ -320,33 +373,85 @@ export default function ProfileComponent() {
       setBioInput(profile.bio);
       setEditDisplayName(user?.displayName || user?.email?.split('@')[0] || "");
       setEditFrameId(profile.avatarFrame);
+      setNewEmail(user?.email || "");
+      setNewPassword("");
+      setCurrentPassword("");
+      setReauthNeeded(false);
+      setReauthAction(null);
+      setModalError("");
+      setModalSuccess("");
     }
   }, [isEditModalOpen, profile.bio, profile.avatarFrame, user]);
 
   const handleSaveProfile = async () => {
     if (!user) return;
     setIsSaving(true);
+    setModalError('');
+    setModalSuccess('');
     try {
       const docRef = doc(db, `users/${user.uid}`);
-      
+
       // Save both avatarFrame and frameId (for backward compatibility with Vite app)
-      const savePromise = setDoc(docRef, { 
-        bio: bioInput, 
+      const savePromise = setDoc(docRef, {
+        bio: bioInput,
         avatarFrame: editFrameId,
-        frameId: editFrameId 
+        frameId: editFrameId
       }, { merge: true });
-      
-      const authPromise = editDisplayName !== user.displayName 
+
+      const authPromise = editDisplayName !== user.displayName
         ? updateProfile(user, { displayName: editDisplayName })
         : Promise.resolve();
 
       await Promise.all([savePromise, authPromise]);
 
       setProfile(prev => ({ ...prev, bio: bioInput, avatarFrame: editFrameId }));
-      setIsEditModalOpen(false);
+
+      const emailChanged = newEmail && newEmail !== user.email;
+      const passwordChanged = newPassword && newPassword.length >= 6;
+
+      if (emailChanged || passwordChanged) {
+        if (currentPassword) {
+          const credential = EmailAuthProvider.credential(user.email || '', currentPassword);
+          await reauthenticateWithCredential(user, credential);
+        }
+
+        try {
+          if (emailChanged) {
+            await updateEmail(user, newEmail);
+            await setDoc(docRef, { email: newEmail }, { merge: true });
+          }
+          if (passwordChanged) {
+            await updatePassword(user, newPassword);
+          }
+        } catch (authError: any) {
+          if (authError.code === 'auth/requires-recent-login') {
+            setReauthNeeded(true);
+            setReauthAction(emailChanged && passwordChanged ? 'both' : emailChanged ? 'email' : 'password');
+            setIsSaving(false);
+            return;
+          } else {
+            throw authError;
+          }
+        }
+      }
+
+      setModalSuccess("Profile updated successfully!");
+      setTimeout(() => {
+        setIsEditModalOpen(false);
+      }, 1500);
     } catch (error: any) {
       console.error("Error saving profile:", error);
-      alert("An error occurred while saving the profile: " + error.message);
+      let msg = error.message || "An error occurred while saving the profile.";
+      if (error.code === 'auth/invalid-email') {
+        msg = "Invalid email address.";
+      } else if (error.code === 'auth/weak-password') {
+        msg = "Password should be at least 6 characters.";
+      } else if (error.code === 'auth/email-already-in-use') {
+        msg = "This email is already registered to another account.";
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        msg = "Incorrect current password. Reauthentication failed.";
+      }
+      setModalError(msg);
     } finally {
       setIsSaving(false);
     }
@@ -360,7 +465,7 @@ export default function ProfileComponent() {
     } else {
       updatedSubs.push(platformName);
     }
-    
+
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { subscriptions: updatedSubs }, { merge: true });
@@ -392,7 +497,7 @@ export default function ProfileComponent() {
         isFirstGenreSelection = true;
       }
     }
-    
+
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { favoriteGenres: updatedGenres }, { merge: true });
@@ -427,7 +532,7 @@ export default function ProfileComponent() {
   const handleAddTopMovie = async (movie: Movie) => {
     if (!user || profile.top10.length >= 5) return;
     if (profile.top10.some(m => m.id === movie.id)) return;
-    
+
     const updatedTop10 = [...profile.top10, movie];
     try {
       const docRef = doc(db, `users/${user.uid}`);
@@ -456,11 +561,11 @@ export default function ProfileComponent() {
     const updatedTop10 = [...profile.top10];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= updatedTop10.length) return;
-    
+
     const temp = updatedTop10[index];
     updatedTop10[index] = updatedTop10[targetIndex];
     updatedTop10[targetIndex] = temp;
-    
+
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
@@ -484,7 +589,7 @@ export default function ProfileComponent() {
   // Rank / Level
   let level = 1;
   let frameTitle = 'Novice';
-  
+
   if (totalScore >= 30) {
     level = 15;
     frameTitle = 'Film Legend';
@@ -501,7 +606,7 @@ export default function ProfileComponent() {
 
   const totalHours = Math.round((watchlist.length * 125 + userReviews.length * 130) / 60) || 0;
 
-  const avgRating = userReviews.length > 0 
+  const avgRating = userReviews.length > 0
     ? (userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length).toFixed(1)
     : "0.0";
 
@@ -518,36 +623,8 @@ export default function ProfileComponent() {
   };
 
   const radarData = useMemo(() => {
-    const genreCounts: Record<string, number> = {
-      'Sci-Fi': 20,
-      'Action': 15,
-      'Drama': 25,
-      'Thriller': 10,
-      'Comedy': 15,
-      'Horror': 5
-    };
-    
-    watchlist.forEach(m => {
-      m.genre?.forEach(g => {
-        const matched = Object.keys(genreCounts).find(k => g.toLowerCase().includes(k.toLowerCase()));
-        if (matched) genreCounts[matched] += 15;
-      });
-    });
-    
-    userReviews.forEach(r => {
-      const movie = watchlist.find(m => m.id === r.movieId);
-      movie?.genre?.forEach(g => {
-        const matched = Object.keys(genreCounts).find(k => g.toLowerCase().includes(k.toLowerCase()));
-        if (matched) genreCounts[matched] += 25;
-      });
-    });
-
-    return Object.keys(genreCounts).map(g => ({
-      genre: g,
-      A: Math.min(genreCounts[g], 150),
-      fullMark: 150
-    }));
-  }, [watchlist, userReviews]);
+    return computeRadarData(watchlist);
+  }, [watchlist]);
 
   const watchHistory = useMemo(() => {
     const events = [
@@ -566,8 +643,14 @@ export default function ProfileComponent() {
         type: "rate"
       }))
     ];
-    return events.slice(0, 4);
-  }, [watchlist, userReviews]);
+    return events.filter(e => !clearedTimelineIds.includes(e.id)).slice(0, 4);
+  }, [watchlist, userReviews, clearedTimelineIds]);
+
+  const recentActivities = useMemo(() => {
+    if (!isMounted) return [];
+    // If timeline cleared, we return empty or clear history dynamically. We'll show live local storage activities.
+    return getUserActivities();
+  }, [isMounted, watchlist, userReviews, clearedTimelineIds, showActivityPopup]);
 
   const topTen = profile.top10.slice(0, 5);
   const currentFrame = frames.find(f => f.id === profile.avatarFrame) || frames[0];
@@ -583,16 +666,16 @@ export default function ProfileComponent() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <motion.div
-           initial={{ opacity: 0, scale: 0.9 }}
-           animate={{ opacity: 1, scale: 1 }}
-           className="bg-surface/30 p-12 rounded-[40px] border border-white/5 max-w-md w-full"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-surface/30 p-12 rounded-[40px] border border-white/5 max-w-md w-full"
         >
           <div className="w-20 h-20 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-8">
             <UserIcon className="w-10 h-10 text-brand" />
           </div>
           <h1 className="text-3xl font-black text-white mb-4 uppercase tracking-tight italic">Member Access Required</h1>
           <p className="text-white/40 mb-8 font-medium">Join the StreamFind community to track your cinematic journey, save favorites, and get personalized picks.</p>
-          <button 
+          <button
             onClick={() => router.push('/')}
             className="w-full bg-brand text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase hover:scale-105 transition-all shadow-lg shadow-brand/20"
           >
@@ -609,21 +692,21 @@ export default function ProfileComponent() {
       <div className={`min-h-0 lg:min-h-[55vh] lg:h-auto flex flex-col justify-end relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${getAuraColor(primaryFavGenre)}`}>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
-        
+
         <div className="absolute inset-0 overflow-hidden">
-           <motion.div 
-             animate={{ scale: [1, 1.1, 1] }}
-             transition={{ duration: 20, repeat: Infinity }}
-             className="w-full h-full opacity-40 blur-3xl bg-brand/10 absolute -top-1/2 -left-1/4 rounded-full" 
-           />
+          <motion.div
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 20, repeat: Infinity }}
+            className="w-full h-full opacity-40 blur-3xl bg-brand/10 absolute -top-1/2 -left-1/4 rounded-full"
+          />
         </div>
 
         <div className="relative z-20 px-6 lg:px-12 pt-20 lg:pt-36 pb-10 lg:pb-20 w-full">
           <div className="container mx-auto max-w-7xl">
             <div className="flex flex-col lg:flex-row items-center lg:items-end gap-8 lg:gap-12">
-              
+
               {/* Avatar with dynamic frame */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="relative group shrink-0 mx-auto lg:mx-0"
@@ -631,12 +714,12 @@ export default function ProfileComponent() {
                 <div className={`w-36 h-36 sm:w-44 sm:h-44 lg:w-56 lg:h-56 rounded-[48px] overflow-hidden border-[6px] transition-all p-1 bg-surface ${currentFrame.class}`}>
                   {(profile.photoURL || user.photoURL) ? (
                     <div className="relative w-full h-full rounded-[40px] overflow-hidden">
-                      <Image 
-                        src={profile.photoURL || user.photoURL || ""} 
+                      <Image
+                        src={profile.photoURL || user.photoURL || ""}
                         fill
                         sizes="(max-width: 768px) 144px, 224px"
                         className="object-cover"
-                        alt={user.displayName || ""} 
+                        alt={user.displayName || ""}
                         referrerPolicy="no-referrer"
                       />
                     </div>
@@ -646,7 +729,7 @@ export default function ProfileComponent() {
                     </div>
                   )}
                 </div>
-                <div 
+                <div
                   className="absolute bottom-0 right-0 w-12 h-12 bg-surface border border-white/10 rounded-2xl flex items-center justify-center shadow-xl cursor-pointer hover:bg-brand hover:border-brand transition-all group/cam"
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -656,12 +739,12 @@ export default function ProfileComponent() {
                     <Camera className="w-5 h-5 text-white/40 group-hover/cam:text-white" />
                   )}
                 </div>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  accept="image/*" 
-                  className="hidden" 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  className="hidden"
                 />
               </motion.div>
 
@@ -679,7 +762,7 @@ export default function ProfileComponent() {
                   <h1 className="text-4xl sm:text-5xl lg:text-7xl xl:text-8xl font-black tracking-tighter uppercase italic leading-[0.9] lg:leading-[0.8] mb-4">
                     {user.displayName || user.email?.split('@')[0]}
                   </h1>
-                  
+
                   {/* Bio & Glowing Tags */}
                   <div className="max-w-2xl mx-auto lg:mx-0">
                     <p className="text-white/60 font-medium text-lg leading-relaxed">
@@ -690,14 +773,13 @@ export default function ProfileComponent() {
                       {AVAILABLE_GENRES.map((genre) => {
                         const isActive = profile.favoriteGenres.includes(genre);
                         return (
-                          <span 
-                            key={genre} 
+                          <span
+                            key={genre}
                             onClick={() => handleToggleGenre(genre)}
-                            className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-tight transition-all cursor-pointer ${
-                              isActive 
+                            className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-tight transition-all cursor-pointer ${isActive
                                 ? 'bg-brand/20 border-brand text-brand shadow-[0_0_15px_rgba(229,9,20,0.2)]'
                                 : 'bg-surface/20 border-white/10 text-white/40 hover:text-white/80 hover:border-white/20'
-                            }`}
+                              }`}
                           >
                             {genre}
                           </span>
@@ -710,27 +792,27 @@ export default function ProfileComponent() {
 
               {/* Share & Privacy Actions */}
               <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto shrink-0 justify-center">
-                <button 
+                <button
                   onClick={() => setIsEditModalOpen(true)}
                   className="bg-white text-black w-full lg:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all shadow-xl"
                 >
                   Edit Profile
                 </button>
                 <div className="flex gap-2 w-full lg:w-auto">
-                   <button 
-                     onClick={() => handleTogglePref('isPublic')}
-                     className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
-                   >
-                     {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                     <span className="text-[10px] font-black uppercase tracking-wider">{profile.isPublic ? 'Public' : 'Private'}</span>
-                   </button>
-                   <button 
-                      onClick={handleShareProfile}
-                      className="p-4 bg-surface/20 border border-white/5 rounded-2xl text-white/40 hover:text-brand hover:border-brand/20 transition-all animate-pulse"
-                      title="Share Profile"
-                    >
-                       <Share2 className="w-4 h-4" />
-                    </button>
+                  <button
+                    onClick={() => handleTogglePref('isPublic')}
+                    className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
+                  >
+                    {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                    <span className="text-[10px] font-black uppercase tracking-wider">{profile.isPublic ? 'Public' : 'Private'}</span>
+                  </button>
+                  <button
+                    onClick={handleShareProfile}
+                    className="p-4 bg-surface/20 border border-white/5 rounded-2xl text-white/40 hover:text-brand hover:border-brand/20 transition-all animate-pulse"
+                    title="Share Profile"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -741,7 +823,7 @@ export default function ProfileComponent() {
       {/* Main Stats & Analytics Grid */}
       <div className="container mx-auto max-w-7xl px-6 lg:px-12 py-12 relative z-30 -mt-6 lg:-mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* 2. Stats & Analytics ("The Reel") */}
           <div className="lg:col-span-8 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -750,9 +832,9 @@ export default function ProfileComponent() {
                 { icon: Activity, label: "Cinetype Rank", value: frameTitle === "Apprentice" ? "B" : "A+", unit: "S2", color: "text-brand" },
                 { icon: Star, label: "Avg Rating", value: avgRating, unit: "/5", color: "text-yellow-400" }
               ].map((stat) => (
-                <motion.div 
+                <motion.div
                   whileHover={{ y: -5 }}
-                  key={stat.label} 
+                  key={stat.label}
                   className="p-8 rounded-[32px] bg-surface/30 border border-white/5 relative overflow-hidden group shadow-2xl backdrop-blur-xl"
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-brand/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
@@ -777,7 +859,7 @@ export default function ProfileComponent() {
                   Updated Today
                 </div>
               </div>
-              
+
               <div className="h-[350px] w-full">
                 {isMounted ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -791,7 +873,7 @@ export default function ProfileComponent() {
                         fill="#e50914"
                         fillOpacity={0.6}
                       />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #ffffff10', borderRadius: '12px' }}
                         itemStyle={{ color: '#fff', fontSize: '10px', textTransform: 'uppercase', fontWeight: 800 }}
                       />
@@ -807,7 +889,7 @@ export default function ProfileComponent() {
             <div className="space-y-8 pt-8">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-black uppercase italic tracking-tight">The <span className="text-brand">Pinnacle</span> <span className="text-white/20 text-sm ml-2">MY TOP 5</span></h3>
-                <button 
+                <button
                   onClick={() => setShowSearch(!showSearch)}
                   className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline px-4 py-2 bg-brand/10 rounded-full transition-colors"
                 >
@@ -831,8 +913,8 @@ export default function ProfileComponent() {
                   {searchResults.length > 0 && (
                     <div className="bg-surface/95 border border-white/10 rounded-2xl mt-4 overflow-hidden shadow-2xl z-50">
                       {searchResults.map((movie) => (
-                        <div 
-                          key={movie.id} 
+                        <div
+                          key={movie.id}
                           className="flex items-center justify-between p-3 border-b border-white/5 hover:bg-white/5 transition-all"
                         >
                           <div className="flex items-center gap-4">
@@ -855,10 +937,10 @@ export default function ProfileComponent() {
                   )}
                 </div>
               )}
-              
+
               <div className="flex gap-6 overflow-x-auto pb-6 snap-x no-scrollbar">
                 {topTen.map((movie, idx) => (
-                  <motion.div 
+                  <motion.div
                     key={movie.id}
                     whileHover={{ scale: 1.05 }}
                     className="relative shrink-0 w-48 aspect-[2/3] rounded-3xl overflow-hidden shadow-2xl snap-center group border border-white/5"
@@ -868,27 +950,27 @@ export default function ProfileComponent() {
                     </div>
                     <img src={movie.posterUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={movie.title} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                       <p className="text-[10px] font-bold text-white line-clamp-1">{movie.title}</p>
-                       <div className="flex gap-1.5 mt-3 border-t border-white/10 pt-3">
-                         <button onClick={() => handleMoveTopMovie(idx, 'up')} disabled={idx === 0} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowUp className="w-3 h-3 text-white" /></button>
-                         <button onClick={() => handleMoveTopMovie(idx, 'down')} disabled={idx === topTen.length - 1} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowDown className="w-3 h-3 text-white" /></button>
-                         <button onClick={() => handleRemoveTopMovie(movie.id)} className="p-1.5 rounded bg-red-950/40 border border-red-500/20 hover:bg-brand flex items-center justify-center"><Trash2 className="w-3 h-3 text-red-400 hover:text-white" /></button>
-                       </div>
+                      <p className="text-[10px] font-bold text-white line-clamp-1">{movie.title}</p>
+                      <div className="flex gap-1.5 mt-3 border-t border-white/10 pt-3">
+                        <button onClick={() => handleMoveTopMovie(idx, 'up')} disabled={idx === 0} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowUp className="w-3 h-3 text-white" /></button>
+                        <button onClick={() => handleMoveTopMovie(idx, 'down')} disabled={idx === topTen.length - 1} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowDown className="w-3 h-3 text-white" /></button>
+                        <button onClick={() => handleRemoveTopMovie(movie.id)} className="p-1.5 rounded bg-red-950/40 border border-red-500/20 hover:bg-brand flex items-center justify-center"><Trash2 className="w-3 h-3 text-red-400 hover:text-white" /></button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
-                
+
                 {/* Empty Slots */}
                 {Array.from({ length: 5 - topTen.length }).map((_, emptyIdx) => (
-                  <div 
+                  <div
                     key={`empty-${emptyIdx}`}
                     onClick={() => setShowSearch(true)}
                     className="shrink-0 w-48 aspect-[2/3] rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-center p-6 gap-3 group hover:border-brand/30 transition-colors cursor-pointer"
                   >
-                     <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-brand/10">
-                       <Plus className="w-6 h-6 text-white/20 group-hover:text-brand" />
-                     </div>
-                     <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Add Masterpiece<br />Slot #{topTen.length + emptyIdx + 1}</p>
+                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-brand/10">
+                      <Plus className="w-6 h-6 text-white/20 group-hover:text-brand" />
+                    </div>
+                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Add Masterpiece<br />Slot #{topTen.length + emptyIdx + 1}</p>
                   </div>
                 ))}
               </div>
@@ -897,103 +979,115 @@ export default function ProfileComponent() {
 
           {/* Right Column: Cards & History */}
           <div className="lg:col-span-4 space-y-8">
-            
+
             {/* 4. Integration & Subscription Manager */}
             <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl backdrop-blur-md">
-               <div className="flex items-center gap-3 mb-8">
-                  <Shield className="w-5 h-5 text-brand" />
-                  <h3 className="text-sm font-black uppercase tracking-widest">Subscription DNA</h3>
-               </div>
-               
-               <div className="space-y-4">
-                  {STREAMING_PLATFORMS.map((sub) => {
-                    const isActive = profile.subscriptions.includes(sub.name);
-                    return (
-                      <div key={sub.id} className="flex items-center justify-between group">
-                         <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 ${sub.color} rounded-xl flex items-center justify-center font-black text-lg transition-transform group-hover:scale-110`}>
-                              {sub.logo}
-                            </div>
-                            <span className="text-sm font-bold text-white/70 group-hover:text-white transition-colors">{sub.name}</span>
-                         </div>
-                         <button 
-                          onClick={() => handleToggleSub(sub.name)}
-                          className={`w-12 h-6 rounded-full relative transition-all duration-300 cursor-pointer ${isActive ? 'bg-brand' : 'bg-white/10'}`}
-                         >
-                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
-                         </button>
+              <div className="flex items-center gap-3 mb-8">
+                <Shield className="w-5 h-5 text-brand" />
+                <h3 className="text-sm font-black uppercase tracking-widest">Subscription DNA</h3>
+              </div>
+
+              <div className="space-y-4">
+                {STREAMING_PLATFORMS.map((sub) => {
+                  const isActive = profile.subscriptions.includes(sub.name);
+                  return (
+                    <div key={sub.id} className="flex items-center justify-between group">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 ${sub.color} rounded-xl flex items-center justify-center font-black text-lg transition-transform group-hover:scale-110`}>
+                          {sub.logo}
+                        </div>
+                        <span className="text-sm font-bold text-white/70 group-hover:text-white transition-colors">{sub.name}</span>
                       </div>
-                    );
-                  })}
-               </div>
-               
-               <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
-                  <div className="flex items-center justify-between text-[10px] font-black uppercase text-white/30 tracking-widest">
-                     <span>Global Preferences</span>
-                     <Settings className="w-3 h-3" />
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-bold text-white/70">
-                     <span>Auto-filter by my subs</span>
-                     <button 
-                      onClick={() => handleTogglePref('autoFilter')}
-                      className={`w-10 h-5 rounded-full relative transition-all cursor-pointer ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
-                     >
-                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile.autoFilter ? 'left-6' : 'left-1'}`} />
-                     </button>
-                  </div>
-               </div>
+                      <button
+                        onClick={() => handleToggleSub(sub.name)}
+                        className={`w-12 h-6 rounded-full relative transition-all duration-300 cursor-pointer ${isActive ? 'bg-brand' : 'bg-white/10'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
+                <div className="flex items-center justify-between text-[10px] font-black uppercase text-white/30 tracking-widest">
+                  <span>Global Preferences</span>
+                  <Settings className="w-3 h-3" />
+                </div>
+                <div className="flex items-center justify-between text-xs font-bold text-white/70">
+                  <span>Auto-filter by my subs</span>
+                  <button
+                    onClick={() => handleTogglePref('autoFilter')}
+                    className={`w-10 h-5 rounded-full relative transition-all cursor-pointer ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile.autoFilter ? 'left-6' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Notification Center */}
             <div className="bg-brand/5 border border-brand/20 rounded-[40px] p-8 shadow-2xl">
-               <div className="flex items-center gap-3 mb-6">
-                 <Bell className="w-5 h-5 text-brand" />
-                 <h3 className="text-sm font-black uppercase tracking-widest text-brand">Vigilance Hub</h3>
-               </div>
-               <div className="flex flex-col gap-6">
-                  {[
-                    { key: 'notifyNewRelease', label: "New Release", desc: "Get alerted when any new movie epic drops." },
-                    { key: 'notifyFavGenres', label: "Your Favorite Genres", desc: "Get alerts matching your favorite genres selected above." },
-                    { key: 'notifyLeavingSoon', label: "Leaving Platform", desc: "Don't miss movies exiting your subs." }
-                  ].map((item) => (
-                    <div 
-                      key={item.key} 
-                      className="flex gap-4 items-center justify-between transition-all duration-300"
-                    >
-                       <div>
-                         <p className="text-xs font-black text-white uppercase">{item.label}</p>
-                         <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
-                       </div>
-                       <button 
-                        onClick={() => handleTogglePref(item.key as any)}
-                        className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${
-                          profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
-                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(255,40,78,0.4)]'
-                            : 'bg-white/5 border-white/10 hover:border-white/20'
-                        }`}
-                       >
-                          <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${
-                            profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres'] 
-                              ? 'left-[23px]' 
-                              : 'left-[3px]'
-                          }`} />
-                       </button>
+              <div className="flex items-center gap-3 mb-6">
+                <Bell className="w-5 h-5 text-brand" />
+                <h3 className="text-sm font-black uppercase tracking-widest text-brand">Vigilance Hub</h3>
+              </div>
+              <div className="flex flex-col gap-6">
+                {[
+                  { key: 'notifyNewRelease', label: "New Release", desc: "Get alerted when any new movie epic drops." },
+                  { key: 'notifyFavGenres', label: "Your Favorite Genres", desc: "Get alerts matching your favorite genres selected above." },
+                  { key: 'notifyLeavingSoon', label: "Leaving Platform", desc: "Don't miss movies exiting your subs." }
+                ].map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex gap-4 items-center justify-between transition-all duration-300"
+                  >
+                    <div>
+                      <p className="text-xs font-black text-white uppercase">{item.label}</p>
+                      <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
                     </div>
-                  ))}
-               </div>
+                    <button
+                      onClick={() => handleTogglePref(item.key as any)}
+                      className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
+                          ? 'bg-brand border-brand shadow-[0_0_10px_rgba(255,40,78,0.4)]'
+                          : 'bg-white/5 border-white/10 hover:border-white/20'
+                        }`}
+                    >
+                      <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
+                          ? 'left-[23px]'
+                          : 'left-[3px]'
+                        }`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* 3. Watch History Timeline */}
             <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl">
-               <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <History className="w-5 h-5 text-white/30" />
-                    <h3 className="text-xs font-black uppercase tracking-widest">Timeline</h3>
-                  </div>
-                  <button className="text-[10px] font-black text-white/20 hover:text-white transition-colors">Clear All</button>
-               </div>
-               
-               <div className="space-y-8 relative">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <History className="w-5 h-5 text-white/30" />
+                  <h3 className="text-xs font-black uppercase tracking-widest">Timeline</h3>
+                </div>
+                <button 
+                  onClick={() => {
+                    const idsToClear = [
+                      ...watchlist.map(m => `watchlist-${m.id}`),
+                      ...userReviews.map(r => `review-${r.movieId}`)
+                    ];
+                    setClearedTimelineIds(idsToClear);
+                    localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
+                    clearUserActivities();
+                  }}
+                  className="text-[10px] font-black text-white/20 hover:text-white transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+
+              <div className="max-h-[200px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
+                <div className="space-y-8 relative">
                   <div className="absolute left-2.5 top-0 bottom-4 w-px bg-white/5" />
                   {watchHistory.length === 0 ? (
                     <div className="py-6 text-center text-white/25 text-[10px] uppercase font-bold tracking-wider">
@@ -1002,44 +1096,48 @@ export default function ProfileComponent() {
                   ) : (
                     watchHistory.map((item) => (
                       <div key={item.id} className="relative pl-10 group">
-                         <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-surface border border-white/10 flex items-center justify-center z-10 transition-colors group-hover:border-brand">
-                            <div className="w-1.5 h-1.5 bg-white/20 rounded-full group-hover:bg-brand" />
-                         </div>
-                         <p className="text-[10px] font-black text-brand uppercase tracking-tight">{item.action}</p>
-                         <p className="text-sm font-bold text-white/80 mt-1">{item.title}</p>
-                         <p className="text-[10px] text-white/30 mt-1 font-medium">{item.time}</p>
+                        <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-surface border border-white/10 flex items-center justify-center z-10 transition-colors group-hover:border-brand">
+                          <div className="w-1.5 h-1.5 bg-white/20 rounded-full group-hover:bg-brand" />
+                        </div>
+                        <p className="text-[10px] font-black text-brand uppercase tracking-tight">{item.action}</p>
+                        <p className="text-sm font-bold text-white/80 mt-1">{item.title}</p>
+                        <p className="text-[10px] text-white/30 mt-1 font-medium">{item.time}</p>
                       </div>
                     ))
                   )}
-               </div>
-               
-               <button className="w-full mt-8 py-3 bg-white/5 hover:bg-brand/10 hover:text-brand rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/20 transition-all">
-                  Show Remote Activity
-               </button>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowActivityPopup(true)}
+                className="w-full mt-8 py-3 bg-white/5 hover:bg-brand/10 hover:text-brand rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/20 transition-all"
+              >
+                Show Recent Activity
+              </button>
             </div>
 
             {/* Binge Badges / Achievements */}
             <div className="p-8 bg-surface/30 border border-white/5 rounded-[40px] shadow-2xl">
-               <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xs font-black uppercase tracking-widest">Binge Badges</h3>
-                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / 4 Unlocked</span>
-               </div>
-               <div className="space-y-4">
-                  {badges.map((badge) => (
-                    <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
-                       <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform ${badge.color}`}>
-                             <badge.icon className="w-5 h-5" />
-                          </div>
-                          <div>
-                             <p className="text-xs font-black text-white uppercase">{badge.title}</p>
-                             <p className="text-[10px] text-white/30 font-medium">{badge.desc}</p>
-                          </div>
-                       </div>
-                       {badge.unlocked && <CheckCircle2 className="w-4 h-4 text-brand" />}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xs font-black uppercase tracking-widest">Binge Badges</h3>
+                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / 4 Unlocked</span>
+              </div>
+              <div className="space-y-4">
+                {badges.map((badge) => (
+                  <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform ${badge.color}`}>
+                        <badge.icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-white uppercase">{badge.title}</p>
+                        <p className="text-[10px] text-white/30 font-medium">{badge.desc}</p>
+                      </div>
                     </div>
-                  ))}
-               </div>
+                    {badge.unlocked && <CheckCircle2 className="w-4 h-4 text-brand" />}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1048,14 +1146,14 @@ export default function ProfileComponent() {
         <AnimatePresence>
           {isEditModalOpen && (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsEditModalOpen(false)}
                 className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
               />
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1063,61 +1161,75 @@ export default function ProfileComponent() {
               >
                 <div className="p-8 md:p-12 space-y-8">
                   <div className="flex items-center justify-between">
-                     <h2 className="text-3xl font-black uppercase italic tracking-tight">Edit <span className="text-brand">Identity</span></h2>
-                     <button onClick={() => setIsEditModalOpen(false)} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
-                        <X className="w-5 h-5" />
-                     </button>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tight">Edit <span className="text-brand">Identity</span></h2>
+                    <button onClick={() => setIsEditModalOpen(false)} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
+
+                  {modalError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2">
+                      <X className="w-4 h-4 shrink-0 text-red-500" />
+                      <p>{modalError}</p>
+                    </div>
+                  )}
+
+                  {modalSuccess && (
+                    <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2">
+                      <Check className="w-4 h-4 shrink-0 text-green-500" />
+                      <p>{modalSuccess}</p>
+                    </div>
+                  )}
 
                   <div className="space-y-6">
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Display Name</label>
-                       <input 
-                         type="text" 
-                         value={editDisplayName}
-                         onChange={(e) => setEditDisplayName(e.target.value)}
-                         className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-brand outline-none transition-all"
-                       />
+                      <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Display Name</label>
+                      <input
+                        type="text"
+                        value={editDisplayName}
+                        onChange={(e) => setEditDisplayName(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-brand outline-none transition-all"
+                      />
                     </div>
 
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Cinematic Bio</label>
-                       <textarea 
-                         value={bioInput}
-                         onChange={(e) => setBioInput(e.target.value)}
-                         className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white/80 h-32 outline-none focus:border-brand resize-none font-medium"
-                       />
+                      <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Cinematic Bio</label>
+                      <textarea
+                        value={bioInput}
+                        onChange={(e) => setBioInput(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white/80 h-32 outline-none focus:border-brand resize-none font-medium"
+                      />
                     </div>
 
                     <div className="space-y-4">
-                       <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Avatar Frame</label>
-                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {frames.map((f) => (
-                            <button 
-                              key={f.id}
-                              onClick={() => setEditFrameId(f.id as any)}
-                              className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all ${editFrameId === f.id ? 'bg-brand border-brand text-white shadow-lg shadow-brand/20' : 'bg-black/20 border-white/5 text-white/40 hover:border-white/20'}`}
-                            >
-                              {f.name}
-                            </button>
-                          ))}
-                       </div>
+                      <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Avatar Frame</label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {frames.map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => setEditFrameId(f.id as any)}
+                            className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all ${editFrameId === f.id ? 'bg-brand border-brand text-white shadow-lg shadow-brand/20' : 'bg-black/20 border-white/5 text-white/40 hover:border-white/20'}`}
+                          >
+                            {f.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   <div className="pt-4 flex gap-4">
-                    <button 
+                    <button
                       onClick={handleSaveProfile}
                       disabled={isSaving}
                       className="flex-1 bg-white text-black py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
                     >
                       {isSaving ? 'Synchronizing...' : 'Save Changes'}
                     </button>
-                    <button 
+                    <button
                       onClick={() => setIsEditModalOpen(false)}
                       className="px-8 bg-white/5 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
                     >
-                       Cancel
+                      Cancel
                     </button>
                   </div>
                 </div>
@@ -1130,14 +1242,14 @@ export default function ProfileComponent() {
         <AnimatePresence>
           {isShareModalOpen && (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsShareModalOpen(false)}
                 className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
               />
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1145,10 +1257,10 @@ export default function ProfileComponent() {
               >
                 <div className="p-8 md:p-10 space-y-8">
                   <div className="flex items-center justify-between">
-                     <h2 className="text-2xl font-black uppercase italic tracking-tight">Share <span className="text-brand">Profile</span></h2>
-                     <button onClick={() => setIsShareModalOpen(false)} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
-                        <X className="w-5 h-5" />
-                     </button>
+                    <h2 className="text-2xl font-black uppercase italic tracking-tight">Share <span className="text-brand">Profile</span></h2>
+                    <button onClick={() => setIsShareModalOpen(false)} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
+                      <X className="w-5 h-5" />
+                    </button>
                   </div>
 
                   <p className="text-sm text-white/60 font-medium">
@@ -1167,7 +1279,7 @@ export default function ProfileComponent() {
                     >
                       <div className="w-12 h-12 bg-[#1877F2]/10 rounded-2xl flex items-center justify-center text-[#1877F2] group-hover:scale-110 transition-transform">
                         <svg className="w-6 h-6 fill-[#1877F2]" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                         </svg>
                       </div>
                       <span className="text-xs font-black uppercase tracking-wider text-white/70 group-hover:text-white transition-colors">Facebook</span>
@@ -1184,7 +1296,7 @@ export default function ProfileComponent() {
                     >
                       <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white group-hover:scale-110 transition-transform">
                         <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24">
-                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                         </svg>
                       </div>
                       <span className="text-xs font-black uppercase tracking-wider text-white/70 group-hover:text-white transition-colors">Twitter / X</span>
@@ -1201,7 +1313,7 @@ export default function ProfileComponent() {
                     >
                       <div className="w-12 h-12 bg-[#25D366]/10 rounded-2xl flex items-center justify-center text-[#25D366] group-hover:scale-110 transition-transform">
                         <svg className="w-6 h-6 fill-[#25D366]" viewBox="0 0 24 24">
-                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.62.962 3.21 1.6 5.358 1.601 5.48-.001 9.938-4.46 9.94-9.94.002-2.656-1.03-5.153-2.903-7.027-1.874-1.874-4.37-2.905-7.029-2.907-5.485 0-9.944 4.46-9.946 9.942-.001 2.152.562 4.253 1.633 6.079L1.87 20.3l4.777-1.146zm11.302-5.4c-.29-.145-1.711-.844-1.976-.94-.265-.096-.458-.145-.65.145-.192.291-.745.94-.913 1.132-.168.192-.337.218-.627.072-.29-.145-1.223-.45-2.33-1.439-.861-.767-1.443-1.716-1.611-2.007-.168-.29-.018-.447.127-.591.13-.13.29-.34.435-.509.145-.168.193-.29.29-.484.096-.193.048-.363-.024-.509-.072-.145-.65-1.564-.89-2.146-.233-.56-.47-.484-.65-.494-.168-.008-.362-.01-.555-.01-.193 0-.506.072-.77.362-.265.291-1.012.99-1.012 2.416 0 1.426 1.037 2.802 1.18 2.995.145.193 2.041 3.116 4.945 4.373.69.299 1.23.478 1.65.612.693.22 1.325.19 1.825.115.557-.083 1.711-.699 1.953-1.376.24-.678.24-1.26.168-1.376-.073-.116-.265-.193-.555-.337z"/>
+                          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.62.962 3.21 1.6 5.358 1.601 5.48-.001 9.938-4.46 9.94-9.94.002-2.656-1.03-5.153-2.903-7.027-1.874-1.874-4.37-2.905-7.029-2.907-5.485 0-9.944 4.46-9.946 9.942-.001 2.152.562 4.253 1.633 6.079L1.87 20.3l4.777-1.146zm11.302-5.4c-.29-.145-1.711-.844-1.976-.94-.265-.096-.458-.145-.65.145-.192.291-.745.94-.913 1.132-.168.192-.337.218-.627.072-.29-.145-1.223-.45-2.33-1.439-.861-.767-1.443-1.716-1.611-2.007-.168-.29-.018-.447.127-.591.13-.13.29-.34.435-.509.145-.168.193-.29.29-.484.096-.193.048-.363-.024-.509-.072-.145-.65-1.564-.89-2.146-.233-.56-.47-.484-.65-.494-.168-.008-.362-.01-.555-.01-.193 0-.506.072-.77.362-.265.291-1.012.99-1.012 2.416 0 1.426 1.037 2.802 1.18 2.995.145.193 2.041 3.116 4.945 4.373.69.299 1.23.478 1.65.612.693.22 1.325.19 1.825.115.557-.083 1.711-.699 1.953-1.376.24-.678.24-1.26.168-1.376-.073-.116-.265-.193-.555-.337z" />
                         </svg>
                       </div>
                       <span className="text-xs font-black uppercase tracking-wider text-white/70 group-hover:text-white transition-colors">WhatsApp</span>
@@ -1230,13 +1342,13 @@ export default function ProfileComponent() {
                   <div className="space-y-2 pt-4 border-t border-white/5">
                     <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Shareable Profile Link</label>
                     <div className="flex gap-2">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         readOnly
                         value={typeof window !== 'undefined' && user ? `${window.location.origin}/profile?uid=${user.uid}` : ''}
                         className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white/60 font-semibold focus:outline-none"
                       />
-                      <button 
+                      <button
                         onClick={copyPublicLink}
                         className="px-6 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand hover:text-white transition-all shrink-0 flex items-center gap-2"
                       >
@@ -1262,98 +1374,219 @@ export default function ProfileComponent() {
 
         {/* 5. Social: Personal Reviews/Feed */}
         <div className="mt-20 space-y-12">
-           <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
-                 <Star className="w-6 h-6 text-brand" />
-              </div>
-              <h2 className="text-4xl font-black uppercase italic tracking-tighter">Director&apos;s <span className="text-brand">Notes</span></h2>
-           </div>
-           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {userReviews.length === 0 ? (
-                <div className="md:col-span-2 py-16 bg-surface/30 border border-dashed border-white/10 rounded-[40px] text-center text-white/30 flex flex-col items-center justify-center gap-4">
-                   <Film className="w-12 h-12 text-white/10" />
-                   <p className="text-sm uppercase font-black tracking-widest leading-relaxed">No custom written notes submitted yet.<br />Leave reviews on details pages to fill your diary!</p>
-                </div>
-              ) : (
-                userReviews.map((review) => (
-                  <div key={review.movieId} className="p-8 bg-surface/30 border border-white/5 rounded-[32px] hover:bg-surface/40 transition-colors group flex flex-col md:flex-row gap-6">
-                     <div className="w-16 md:w-20 shrink-0 h-24 md:h-28 bg-white/5 rounded-xl overflow-hidden shadow-md">
-                        <img 
-                          src={review.moviePoster || 'https://placehold.co/200x300?text=No+Image'} 
-                          className="w-full h-full object-cover" 
-                          alt={review.movieTitle} 
-                        />
-                     </div>
-                     <div className="flex-1 min-w-0 flex flex-col justify-between">
-                        <div>
-                           <div className="flex items-center justify-between mb-4">
-                              <div>
-                                 <p className="text-sm font-black uppercase text-white/80">{review.movieTitle}</p>
-                                 <div className="flex gap-1 mt-1.5">
-                                    {Array.from({ length: 5 }).map((_, s) => (
-                                      <Star 
-                                        key={s} 
-                                        className={`w-3 h-3 ${s < review.rating ? 'text-brand fill-brand' : 'text-white/10'}`} 
-                                      />
-                                    ))}
-                                 </div>
-                              </div>
-                              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest shrink-0">Critique</span>
-                           </div>
-                            <p className="text-white/60 text-sm leading-relaxed font-medium italic">
-                              {review.reviewText ? `"${review.reviewText}"` : "Rated only, no written critique submitted."}
-                            </p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+              <Star className="w-6 h-6 text-brand" />
+            </div>
+            <h2 className="text-4xl font-black uppercase italic tracking-tighter">Director&apos;s <span className="text-brand">Notes</span></h2>
+          </div>
 
-                            {additionalDetails[review.movieId] && (
-                              <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
-                                {additionalDetails[review.movieId].director && (
-                                  <div className="p-4 rounded-2xl bg-brand/5 border border-brand/20">
-                                    <p className="text-[10px] font-black uppercase text-brand tracking-widest mb-1">Director's Note</p>
-                                    <p className="text-white/80 text-xs italic font-medium">
-                                      Directed by <span className="text-white font-bold">{additionalDetails[review.movieId].director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
-                                    </p>
-                                  </div>
-                                )}
-                                {additionalDetails[review.movieId].topCriticReview && (
-                                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <p className="text-[10px] font-black uppercase text-white/40 tracking-widest">Top Critic Insight</p>
-                                      <span className="text-[9px] font-black text-brand uppercase tracking-widest">By {additionalDetails[review.movieId].topCriticReview!.author}</span>
-                                    </div>
-                                    <p className="text-white/60 text-xs italic leading-relaxed line-clamp-3">
-                                      "{additionalDetails[review.movieId].topCriticReview!.content}"
-                                    </p>
-                                  </div>
-                                )}
+          <div className="relative">
+            {userReviews.length === 0 ? (
+              <div className="py-16 bg-surface/30 border border-dashed border-white/10 rounded-[40px] text-center text-white/30 flex flex-col items-center justify-center gap-4">
+                <Film className="w-12 h-12 text-white/10" />
+                <p className="text-sm uppercase font-black tracking-widest leading-relaxed">No custom written notes submitted yet.<br />Leave reviews on details pages to fill your diary!</p>
+              </div>
+            ) : (
+              <div className="relative group/carousel">
+                {/* Carousel Container */}
+                <div
+                  ref={carouselRef}
+                  className="flex gap-6 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-6 scroll-smooth cursor-grab active:cursor-grabbing select-none"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                >
+                  {userReviews.map((review) => (
+                    <div
+                      key={review.movieId}
+                      className="w-full sm:w-[500px] md:w-[650px] shrink-0 snap-start p-8 bg-surface/30 border border-white/5 rounded-[32px] hover:bg-surface/40 transition-colors group flex flex-col md:flex-row gap-6"
+                    >
+                      <div className="w-16 md:w-20 shrink-0 h-24 md:h-28 bg-white/5 rounded-xl overflow-hidden shadow-md">
+                        <img
+                          src={review.moviePoster || 'https://placehold.co/200x300?text=No+Image'}
+                          className="w-full h-full object-cover"
+                          alt={review.movieTitle}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <p className="text-sm font-black uppercase text-white/80">{review.movieTitle}</p>
+                              <div className="flex gap-1 mt-1.5">
+                                {Array.from({ length: 5 }).map((_, s) => (
+                                  <Star
+                                    key={s}
+                                    className={`w-3 h-3 ${s < review.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
+                                  />
+                                ))}
                               </div>
-                            )}
+                            </div>
+                            <span className="text-[10px] font-black text-white/20 uppercase tracking-widest shrink-0">Critique</span>
+                          </div>
+                          <p className="text-white/60 text-sm leading-relaxed font-medium italic">
+                            {review.reviewText ? `"${review.reviewText}"` : "Rated only, no written critique submitted."}
+                          </p>
+
+                          {additionalDetails[review.movieId] && (
+                            <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
+                              {additionalDetails[review.movieId].director && (
+                                <div className="p-4 rounded-2xl bg-brand/5 border border-brand/20">
+                                  <p className="text-[10px] font-black uppercase text-brand tracking-widest mb-1">Director's Note</p>
+                                  <p className="text-white/80 text-xs italic font-medium">
+                                    Directed by <span className="text-white font-bold">{additionalDetails[review.movieId].director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
+                                  </p>
+                                </div>
+                              )}
+                              {additionalDetails[review.movieId].topCriticReview && (
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <p className="text-[10px] font-black uppercase text-white/40 tracking-widest">Top Critic Insight</p>
+                                    <span className="text-[9px] font-black text-brand uppercase tracking-widest">By {additionalDetails[review.movieId].topCriticReview!.author}</span>
+                                  </div>
+                                  <p className="text-white/60 text-xs italic leading-relaxed line-clamp-3">
+                                    "{additionalDetails[review.movieId].topCriticReview!.content}"
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        
+
                         <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-8">
-                           <button 
-                             onClick={() => handleToggleLike(review.movieId, !!review.liked)}
-                             className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
-                           >
-                             <Heart className={`w-4 h-4 transition-colors ${review.liked ? 'text-brand fill-brand' : 'text-white/20'}`} />
-                             <span className={review.liked ? 'text-brand' : 'text-white/40'}>
-                               {review.liked ? 'Liked' : 'Like'}
-                             </span>
-                           </button>
-                           <button 
-                             onClick={() => handleShareNote(review.movieId, review.movieTitle)}
-                             className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
-                           >
-                             <Share2 className="w-4 h-4" /> Share Note
-                           </button>
+                          <button
+                            onClick={() => handleToggleLike(review.movieId, !!review.liked)}
+                            className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
+                          >
+                            <Heart className={`w-4 h-4 transition-colors ${review.liked ? 'text-brand fill-brand' : 'text-white/20'}`} />
+                            <span className={review.liked ? 'text-brand' : 'text-white/40'}>
+                              {review.liked ? 'Liked' : 'Like'}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleShareNote(review.movieId, review.movieTitle)}
+                            className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
+                          >
+                            <Share2 className="w-4 h-4" /> Share Note
+                          </button>
                         </div>
-                     </div>
-                  </div>
-                ))
-              )}
-           </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Navigation Buttons (Visible on hover, if there are multiple items) */}
+                {userReviews.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => scrollCarousel('left')}
+                      className="absolute left-[-20px] top-1/2 -translate-y-1/2 p-3 rounded-full glass hover:bg-brand hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl z-10"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-white" />
+                    </button>
+                    <button
+                      onClick={() => scrollCarousel('right')}
+                      className="absolute right-[-20px] top-1/2 -translate-y-1/2 p-3 rounded-full glass hover:bg-brand hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl z-10"
+                    >
+                      <ChevronRight className="w-5 h-5 text-white" />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Recent Activity Popup Modal */}
+      <AnimatePresence>
+        {showActivityPopup && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-lg bg-surface border border-white/10 rounded-[32px] overflow-hidden shadow-2xl relative"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Recent Activity Log</h3>
+                  <p className="text-[10px] text-white/40 uppercase font-bold tracking-wider mt-1">Real-time user engagement timeline</p>
+                </div>
+                <button
+                  onClick={() => setShowActivityPopup(false)}
+                  className="p-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar" data-lenis-prevent>
+                {recentActivities.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <Activity className="w-8 h-8 text-white/10 mx-auto mb-3" />
+                    <p className="text-xs text-white/40 uppercase font-black tracking-widest">No activities logged yet</p>
+                    <p className="text-[10px] text-white/20 uppercase font-bold mt-1">Try searching, filtering, adding to watchlist, or rating movies!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentActivities.map((act) => {
+                      const timeStr = new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const dateStr = new Date(act.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+                      return (
+                        <div key={act.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-start justify-between gap-4 hover:border-brand/30 transition-colors">
+                          <div className="flex gap-3 items-start">
+                            <div className="p-2 bg-brand/10 text-brand rounded-xl mt-0.5">
+                              <Activity className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-black text-brand uppercase tracking-widest">{act.action}</span>
+                              <p className="text-xs font-bold text-white/90 mt-1">{act.detail}</p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-black text-white/30 uppercase tracking-tight">{timeStr}</p>
+                            <p className="text-[8px] font-bold text-white/10 uppercase tracking-widest mt-0.5">{dateStr}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-white/5 bg-black/40 flex justify-between gap-4">
+                <button
+                  onClick={() => {
+                    const idsToClear = [
+                      ...watchlist.map(m => `watchlist-${m.id}`),
+                      ...userReviews.map(r => `review-${r.movieId}`)
+                    ];
+                    setClearedTimelineIds(idsToClear);
+                    localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
+                    clearUserActivities();
+                    setShowActivityPopup(false);
+                  }}
+                  className="px-4 py-2 border border-white/10 hover:border-red-500/30 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/40 transition-colors"
+                >
+                  Clear History
+                </button>
+                <button
+                  onClick={() => setShowActivityPopup(false)}
+                  className="px-6 py-2 bg-brand text-black hover:bg-brand/90 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
