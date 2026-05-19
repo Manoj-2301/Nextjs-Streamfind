@@ -89,7 +89,7 @@ export default function GlobalSearch() {
               )}
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-2">
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-2" data-lenis-prevent>
               {isSearching ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-3">
                   <Loader2 className="w-6 h-6 text-brand animate-spin" />

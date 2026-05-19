@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Search, Play, Users, Globe, Menu as MenuIcon, X, Bookmark, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,7 +68,7 @@ export default function Navbar() {
                 className="flex items-center gap-2 border border-white/10 p-1 pr-3 rounded-full hover:bg-white/5 transition-colors"
               >
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                  <Image src={user.photoURL} alt="" width={32} height={32} className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-8 h-8 rounded-full border border-white/20 bg-white/5 flex items-center justify-center">
                     <UserIcon className="w-4 h-4 text-white/60" />
@@ -149,7 +150,7 @@ export default function Navbar() {
             {user && (
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full border border-white/20" referrerPolicy="no-referrer" />
+                  <Image src={user.photoURL} alt="" width={40} height={40} className="w-10 h-10 rounded-full border border-white/20" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-10 h-10 rounded-full border border-white/20 bg-white/5 flex items-center justify-center">
                     <UserIcon className="w-5 h-5 text-white/60" />

@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
       { hostname: 'placehold.co' },
       { hostname: 'www.edigitalagency.com.au' },
       { hostname: 'upload.wikimedia.org' },
+      { hostname: 'i.ibb.co' },
+      { hostname: 'res.cloudinary.com' },
+      { hostname: 'firebasestorage.googleapis.com' },
     ],
   },
 };

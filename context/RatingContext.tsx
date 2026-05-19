@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, setDoc, onSnapshot, query, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
+import { logUserActivity } from '@/lib/genreTracker';
 
 export interface UserReview {
   movieId: number;
@@ -84,6 +85,11 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
     const path = `users/${user.uid}/ratings/${movieId}`;
     const globalPath = `movies/${movieId}/reviews/${user.uid}`;
     try {
+      if (reviewText) {
+        logUserActivity("Review", `Reviewed "${movieDetails?.title || 'Movie'}" (Rated ${rating}/5)`);
+      } else {
+        logUserActivity("Rating", `Rated "${movieDetails?.title || 'Movie'}" ${rating}/5 stars`);
+      }
       const dataToSet: any = {
         movieId,
         rating,

@@ -8,6 +8,7 @@ import Pagination from '@/components/ui/pagination';
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import ErrorMessage from '@/components/ui/error-message';
+import MovieCardSkeleton from '@/components/ui/movie-card-skeleton';
 import { Movie } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
@@ -55,6 +56,7 @@ export default function Browse() {
 
   const { user } = useAuth();
   const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
+  const [isDnaExpanded, setIsDnaExpanded] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -174,18 +176,58 @@ export default function Browse() {
           <p className="text-white/40 max-w-xl text-base md:text-lg">Discover your next obsession. Filter through our curated collection of cinematic masterpieces.</p>
         </div>
 
-        <div className="flex flex-col gap-4 md:gap-8 bg-surface/30 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-white/5 backdrop-blur-sm">
+        <div className="flex flex-col gap-4 md:gap-8 bg-surface/30 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-white/5 backdrop-blur-sm relative z-[60]">
           <SearchBar
             value={search}
-            onChange={(val) => { setSearch(val); setCurrentPage(1); }}
+            onChange={(val) => { 
+              setSearch(val); 
+              setCurrentPage(1); 
+              if (val) {
+                import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
+                  trackGenreSearch(val);
+                  logUserActivity("Search", `Searched for "${val}"`);
+                });
+              }
+            }}
             placeholder="Filter by title or genre..."
             className="max-w-xl"
           />
           <FilterBar
-            onGenreChange={(g) => { setGenre(g); setCurrentPage(1); }}
-            onRatingChange={(r) => { setRating(r); setCurrentPage(1); }}
-            onYearChange={(y) => { setYearRange(y); setCurrentPage(1); }}
-            onPlatformChange={(p) => { setPlatforms(p); setCurrentPage(1); }}
+            onGenreChange={(g) => { 
+              setGenre(g); 
+              setCurrentPage(1); 
+              if (g !== "All") {
+                import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
+                  trackGenreSearch(g);
+                  logUserActivity("Filter", `Filtered by Genre: ${g}`);
+                });
+              }
+            }}
+            onRatingChange={(r) => { 
+              setRating(r); 
+              setCurrentPage(1); 
+              import('@/lib/genreTracker').then(({ logUserActivity }) => {
+                logUserActivity("Filter", `Filtered by Rating: ${r}+ Stars`);
+              });
+            }}
+            onYearChange={(y) => { 
+              setYearRange(y); 
+              setCurrentPage(1); 
+              if (y) {
+                import('@/lib/genreTracker').then(({ logUserActivity }) => {
+                  logUserActivity("Filter", `Filtered by Year: ${y[0]}-${y[1]}`);
+                });
+              }
+            }}
+            onPlatformChange={(p) => { 
+              setPlatforms(p); 
+              setCurrentPage(1); 
+              if (p.length > 0) {
+                import('@/lib/genreTracker').then(({ logUserActivity }) => {
+                  logUserActivity("Filter", `Filtered by Platforms: ${p.join(', ')}`);
+                });
+              }
+            }}
             onSortChange={(s, o) => { setSortBy(s); setSortOrder(o); setCurrentPage(1); }}
             activeGenre={genre}
             activeRating={rating}
@@ -199,9 +241,10 @@ export default function Browse() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-40 gap-4">
-          <Loader2 className="w-12 h-12 text-brand animate-spin" />
-          <p className="text-white/40 font-black uppercase tracking-widest text-xs">Curating Library...</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <MovieCardSkeleton key={idx} />
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
@@ -244,28 +287,70 @@ export default function Browse() {
       <AnimatePresence>
         {profile && profile.subscriptions.length > 0 && (
           <motion.div
+            layout
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-            className="fixed bottom-6 right-6 z-50 max-w-xs md:max-w-sm"
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            className={`fixed bottom-6 right-6 z-50 select-none ${
+              profile.autoFilter
+                ? `bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] backdrop-blur-md ${
+                    isDnaExpanded
+                      ? "rounded-3xl p-5 max-w-xs md:max-w-sm"
+                      : "rounded-full p-2 md:p-2.5 md:px-5 md:py-3 cursor-pointer hover:border-brand"
+                  }`
+                : "max-w-xs md:max-w-sm"
+            }`}
+            onClick={
+              profile.autoFilter && !isDnaExpanded 
+                ? () => setIsDnaExpanded(true) 
+                : undefined
+            }
           >
             {profile.autoFilter ? (
-              <div className="bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] rounded-3xl p-5 backdrop-blur-md">
+              isDnaExpanded ? (
                 <div className="flex gap-4">
-                  <div className="w-9 h-9 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 animate-pulse text-lg">
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDnaExpanded(false);
+                    }}
+                    className="w-9 h-9 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 animate-pulse text-lg cursor-pointer hover:bg-brand/20 transition-colors"
+                    title="Click to collapse"
+                  >
                     🍿
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] font-black uppercase text-brand tracking-widest">Subscription DNA Active</p>
+                    <div className="flex items-center justify-between">
+                      <p 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsDnaExpanded(false);
+                        }}
+                        className="text-[10px] font-black uppercase text-brand tracking-widest cursor-pointer hover:text-white transition-colors"
+                      >
+                        Subscription DNA Active
+                      </p>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsDnaExpanded(false);
+                        }}
+                        className="text-white/40 hover:text-white text-[10px] font-bold transition-colors ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
                     <p className="text-[10px] text-white/50 mt-1.5 leading-relaxed">
                       Filtering library to show only movies on your active subscriptions: <strong className="text-white font-bold">{profile.subscriptions.join(', ')}</strong>.
                     </p>
                     <div className="flex gap-2 mt-4">
                       <button 
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           try {
                             await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
+                            setIsDnaExpanded(false);
                           } catch (e) {
                             console.error(e);
                           }
@@ -276,6 +361,7 @@ export default function Browse() {
                       </button>
                       <a 
                         href="/profile"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-[9px] font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center"
                       >
                         Customize DNA
@@ -283,14 +369,25 @@ export default function Browse() {
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 text-base animate-pulse">
+                    🍿
+                  </div>
+                  <span className="hidden md:inline text-[10px] font-black uppercase text-brand tracking-widest">
+                    Subscription DNA Active
+                  </span>
+                </div>
+              )
             ) : (
               <motion.button 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.stopPropagation();
                   try {
                     await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
+                    setIsDnaExpanded(true);
                   } catch (e) {
                     console.error(e);
                   }

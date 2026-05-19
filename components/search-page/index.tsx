@@ -24,6 +24,10 @@ export default function SearchPage() {
       try {
         const data = await searchMovies(search);
         setResults(data);
+        import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
+          trackGenreSearch(search);
+          logUserActivity("Search", `Searched for "${search}"`);
+        });
       } catch (error) {
         console.error("Search error:", error);
       } finally {

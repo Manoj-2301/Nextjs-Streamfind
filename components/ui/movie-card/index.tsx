@@ -3,6 +3,7 @@
 import { motion } from 'motion/react';
 import { Star, Play, Bookmark } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Movie } from '@/types';
 import React from 'react';
 import { useWatchlist } from '@/context/WatchlistContext';
@@ -12,9 +13,10 @@ import { useRouter } from 'next/navigation';
 interface MovieCardProps {
   movie: Movie;
   key?: React.Key;
+  priority?: boolean;
 }
 
-export default function MovieCard({ movie }: MovieCardProps) {
+export default function MovieCard({ movie, priority = false }: MovieCardProps) {
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
   const { user } = useAuth();
   const router = useRouter();
@@ -44,12 +46,23 @@ export default function MovieCard({ movie }: MovieCardProps) {
         className="relative group/card w-full aspect-[2/3] rounded-lg md:rounded-xl overflow-hidden glass border border-white/10 hover:border-brand/40 shadow-lg hover:shadow-[0_8px_30px_rgba(229,9,20,0.15)] transition-all duration-300"
       >
         {/* Poster Image */}
-        <img
+        <Image
           src={movie.posterUrl}
           alt={movie.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          className="object-cover transition-transform duration-500 group-hover/card:scale-105"
           referrerPolicy="no-referrer"
+          priority={priority}
         />
+
+        {/* Binge Worthy Badge */}
+        {movie.rating >= 7.5 && (
+          <div className="absolute top-4 left-4 bg-brand/90 backdrop-blur-md border border-brand/50 text-white font-black text-[8px] uppercase tracking-widest px-2.5 py-1 rounded-full shadow-[0_4px_12px_rgba(255,40,78,0.3)] z-30 flex items-center gap-1">
+            <span className="animate-pulse">🍿</span>
+            <span>Binge Worthy</span>
+          </div>
+        )}
 
         {/* Permanent Bottom Black Gradient for text readability */}
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none" />
@@ -67,7 +80,7 @@ export default function MovieCard({ movie }: MovieCardProps) {
         </button>
 
         {/* Content Overlay (Title, Info, Platforms always visible; CTA button slides in on hover) */}
-        <div className="absolute inset-x-0 bottom-0 p-3 pb-5 md:p-4 md:pb-6 flex flex-col justify-end z-20">
+        <div className="absolute inset-x-0 bottom-0 p-3 pb-5 md:p-4 md:pb-6 flex flex-col justify-end z-20 w-full overflow-hidden">
           <p className="text-xs font-bold text-white uppercase tracking-tight line-clamp-1 mb-0.5 drop-shadow-md">
             {movie.title}
           </p>
@@ -80,24 +93,61 @@ export default function MovieCard({ movie }: MovieCardProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1 mb-1">
-            {(movie.platforms || []).map((p, i) => {
-              const isPartner = p.isSponsored || (p as any).isPartner;
-              return (
-                <div
-                  key={i}
-                  className={`text-[8px] md:text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 transition-colors ${
-                    isPartner 
-                      ? 'border-brand bg-brand/20 text-white font-black animate-pulse' 
-                      : 'border-white/10 bg-black/60 text-white/80'
-                  }`}
-                  title={p.name}
-                >
-                  {p.name}
-                  {isPartner && <span className="text-[6px] font-black tracking-widest text-brand uppercase ml-0.5">Partner</span>}
-                </div>
-              );
-            })}
+          <div className="relative w-full overflow-hidden mb-1 pb-0.5">
+            {movie.platforms && movie.platforms.length > 0 && (
+              <motion.div 
+                className="flex gap-1"
+                style={{ width: 'max-content' }}
+                animate={movie.platforms.length > 1 ? {
+                  x: [0, "-50%"]
+                } : {}}
+                transition={movie.platforms.length > 1 ? {
+                  x: {
+                    repeat: Infinity,
+                    repeatType: "loop",
+                    duration: 16,
+                    ease: "linear"
+                  }
+                } : undefined}
+              >
+                {/* First Pass */}
+                {movie.platforms.map((p, i) => {
+                  const isPartner = p.isSponsored || (p as any).isPartner;
+                  return (
+                    <div
+                      key={`p1-${i}`}
+                      className={`text-[8px] md:text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 transition-colors shrink-0 ${
+                        isPartner 
+                          ? 'border-brand bg-brand/20 text-white font-black animate-pulse' 
+                          : 'border-white/10 bg-black/60 text-white/80'
+                      }`}
+                      title={p.name}
+                    >
+                      {p.name}
+                      {isPartner && <span className="text-[6px] font-black tracking-widest text-brand uppercase ml-0.5">Partner</span>}
+                    </div>
+                  );
+                })}
+                {/* Second Pass for Infinite Loop (only if animating) */}
+                {movie.platforms.length > 1 && movie.platforms.map((p, i) => {
+                  const isPartner = p.isSponsored || (p as any).isPartner;
+                  return (
+                    <div
+                      key={`p2-${i}`}
+                      className={`text-[8px] md:text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 transition-colors shrink-0 ${
+                        isPartner 
+                          ? 'border-brand bg-brand/20 text-white font-black animate-pulse' 
+                          : 'border-white/10 bg-black/60 text-white/80'
+                      }`}
+                      title={p.name}
+                    >
+                      {p.name}
+                      {isPartner && <span className="text-[6px] font-black tracking-widest text-brand uppercase ml-0.5">Partner</span>}
+                    </div>
+                  );
+                })}
+              </motion.div>
+            )}
           </div>
 
           {/* VIEW DETAILS Button (Hover only - expands dynamically from bottom) */}

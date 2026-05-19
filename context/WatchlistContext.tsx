@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
+import { logUserActivity } from '@/lib/genreTracker';
 
 interface WatchlistContextType {
   watchlist: Movie[];
@@ -93,6 +94,7 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const addToWatchlist = async (movie: Movie) => {
+    logUserActivity("Watchlist", `Added "${movie.title}" to watchlist`);
     if (!user) {
       if (typeof window !== 'undefined') {
         const now = Date.now();
@@ -120,6 +122,10 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeFromWatchlist = async (movieId: number) => {
+    const targetMovie = watchlist.find(m => m.id === movieId);
+    if (targetMovie) {
+      logUserActivity("Watchlist", `Removed "${targetMovie.title}" from watchlist`);
+    }
     if (!user) {
       if (typeof window !== 'undefined') {
         const stored = localStorage.getItem(LOCAL_STORAGE_KEY);

@@ -13,15 +13,26 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
-export default function Home() {
-  const [trending, setTrending] = useState<Movie[]>([]);
-  const [sciFi, setSciFi] = useState<Movie[]>([]);
-  const [recommendations, setRecommendations] = useState<Movie[]>([]);
+interface HomeProps {
+  initialTrending?: Movie[];
+  initialSciFi?: Movie[];
+  initialPopular?: Movie[];
+}
+
+export default function Home({
+  initialTrending = [],
+  initialSciFi = [],
+  initialPopular = []
+}: HomeProps) {
+  const [trending, setTrending] = useState<Movie[]>(initialTrending);
+  const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
+  const [recommendations, setRecommendations] = useState<Movie[]>(initialPopular);
   const [recSource, setRecSource] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialTrending.length === 0);
   const { watchlist } = useWatchlist();
   const { user } = useAuth();
   const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
+  const [isDnaExpanded, setIsDnaExpanded] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -44,12 +55,19 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [trendingData, sciFiData] = await Promise.all([
-          getTrendingMovies(),
-          getMoviesByGenre(878) // 878 is Sci-Fi genre ID in TMDB
-        ]);
-        setTrending(trendingData);
-        setSciFi(sciFiData);
+        let currentTrending = trending;
+        let currentSciFi = sciFi;
+
+        if (trending.length === 0 || sciFi.length === 0) {
+          const [trendingData, sciFiData] = await Promise.all([
+            getTrendingMovies(),
+            getMoviesByGenre(878) // 878 is Sci-Fi genre ID in TMDB
+          ]);
+          currentTrending = trendingData;
+          currentSciFi = sciFiData;
+          setTrending(trendingData);
+          setSciFi(sciFiData);
+        }
 
         // Fetch Recommendations based on watchlist
         if (watchlist.length > 0) {
@@ -78,8 +96,10 @@ export default function Home() {
             setRecSource("your watchlist");
           }
         } else {
-          const popularData = await getPopularMovies();
-          setRecommendations(popularData);
+          if (recommendations.length === 0) {
+            const popularData = await getPopularMovies();
+            setRecommendations(popularData);
+          }
           setRecSource(null);
         }
       } catch (error) {
@@ -90,6 +110,7 @@ export default function Home() {
     };
     loadData();
   }, [watchlist.length]);
+
 
   if (isLoading) {
     return (
@@ -155,28 +176,70 @@ export default function Home() {
       <AnimatePresence>
         {profile && profile.subscriptions.length > 0 && (
           <motion.div
+            layout
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-            className="fixed bottom-6 right-6 z-50 max-w-xs md:max-w-sm"
+            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            className={`fixed bottom-6 right-6 z-50 select-none ${
+              profile.autoFilter
+                ? `bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] backdrop-blur-md ${
+                    isDnaExpanded
+                      ? "rounded-3xl p-5 max-w-xs md:max-w-sm"
+                      : "rounded-full p-2 md:p-2.5 md:px-5 md:py-3 cursor-pointer hover:border-brand"
+                  }`
+                : "max-w-xs md:max-w-sm"
+            }`}
+            onClick={
+              profile.autoFilter && !isDnaExpanded 
+                ? () => setIsDnaExpanded(true) 
+                : undefined
+            }
           >
             {profile.autoFilter ? (
-              <div className="bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] rounded-3xl p-5 backdrop-blur-md">
+              isDnaExpanded ? (
                 <div className="flex gap-4">
-                  <div className="w-9 h-9 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 animate-pulse text-lg">
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDnaExpanded(false);
+                    }}
+                    className="w-9 h-9 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 animate-pulse text-lg cursor-pointer hover:bg-brand/20 transition-colors"
+                    title="Click to collapse"
+                  >
                     🍿
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] font-black uppercase text-brand tracking-widest">Subscription DNA Active</p>
+                    <div className="flex items-center justify-between">
+                      <p 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsDnaExpanded(false);
+                        }}
+                        className="text-[10px] font-black uppercase text-brand tracking-widest cursor-pointer hover:text-white transition-colors"
+                      >
+                        Subscription DNA Active
+                      </p>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsDnaExpanded(false);
+                        }}
+                        className="text-white/40 hover:text-white text-[10px] font-bold transition-colors ml-2"
+                      >
+                        ✕
+                      </button>
+                    </div>
                     <p className="text-[10px] text-white/50 mt-1.5 leading-relaxed">
                       Filtering library to show only movies on your active subscriptions: <strong className="text-white font-bold">{profile.subscriptions.join(', ')}</strong>.
                     </p>
                     <div className="flex gap-2 mt-4">
                       <button 
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           try {
                             await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
+                            setIsDnaExpanded(false);
                           } catch (e) {
                             console.error(e);
                           }
@@ -187,6 +250,7 @@ export default function Home() {
                       </button>
                       <a 
                         href="/profile"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-[9px] font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center"
                       >
                         Customize DNA
@@ -194,14 +258,25 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 text-base animate-pulse">
+                    🍿
+                  </div>
+                  <span className="hidden md:inline text-[10px] font-black uppercase text-brand tracking-widest">
+                    Subscription DNA Active
+                  </span>
+                </div>
+              )
             ) : (
               <motion.button 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={async () => {
+                onClick={async (e) => {
+                  e.stopPropagation();
                   try {
                     await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
+                    setIsDnaExpanded(true);
                   } catch (e) {
                     console.error(e);
                   }
