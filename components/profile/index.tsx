@@ -4,16 +4,16 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import { useWatchlist } from '@/context/WatchlistContext';
-import { useRatings } from '@/context/RatingContext';
+import { useRatings, UserReview } from '@/context/RatingContext';
 import { searchMovies, getMovieAdditionalDetails, MovieAdditionalDetails } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { db, storage } from '@/lib/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query } from 'firebase/firestore';
 import { updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   User as UserIcon, Settings, Star, Film, Tv, Award, Plus, Trash2,
   Zap, Activity, History, Shield, Bell, Lock, Globe, Share2,
@@ -61,9 +61,20 @@ const frames = [
 
 export default function ProfileComponent() {
   const { user, logout } = useAuth();
-  const { watchlist } = useWatchlist();
-  const { userReviews } = useRatings();
+  const { watchlist: ownerWatchlist } = useWatchlist();
+  const { userReviews: ownerReviews } = useRatings();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sharedUid = searchParams ? searchParams.get('uid') : null;
+  const isOwner = !sharedUid || (user && user.uid === sharedUid);
+  const targetUid = sharedUid || user?.uid;
+
+  const [sharedWatchlist, setSharedWatchlist] = useState<Movie[]>([]);
+  const [sharedReviews, setSharedReviews] = useState<UserReview[]>([]);
+  const [isLoadingSharedData, setIsLoadingSharedData] = useState(false);
+
+  const watchlist = isOwner ? ownerWatchlist : sharedWatchlist;
+  const userReviews = isOwner ? ownerReviews : sharedReviews;
 
   // SSR Hydration Safeguard
   const [isMounted, setIsMounted] = useState(false);
@@ -311,11 +322,61 @@ export default function ProfileComponent() {
     }
   };
 
+  // Load shared user's watchlist and reviews if not owner
+  useEffect(() => {
+    if (isOwner || !targetUid) {
+      setSharedWatchlist([]);
+      setSharedReviews([]);
+      return;
+    }
+
+    setIsLoadingSharedData(true);
+    const watchlistPath = `users/${targetUid}/watchlist`;
+    const watchlistQuery = query(collection(db, watchlistPath));
+    const unsubscribeWatchlist = onSnapshot(watchlistQuery, (snapshot) => {
+      const items: Movie[] = [];
+      snapshot.forEach((doc) => {
+        items.push(doc.data() as Movie);
+      });
+      setSharedWatchlist(items);
+    }, (error) => {
+      console.error("Error loading shared watchlist:", error);
+    });
+
+    const ratingsPath = `users/${targetUid}/ratings`;
+    const ratingsQuery = query(collection(db, ratingsPath));
+    const unsubscribeRatings = onSnapshot(ratingsQuery, (snapshot) => {
+      const reviews: UserReview[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        reviews.push({
+          movieId: Number(docSnap.id),
+          rating: data.rating,
+          movieTitle: data.movieTitle || 'Unknown Movie',
+          moviePoster: data.moviePoster || '',
+          reviewText: data.reviewText || '',
+          updatedAt: data.updatedAt,
+          liked: !!data.liked
+        });
+      });
+      setSharedReviews(reviews);
+      setIsLoadingSharedData(false);
+    }, (error) => {
+      console.error("Error loading shared ratings:", error);
+      setIsLoadingSharedData(false);
+    });
+
+    return () => {
+      unsubscribeWatchlist();
+      unsubscribeRatings();
+    };
+  }, [targetUid, isOwner]);
+
   // Firestore read
   useEffect(() => {
-    if (!user) return;
+    if (!targetUid) return;
 
-    const path = `users/${user.uid}`;
+    const path = `users/${targetUid}`;
     const docRef = doc(db, path);
 
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -323,7 +384,7 @@ export default function ProfileComponent() {
         const data = docSnap.data() as ProfileSettings & { frameId?: string; email?: string; displayName?: string };
 
         // Proactively write email/displayName to Firestore if they are missing
-        if (!data.email || !data.displayName) {
+        if (isOwner && (!data.email || !data.displayName) && user) {
           setDoc(docRef, {
             email: user.email || '',
             displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
@@ -344,28 +405,30 @@ export default function ProfileComponent() {
         }));
       } else {
         // Initialize user document in Firestore if it doesn't exist
-        setDoc(docRef, {
-          bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
-          favoriteGenres: [],
-          subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
-          notifyNewRelease: true,
-          notifyFavGenres: true,
-          notifyLeavingSoon: true,
-          isPublic: true,
-          avatarFrame: 'none',
-          top10: [],
-          autoFilter: true,
-          photoURL: user.photoURL || '',
-          email: user.email || '',
-          displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
-        }).catch(console.error);
+        if (isOwner && user) {
+          setDoc(docRef, {
+            bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
+            favoriteGenres: [],
+            subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
+            notifyNewRelease: true,
+            notifyFavGenres: true,
+            notifyLeavingSoon: true,
+            isPublic: true,
+            avatarFrame: 'none',
+            top10: [],
+            autoFilter: true,
+            photoURL: user.photoURL || '',
+            email: user.email || '',
+            displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
+          }).catch(console.error);
+        }
       }
     }, (error) => {
       console.error("Profile onSnapshot error:", error);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [targetUid, isOwner, user]);
 
   // Modals sync
   useEffect(() => {
@@ -662,7 +725,7 @@ export default function ProfileComponent() {
     { icon: Zap, title: "Speed Demon", desc: "Rated 10 movies in one hour", unlocked: ratingCount > 3, color: "text-cyan-400" }
   ];
 
-  if (!user) {
+  if (!user && !sharedUid) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <motion.div
@@ -712,14 +775,14 @@ export default function ProfileComponent() {
                 className="relative group shrink-0 mx-auto lg:mx-0"
               >
                 <div className={`w-36 h-36 sm:w-44 sm:h-44 lg:w-56 lg:h-56 rounded-[48px] overflow-hidden border-[6px] transition-all p-1 bg-surface ${currentFrame.class}`}>
-                  {(profile.photoURL || user.photoURL) ? (
+                  {(profile.photoURL || (isOwner && user?.photoURL)) ? (
                     <div className="relative w-full h-full rounded-[40px] overflow-hidden">
                       <Image
-                        src={profile.photoURL || user.photoURL || ""}
+                        src={profile.photoURL || user?.photoURL || ""}
                         fill
                         sizes="(max-width: 768px) 144px, 224px"
                         className="object-cover"
-                        alt={user.displayName || ""}
+                        alt={profile.displayName || user?.displayName || "Profile Owner"}
                         referrerPolicy="no-referrer"
                       />
                     </div>
@@ -729,16 +792,18 @@ export default function ProfileComponent() {
                     </div>
                   )}
                 </div>
-                <div
-                  className="absolute bottom-0 right-0 w-12 h-12 bg-surface border border-white/10 rounded-2xl flex items-center justify-center shadow-xl cursor-pointer hover:bg-brand hover:border-brand transition-all group/cam"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {isUploadingImage ? (
-                    <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Camera className="w-5 h-5 text-white/40 group-hover/cam:text-white" />
-                  )}
-                </div>
+                {isOwner && (
+                  <div
+                    className="absolute bottom-0 right-0 w-12 h-12 bg-surface border border-white/10 rounded-2xl flex items-center justify-center shadow-xl cursor-pointer hover:bg-brand hover:border-brand transition-all group/cam"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {isUploadingImage ? (
+                      <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-white/40 group-hover/cam:text-white" />
+                    )}
+                  </div>
+                )}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -760,7 +825,7 @@ export default function ProfileComponent() {
 
                 <div>
                   <h1 className="text-4xl sm:text-5xl lg:text-7xl xl:text-8xl font-black tracking-tighter uppercase italic leading-[0.9] lg:leading-[0.8] mb-4">
-                    {user.displayName || user.email?.split('@')[0]}
+                    {profile.displayName || profile.email?.split('@')[0] || (isOwner && (user?.displayName || user?.email?.split('@')[0])) || 'Movie Buff'}
                   </h1>
 
                   {/* Bio & Glowing Tags */}
@@ -775,8 +840,8 @@ export default function ProfileComponent() {
                         return (
                           <span
                             key={genre}
-                            onClick={() => handleToggleGenre(genre)}
-                            className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-tight transition-all cursor-pointer ${isActive
+                            onClick={() => isOwner && handleToggleGenre(genre)}
+                            className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-tight transition-all ${isOwner ? 'cursor-pointer' : 'cursor-default'} ${isActive
                                 ? 'bg-brand/20 border-brand text-brand shadow-[0_0_15px_rgba(229,9,20,0.2)]'
                                 : 'bg-surface/20 border-white/10 text-white/40 hover:text-white/80 hover:border-white/20'
                               }`}
@@ -791,30 +856,32 @@ export default function ProfileComponent() {
               </div>
 
               {/* Share & Privacy Actions */}
-              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto shrink-0 justify-center">
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="bg-white text-black w-full lg:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all shadow-xl"
-                >
-                  Edit Profile
-                </button>
-                <div className="flex gap-2 w-full lg:w-auto">
+              {isOwner && (
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto shrink-0 justify-center">
                   <button
-                    onClick={() => handleTogglePref('isPublic')}
-                    className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="bg-white text-black w-full lg:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all shadow-xl"
                   >
-                    {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                    <span className="text-[10px] font-black uppercase tracking-wider">{profile.isPublic ? 'Public' : 'Private'}</span>
+                    Edit Profile
                   </button>
-                  <button
-                    onClick={handleShareProfile}
-                    className="p-4 bg-surface/20 border border-white/5 rounded-2xl text-white/40 hover:text-brand hover:border-brand/20 transition-all animate-pulse"
-                    title="Share Profile"
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex gap-2 w-full lg:w-auto">
+                    <button
+                      onClick={() => handleTogglePref('isPublic')}
+                      className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
+                    >
+                      {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      <span className="text-[10px] font-black uppercase tracking-wider">{profile.isPublic ? 'Public' : 'Private'}</span>
+                    </button>
+                    <button
+                      onClick={handleShareProfile}
+                      className="p-4 bg-surface/20 border border-white/5 rounded-2xl text-white/40 hover:text-brand hover:border-brand/20 transition-all animate-pulse"
+                      title="Share Profile"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -889,12 +956,14 @@ export default function ProfileComponent() {
             <div className="space-y-8 pt-8">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-black uppercase italic tracking-tight">The <span className="text-brand">Pinnacle</span> <span className="text-white/20 text-sm ml-2">MY TOP 5</span></h3>
-                <button
-                  onClick={() => setShowSearch(!showSearch)}
-                  className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline px-4 py-2 bg-brand/10 rounded-full transition-colors"
-                >
-                  {showSearch ? "Close Search" : "Manage Slot"}
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowSearch(!showSearch)}
+                    className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline px-4 py-2 bg-brand/10 rounded-full transition-colors"
+                  >
+                    {showSearch ? "Close Search" : "Manage Slot"}
+                  </button>
+                )}
               </div>
 
               {showSearch && (
@@ -951,17 +1020,19 @@ export default function ProfileComponent() {
                     <img src={movie.posterUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={movie.title} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                       <p className="text-[10px] font-bold text-white line-clamp-1">{movie.title}</p>
-                      <div className="flex gap-1.5 mt-3 border-t border-white/10 pt-3">
-                        <button onClick={() => handleMoveTopMovie(idx, 'up')} disabled={idx === 0} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowUp className="w-3 h-3 text-white" /></button>
-                        <button onClick={() => handleMoveTopMovie(idx, 'down')} disabled={idx === topTen.length - 1} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowDown className="w-3 h-3 text-white" /></button>
-                        <button onClick={() => handleRemoveTopMovie(movie.id)} className="p-1.5 rounded bg-red-950/40 border border-red-500/20 hover:bg-brand flex items-center justify-center"><Trash2 className="w-3 h-3 text-red-400 hover:text-white" /></button>
-                      </div>
+                      {isOwner && (
+                        <div className="flex gap-1.5 mt-3 border-t border-white/10 pt-3">
+                          <button onClick={() => handleMoveTopMovie(idx, 'up')} disabled={idx === 0} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowUp className="w-3 h-3 text-white" /></button>
+                          <button onClick={() => handleMoveTopMovie(idx, 'down')} disabled={idx === topTen.length - 1} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowDown className="w-3 h-3 text-white" /></button>
+                          <button onClick={() => handleRemoveTopMovie(movie.id)} className="p-1.5 rounded bg-red-950/40 border border-red-500/20 hover:bg-brand flex items-center justify-center"><Trash2 className="w-3 h-3 text-red-400 hover:text-white" /></button>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 ))}
 
                 {/* Empty Slots */}
-                {Array.from({ length: 5 - topTen.length }).map((_, emptyIdx) => (
+                {isOwner && Array.from({ length: 5 - topTen.length }).map((_, emptyIdx) => (
                   <div
                     key={`empty-${emptyIdx}`}
                     onClick={() => setShowSearch(true)}
@@ -998,70 +1069,82 @@ export default function ProfileComponent() {
                         </div>
                         <span className="text-sm font-bold text-white/70 group-hover:text-white transition-colors">{sub.name}</span>
                       </div>
-                      <button
-                        onClick={() => handleToggleSub(sub.name)}
-                        className={`w-12 h-6 rounded-full relative transition-all duration-300 cursor-pointer ${isActive ? 'bg-brand' : 'bg-white/10'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
-                      </button>
+                      {isOwner ? (
+                        <button
+                          onClick={() => handleToggleSub(sub.name)}
+                          className={`w-12 h-6 rounded-full relative transition-all duration-300 cursor-pointer ${isActive ? 'bg-brand' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
+                        </button>
+                      ) : (
+                        <div
+                          className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isActive ? 'bg-brand' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
-                <div className="flex items-center justify-between text-[10px] font-black uppercase text-white/30 tracking-widest">
-                  <span>Global Preferences</span>
-                  <Settings className="w-3 h-3" />
+              {isOwner && (
+                <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase text-white/30 tracking-widest">
+                    <span>Global Preferences</span>
+                    <Settings className="w-3 h-3" />
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-bold text-white/70">
+                    <span>Auto-filter by my subs</span>
+                    <button
+                      onClick={() => handleTogglePref('autoFilter')}
+                      className={`w-10 h-5 rounded-full relative transition-all cursor-pointer ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile.autoFilter ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-xs font-bold text-white/70">
-                  <span>Auto-filter by my subs</span>
-                  <button
-                    onClick={() => handleTogglePref('autoFilter')}
-                    className={`w-10 h-5 rounded-full relative transition-all cursor-pointer ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
-                  >
-                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile.autoFilter ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Notification Center */}
-            <div className="bg-brand/5 border border-brand/20 rounded-[40px] p-8 shadow-2xl">
-              <div className="flex items-center gap-3 mb-6">
-                <Bell className="w-5 h-5 text-brand" />
-                <h3 className="text-sm font-black uppercase tracking-widest text-brand">Vigilance Hub</h3>
-              </div>
-              <div className="flex flex-col gap-6">
-                {[
-                  { key: 'notifyNewRelease', label: "New Release", desc: "Get alerted when any new movie epic drops." },
-                  { key: 'notifyFavGenres', label: "Your Favorite Genres", desc: "Get alerts matching your favorite genres selected above." },
-                  { key: 'notifyLeavingSoon', label: "Leaving Platform", desc: "Don't miss movies exiting your subs." }
-                ].map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex gap-4 items-center justify-between transition-all duration-300"
-                  >
-                    <div>
-                      <p className="text-xs font-black text-white uppercase">{item.label}</p>
-                      <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
-                    </div>
-                    <button
-                      onClick={() => handleTogglePref(item.key as any)}
-                      className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
-                          ? 'bg-brand border-brand shadow-[0_0_10px_rgba(255,40,78,0.4)]'
-                          : 'bg-white/5 border-white/10 hover:border-white/20'
-                        }`}
+            {isOwner && (
+              <div className="bg-brand/5 border border-brand/20 rounded-[40px] p-8 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <Bell className="w-5 h-5 text-brand" />
+                  <h3 className="text-sm font-black uppercase tracking-widest text-brand">Vigilance Hub</h3>
+                </div>
+                <div className="flex flex-col gap-6">
+                  {[
+                    { key: 'notifyNewRelease', label: "New Release", desc: "Get alerted when any new movie epic drops." },
+                    { key: 'notifyFavGenres', label: "Your Favorite Genres", desc: "Get alerts matching your favorite genres selected above." },
+                    { key: 'notifyLeavingSoon', label: "Leaving Platform", desc: "Don't miss movies exiting your subs." }
+                  ].map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex gap-4 items-center justify-between transition-all duration-300"
                     >
-                      <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
-                          ? 'left-[23px]'
-                          : 'left-[3px]'
-                        }`} />
-                    </button>
-                  </div>
-                ))}
+                      <div>
+                        <p className="text-xs font-black text-white uppercase">{item.label}</p>
+                        <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
+                      </div>
+                      <button
+                        onClick={() => handleTogglePref(item.key as any)}
+                        className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
+                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(255,40,78,0.4)]'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                          }`}
+                      >
+                        <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
+                            ? 'left-[23px]'
+                            : 'left-[3px]'
+                          }`} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 3. Watch History Timeline */}
             <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl">
@@ -1070,20 +1153,22 @@ export default function ProfileComponent() {
                   <History className="w-5 h-5 text-white/30" />
                   <h3 className="text-xs font-black uppercase tracking-widest">Timeline</h3>
                 </div>
-                <button 
-                  onClick={() => {
-                    const idsToClear = [
-                      ...watchlist.map(m => `watchlist-${m.id}`),
-                      ...userReviews.map(r => `review-${r.movieId}`)
-                    ];
-                    setClearedTimelineIds(idsToClear);
-                    localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
-                    clearUserActivities();
-                  }}
-                  className="text-[10px] font-black text-white/20 hover:text-white transition-colors"
-                >
-                  Clear All
-                </button>
+                {isOwner && (
+                  <button 
+                    onClick={() => {
+                      const idsToClear = [
+                        ...watchlist.map(m => `watchlist-${m.id}`),
+                        ...userReviews.map(r => `review-${r.movieId}`)
+                      ];
+                      setClearedTimelineIds(idsToClear);
+                      localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
+                      clearUserActivities();
+                    }}
+                    className="text-[10px] font-black text-white/20 hover:text-white transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
               </div>
 
               <div className="max-h-[200px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
@@ -1108,12 +1193,14 @@ export default function ProfileComponent() {
                 </div>
               </div>
 
-              <button 
-                onClick={() => setShowActivityPopup(true)}
-                className="w-full mt-8 py-3 bg-white/5 hover:bg-brand/10 hover:text-brand rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/20 transition-all"
-              >
-                Show Recent Activity
-              </button>
+              {isOwner && (
+                <button 
+                  onClick={() => setShowActivityPopup(true)}
+                  className="w-full mt-8 py-3 bg-white/5 hover:bg-brand/10 hover:text-brand rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/20 transition-all"
+                >
+                  Show Recent Activity
+                </button>
+              )}
             </div>
 
             {/* Binge Badges / Achievements */}
@@ -1144,7 +1231,7 @@ export default function ProfileComponent() {
 
         {/* Edit Profile Modal */}
         <AnimatePresence>
-          {isEditModalOpen && (
+          {isOwner && isEditModalOpen && (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
               <motion.div
                 initial={{ opacity: 0 }}
@@ -1456,15 +1543,17 @@ export default function ProfileComponent() {
                         </div>
 
                         <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-8">
-                          <button
-                            onClick={() => handleToggleLike(review.movieId, !!review.liked)}
-                            className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
-                          >
-                            <Heart className={`w-4 h-4 transition-colors ${review.liked ? 'text-brand fill-brand' : 'text-white/20'}`} />
-                            <span className={review.liked ? 'text-brand' : 'text-white/40'}>
-                              {review.liked ? 'Liked' : 'Like'}
-                            </span>
-                          </button>
+                          {isOwner && (
+                            <button
+                              onClick={() => handleToggleLike(review.movieId, !!review.liked)}
+                              className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
+                            >
+                              <Heart className={`w-4 h-4 transition-colors ${review.liked ? 'text-brand fill-brand' : 'text-white/20'}`} />
+                              <span className={review.liked ? 'text-brand' : 'text-white/40'}>
+                                {review.liked ? 'Liked' : 'Like'}
+                              </span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleShareNote(review.movieId, review.movieTitle)}
                             className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
