@@ -9,8 +9,9 @@ import { searchMovies, getMovieAdditionalDetails, MovieAdditionalDetails } from 
 import { Movie } from '@/types';
 import { db, storage } from '@/lib/firebase';
 import { doc, setDoc, onSnapshot, collection, query } from 'firebase/firestore';
-import { updateProfile, updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { updateProfile, verifyBeforeUpdateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -60,7 +61,7 @@ const frames = [
 ];
 
 export default function ProfileComponent() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const { watchlist: ownerWatchlist } = useWatchlist();
   const { userReviews: ownerReviews } = useRatings();
   const router = useRouter();
@@ -109,6 +110,7 @@ export default function ProfileComponent() {
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [bioInput, setBioInput] = useState(profile.bio);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -205,7 +207,7 @@ export default function ProfileComponent() {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        alert(`Copied link for "${movieTitle}" to clipboard!`);
+        toast.success(`Copied link for "${movieTitle}" to clipboard!`);
       }
     } catch (e) {
       console.error("Error sharing note:", e);
@@ -252,7 +254,7 @@ export default function ProfileComponent() {
     if (!file || !user) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be smaller than 5MB");
+      toast.error("Image must be smaller than 5MB");
       return;
     }
 
@@ -316,7 +318,7 @@ export default function ProfileComponent() {
       window.location.reload();
     } catch (err: any) {
       console.error("Error uploading image:", err);
-      alert("Error uploading image: " + err.message + ". Please try again.");
+      toast.error("Error uploading image: " + err.message + ". Please try again.");
     } finally {
       setIsUploadingImage(false);
     }
@@ -372,6 +374,27 @@ export default function ProfileComponent() {
     };
   }, [targetUid, isOwner]);
 
+  // One-time forced sync: when owner visits their own profile, always write latest auth data to Firestore
+  useEffect(() => {
+    if (!isOwner || !user || !user.uid) return;
+
+    const syncAuthToFirestore = async () => {
+      try {
+        const docRef = doc(db, `users/${user.uid}`);
+        await setDoc(docRef, {
+          displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff',
+          email: user.email || '',
+          photoURL: user.photoURL || '',
+        }, { merge: true });
+      } catch (err) {
+        console.error("Error syncing auth data to Firestore:", err);
+      }
+    };
+
+    syncAuthToFirestore();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, isOwner]);
+
   // Firestore read
   useEffect(() => {
     if (!targetUid) return;
@@ -383,17 +406,35 @@ export default function ProfileComponent() {
       if (docSnap.exists()) {
         const data = docSnap.data() as ProfileSettings & { frameId?: string; email?: string; displayName?: string };
 
-        // Proactively write email/displayName to Firestore if they are missing
-        if (isOwner && (!data.email || !data.displayName) && user) {
+        // Proactively write email/displayName/photoURL to Firestore if they are missing, empty, or outdated
+        const hasMissingEmail = !data.email && user?.email;
+        const hasMissingDisplayName = !data.displayName && user?.displayName;
+        const hasMissingPhoto = !data.photoURL && user?.photoURL;
+        const hasMismatchedEmail = data.email && user?.email && data.email !== user.email;
+        const hasMismatchedName = data.displayName && user?.displayName && data.displayName !== user.displayName;
+        const hasMismatchedPhoto = data.photoURL && user?.photoURL && data.photoURL !== user.photoURL;
+
+        if (isOwner && user && (
+          hasMissingEmail || 
+          hasMissingDisplayName || 
+          hasMissingPhoto || 
+          hasMismatchedEmail || 
+          hasMismatchedName || 
+          hasMismatchedPhoto
+        )) {
           setDoc(docRef, {
-            email: user.email || '',
-            displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
+            email: user.email || data.email || '',
+            displayName: user.displayName || data.displayName || user.email?.split('@')[0] || 'Movie Buff',
+            photoURL: user.photoURL || data.photoURL || ''
           }, { merge: true }).catch(console.error);
         }
 
         setProfile(prev => ({
           ...prev,
           ...data,
+          // Guard all fields: prefer Firestore data over defaults, but keep previous if Firestore has empty value
+          displayName: data.displayName || prev.displayName,
+          email: data.email || prev.email,
           favoriteGenres: data.favoriteGenres || prev.favoriteGenres,
           subscriptions: data.subscriptions || prev.subscriptions,
           top10: data.top10 || prev.top10,
@@ -408,7 +449,7 @@ export default function ProfileComponent() {
         if (isOwner && user) {
           setDoc(docRef, {
             bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
-            favoriteGenres: [],
+            favoriteGenres: ['Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'],
             subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
             notifyNewRelease: true,
             notifyFavGenres: true,
@@ -458,7 +499,8 @@ export default function ProfileComponent() {
       const savePromise = setDoc(docRef, {
         bio: bioInput,
         avatarFrame: editFrameId,
-        frameId: editFrameId
+        frameId: editFrameId,
+        displayName: editDisplayName
       }, { merge: true });
 
       const authPromise = editDisplayName !== user.displayName
@@ -467,7 +509,7 @@ export default function ProfileComponent() {
 
       await Promise.all([savePromise, authPromise]);
 
-      setProfile(prev => ({ ...prev, bio: bioInput, avatarFrame: editFrameId }));
+      setProfile(prev => ({ ...prev, bio: bioInput, avatarFrame: editFrameId, displayName: editDisplayName }));
 
       const emailChanged = newEmail && newEmail !== user.email;
       const passwordChanged = newPassword && newPassword.length >= 6;
@@ -480,8 +522,8 @@ export default function ProfileComponent() {
 
         try {
           if (emailChanged) {
-            await updateEmail(user, newEmail);
-            await setDoc(docRef, { email: newEmail }, { merge: true });
+            await verifyBeforeUpdateEmail(user, newEmail);
+            toast.success(`Verification link sent to ${newEmail}. Please verify before your email is updated.`);
           }
           if (passwordChanged) {
             await updatePassword(user, newPassword);
@@ -499,6 +541,7 @@ export default function ProfileComponent() {
       }
 
       setModalSuccess("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
       setTimeout(() => {
         setIsEditModalOpen(false);
       }, 1500);
@@ -515,6 +558,7 @@ export default function ProfileComponent() {
         msg = "Incorrect current password. Reauthentication failed.";
       }
       setModalError(msg);
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }
@@ -532,8 +576,10 @@ export default function ProfileComponent() {
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { subscriptions: updatedSubs }, { merge: true });
+      toast.success(updatedSubs.includes(platformName) ? `Subscribed to ${platformName}` : `Unsubscribed from ${platformName}`);
     } catch (err) {
       console.error("Error toggling subscriptions:", err);
+      toast.error("Failed to update subscription");
     }
   };
 
@@ -542,8 +588,10 @@ export default function ProfileComponent() {
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { [field]: !profile[field] }, { merge: true });
+      toast.success("Preference updated successfully");
     } catch (err) {
       console.error("Error updating preference:", err);
+      toast.error("Failed to update preference");
     }
   };
 
@@ -577,8 +625,10 @@ export default function ProfileComponent() {
           })
         }).catch(console.error);
       }
+      toast.success(updatedGenres.includes(genre) ? `Added ${genre} to favorites` : `Removed ${genre} from favorites`);
     } catch (err) {
-      console.error("Error updating genres:", err);
+      console.error("Error toggling genre:", err);
+      toast.error("Failed to update favorite genres");
     }
   };
 
@@ -597,14 +647,17 @@ export default function ProfileComponent() {
     if (profile.top10.some(m => m.id === movie.id)) return;
 
     const updatedTop10 = [...profile.top10, movie];
+    const sanitizedTop10 = JSON.parse(JSON.stringify(updatedTop10));
     try {
       const docRef = doc(db, `users/${user.uid}`);
-      await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
+      await setDoc(docRef, { top10: sanitizedTop10 }, { merge: true });
       setSearchQuery('');
       setSearchResults([]);
       setShowSearch(false);
+      toast.success(`${movie.title} added to Top 5`);
     } catch (err) {
       console.error("Error adding to Top 5:", err);
+      toast.error("Failed to add movie to Top 5");
     }
   };
 
@@ -614,8 +667,10 @@ export default function ProfileComponent() {
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
+      toast.success("Removed movie from Top 5");
     } catch (err) {
       console.error("Error removing from Top 5:", err);
+      toast.error("Failed to remove movie");
     }
   };
 
@@ -632,8 +687,10 @@ export default function ProfileComponent() {
     try {
       const docRef = doc(db, `users/${user.uid}`);
       await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
+      toast.success("Reordered Top 5");
     } catch (err) {
       console.error("Error reordering Top 5:", err);
+      toast.error("Failed to reorder movies");
     }
   };
 
@@ -725,6 +782,26 @@ export default function ProfileComponent() {
     { icon: Zap, title: "Speed Demon", desc: "Rated 10 movies in one hour", unlocked: ratingCount > 3, color: "text-cyan-400" }
   ];
 
+  // Wait for Firebase auth to finish initializing before deciding if user is logged in.
+  // Without this guard, navigating back from a shared link (/profile?uid=XYZ) to /profile
+  // briefly has user=null while auth loads, incorrectly showing "Member Access Required".
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
+        <div className="w-20 h-20 rounded-full bg-white/5 animate-pulse" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-5 w-48 rounded-full bg-white/5 animate-pulse" />
+          <div className="h-4 w-32 rounded-full bg-white/5 animate-pulse" />
+        </div>
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          {[1,2,3].map(i => (
+            <div key={i} className="h-20 w-28 rounded-2xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (!user && !sharedUid) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
@@ -778,11 +855,11 @@ export default function ProfileComponent() {
                   {(profile.photoURL || (isOwner && user?.photoURL)) ? (
                     <div className="relative w-full h-full rounded-[40px] overflow-hidden">
                       <Image
-                        src={profile.photoURL || user?.photoURL || ""}
+                        src={isOwner ? (user?.photoURL || profile.photoURL || "") : (profile.photoURL || "")}
                         fill
                         sizes="(max-width: 768px) 144px, 224px"
                         className="object-cover"
-                        alt={profile.displayName || user?.displayName || "Profile Owner"}
+                        alt={isOwner ? (user?.displayName || profile.displayName || "Profile Owner") : (profile.displayName || "Profile Owner")}
                         referrerPolicy="no-referrer"
                       />
                     </div>
@@ -825,8 +902,18 @@ export default function ProfileComponent() {
 
                 <div>
                   <h1 className="text-4xl sm:text-5xl lg:text-7xl xl:text-8xl font-black tracking-tighter uppercase italic leading-[0.9] lg:leading-[0.8] mb-4">
-                    {profile.displayName || profile.email?.split('@')[0] || (isOwner && (user?.displayName || user?.email?.split('@')[0])) || 'Movie Buff'}
+                    {isOwner
+                      ? (profile.displayName || user?.displayName || profile.email?.split('@')[0] || user?.email?.split('@')[0] || 'Movie Buff')
+                      : (profile.displayName || profile.email?.split('@')[0] || 'Movie Buff')
+                    }
                   </h1>
+                  
+                  {isOwner && user?.email && (
+                    <div className="flex items-center gap-2 text-white/50 mb-6 lg:justify-start justify-center">
+                      <Mail className="w-4 h-4" />
+                      <span className="text-sm font-medium tracking-wide">{user.email}</span>
+                    </div>
+                  )}
 
                   {/* Bio & Glowing Tags */}
                   <div className="max-w-2xl mx-auto lg:mx-0">
@@ -1046,6 +1133,56 @@ export default function ProfileComponent() {
                 ))}
               </div>
             </div>
+
+            {/* Account Actions — below TOP 5 in left column, sits level with Binge Badges on the right */}
+            {isOwner && (
+              <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl backdrop-blur-md">
+                <div className="flex items-center gap-3 mb-6">
+                  <Lock className="w-5 h-5 text-white/30" />
+                  <h3 className="text-sm font-black uppercase tracking-widest">Account Actions</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Reset Password */}
+                  <button
+                    onClick={async () => {
+                      if (!user?.email) return;
+                      try {
+                        const { sendPasswordResetEmail } = await import('firebase/auth');
+                        const { auth } = await import('@/lib/firebase');
+                        await sendPasswordResetEmail(auth, user.email);
+                        toast.success(`Password reset email sent to ${user.email}. Check your inbox!`);
+                      } catch (err: any) {
+                        toast.error('Failed to send reset email. Please try again.');
+                        console.error(err);
+                      }
+                    }}
+                    className="group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-brand/30 hover:bg-brand/5 transition-all text-left"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-brand/10 group-hover:border-brand/20 transition-all shrink-0">
+                      <Lock className="w-5 h-5 text-white/40 group-hover:text-brand transition-colors" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-tight text-white group-hover:text-brand transition-colors">Reset Password</p>
+                      <p className="text-[10px] text-white/30 font-medium mt-0.5">Send a reset link to your email</p>
+                    </div>
+                  </button>
+
+                  {/* Sign Out */}
+                  <button
+                    onClick={() => setIsSignOutModalOpen(true)}
+                    className="group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-red-500/30 hover:bg-red-500/5 transition-all text-left"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-red-500/10 group-hover:border-red-500/20 transition-all shrink-0">
+                      <LogOut className="w-5 h-5 text-white/40 group-hover:text-red-400 transition-colors" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-tight text-white group-hover:text-red-400 transition-colors">Sign Out</p>
+                      <p className="text-[10px] text-white/30 font-medium mt-0.5">End your current session</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Cards & History */}
@@ -1209,23 +1346,26 @@ export default function ProfileComponent() {
                 <h3 className="text-xs font-black uppercase tracking-widest">Binge Badges</h3>
                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / 4 Unlocked</span>
               </div>
-              <div className="space-y-4">
-                {badges.map((badge) => (
-                  <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform ${badge.color}`}>
-                        <badge.icon className="w-5 h-5" />
+              <div className="max-h-[257px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
+                <div className="space-y-4">
+                  {badges.map((badge) => (
+                    <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform ${badge.color}`}>
+                          <badge.icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-white uppercase">{badge.title}</p>
+                          <p className="text-[10px] text-white/30 font-medium">{badge.desc}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-black text-white uppercase">{badge.title}</p>
-                        <p className="text-[10px] text-white/30 font-medium">{badge.desc}</p>
-                      </div>
+                      {badge.unlocked && <CheckCircle2 className="w-4 h-4 text-brand" />}
                     </div>
-                    {badge.unlocked && <CheckCircle2 className="w-4 h-4 text-brand" />}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
+
           </div>
         </div>
 
@@ -1277,6 +1417,17 @@ export default function ProfileComponent() {
                         onChange={(e) => setEditDisplayName(e.target.value)}
                         className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-brand outline-none transition-all"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Email Address</label>
+                      <input
+                        type="email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white font-bold focus:border-brand outline-none transition-all"
+                      />
+                      <p className="text-[10px] text-white/30 px-2 mt-1">Changing this requires a verification email.</p>
                     </div>
 
                     <div className="space-y-2">
@@ -1410,7 +1561,7 @@ export default function ProfileComponent() {
                     <button
                       onClick={() => {
                         copyPublicLink();
-                        alert("📸 Link Copied!\n\nInstagram doesn't support sharing links directly. We've copied your profile link to your clipboard so you can paste it in your bio or stories!");
+                        toast.success("📸 Link Copied!\n\nInstagram doesn't support sharing links directly. We've copied your profile link to your clipboard so you can paste it in your bio or stories!", { duration: 6000 });
                       }}
                       className="flex flex-col items-center gap-3 p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-[#ee2a7b]/40 hover:bg-gradient-to-tr hover:from-[#f9ce34]/10 hover:via-[#ee2a7b]/10 hover:to-[#6228d7]/10 group transition-all"
                     >
@@ -1460,7 +1611,7 @@ export default function ProfileComponent() {
         </AnimatePresence>
 
         {/* 5. Social: Personal Reviews/Feed */}
-        <div className="mt-20 space-y-12">
+        <div className="mt-12 space-y-12">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
               <Star className="w-6 h-6 text-brand" />
@@ -1660,6 +1811,7 @@ export default function ProfileComponent() {
                     localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
                     clearUserActivities();
                     setShowActivityPopup(false);
+                    toast.success("Activity history cleared");
                   }}
                   className="px-4 py-2 border border-white/10 hover:border-red-500/30 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/40 transition-colors"
                 >
@@ -1671,6 +1823,64 @@ export default function ProfileComponent() {
                 >
                   Done
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Sign Out Modal */}
+        {isSignOutModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setIsSignOutModalOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-surface/90 border border-white/10 rounded-[32px] p-6 shadow-2xl overflow-hidden bg-black/90"
+            >
+              <div className="absolute top-0 right-0 p-6">
+                <button
+                  onClick={() => setIsSignOutModalOpen(false)}
+                  className="text-white/40 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center text-center gap-4 pt-4">
+                <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                  <LogOut className="w-8 h-8 text-red-500" />
+                </div>
+                
+                <div>
+                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">Sign Out</h3>
+                  <p className="text-sm text-white/50 font-medium mt-2">Are you sure you want to end your current session?</p>
+                </div>
+
+                <div className="w-full flex gap-3 mt-4">
+                  <button
+                    onClick={() => setIsSignOutModalOpen(false)}
+                    className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setIsSignOutModalOpen(false);
+                      await logout();
+                      router.push('/');
+                    }}
+                    className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg shadow-red-500/20"
+                  >
+                    Yes, Leave
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

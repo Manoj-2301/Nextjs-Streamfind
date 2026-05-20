@@ -105,7 +105,7 @@ export default function MovieCard({ movie, priority = false }: MovieCardProps) {
                   x: {
                     repeat: Infinity,
                     repeatType: "loop",
-                    duration: 16,
+                    duration: Math.max(10, movie.platforms.length * 5),
                     ease: "linear"
                   }
                 } : undefined}
