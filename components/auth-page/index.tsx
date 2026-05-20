@@ -5,8 +5,6 @@ import { motion } from 'motion/react';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { auth } from '@/lib/firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
@@ -18,7 +16,7 @@ export default function AuthPage() {
   const [verificationSent, setVerificationSent] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
-  const { loginWithEmail, signupWithEmail, loginWithGoogle } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
 
   const handleForgotPassword = async () => {
@@ -30,7 +28,7 @@ export default function AuthPage() {
     }
     setIsSubmitting(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordReset(email);
       setSuccessMessage('Password reset email sent! Please check your inbox.');
     } catch (err: any) {
       console.error("Password reset error:", err);

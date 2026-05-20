@@ -43,6 +43,5 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  // Not throwing to avoid fatal page crashes on permission/initialization errors
+  console.warn(`Firestore Sync Alert [${operationType}] on path "${path}":`, errInfo.error);
 }
