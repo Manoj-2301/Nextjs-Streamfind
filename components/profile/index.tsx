@@ -51,6 +51,12 @@ const STREAMING_PLATFORMS = [
   { id: 'disney', name: "Disney+", logo: "D", color: "bg-blue-600" },
   { id: 'prime', name: "Prime Video", logo: "P", color: "bg-cyan-500" },
   { id: 'hbo', name: "HBO Max", logo: "H", color: "bg-purple-600" },
+  { id: 'hotstar', name: "Hotstar", logo: "H", color: "bg-green-600" },
+  { id: 'jiocinema', name: "JioCinema", logo: "J", color: "bg-pink-600" },
+  { id: 'sonyliv', name: "SonyLIV", logo: "S", color: "bg-yellow-500" },
+  { id: 'aha', name: "Aha", logo: "A", color: "bg-orange-500" },
+  { id: 'zee5', name: "Zee5", logo: "Z", color: "bg-indigo-500" },
+  { id: 'apple', name: "Apple TV", logo: "A", color: "bg-slate-700" },
 ];
 
 const frames = [
@@ -1195,7 +1201,7 @@ export default function ProfileComponent() {
                 <h3 className="text-sm font-black uppercase tracking-widest">Subscription DNA</h3>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-2" data-lenis-prevent>
                 {STREAMING_PLATFORMS.map((sub) => {
                   const isActive = profile.subscriptions.includes(sub.name);
                   return (
