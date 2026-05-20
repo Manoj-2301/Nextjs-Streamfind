@@ -4,6 +4,7 @@ export interface Platform {
   watchUrl: string;
   isSponsored?: boolean;
   countries?: string[];
+  watchUrls?: Record<string, string>;
 }
 
 export interface CastMember {

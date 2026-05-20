@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { Star, Clock, Calendar, ChevronLeft, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil } from 'lucide-react';
+import { Star, Clock, Calendar, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil } from 'lucide-react';
 import WatchProviderCard from '@/components/ui/watch-provider-card';
 import ErrorMessage from '@/components/ui/error-message';
 import Link from 'next/link';
@@ -13,10 +13,41 @@ import { useState, useEffect, useRef } from 'react';
 import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
 import { Movie, Platform } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, collectionGroup, where } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
+import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
+import Pagination from '@/components/ui/pagination';
 
-export default function MovieDetails() {
+const localizeTmdbUrl = (url: string, countryCode: string): string => {
+  if (!url || !url.includes('themoviedb.org')) return url;
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.searchParams.set('locale', countryCode);
+    return parsedUrl.toString();
+  } catch (e) {
+    return url;
+  }
+};
+
+const COUNTRY_NAMES: Record<string, string> = {
+  IN: 'India',
+  US: 'United States',
+  GB: 'United Kingdom',
+  CA: 'Canada',
+  SG: 'Singapore',
+  PH: 'Philippines',
+  HK: 'Hong Kong',
+  MY: 'Malaysia',
+  ID: 'Indonesia',
+  TH: 'Thailand',
+  AU: 'Australia',
+  NZ: 'New Zealand',
+  VN: 'Vietnam',
+  JP: 'Japan',
+  KR: 'South Korea'
+};
+
+export default function MovieDetails({ initialMovie }: { initialMovie?: Movie }) {
   const params = useParams<{ id: string }>(); const id = params.id;
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type') as 'movie' | 'tv' | null;
@@ -24,25 +55,131 @@ export default function MovieDetails() {
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialMovie);
   const [error, setError] = useState(false);
-  const [movie, setMovie] = useState<Movie | null>(null);
+  const [movie, setMovie] = useState<Movie | null>(initialMovie || null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
   const reviewTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const localScrollRef = useRef<HTMLDivElement>(null);
+  const otherScrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeftState = useRef(0);
+
+  const handleMouseDown = (ref: React.RefObject<HTMLDivElement | null>, e: React.MouseEvent) => {
+    if (!ref.current) return;
+    isDragging.current = true;
+    startX.current = e.pageX - ref.current.offsetLeft;
+    scrollLeftState.current = ref.current.scrollLeft;
+  };
+
+  const handleMouseMove = (ref: React.RefObject<HTMLDivElement | null>, e: React.MouseEvent) => {
+    if (!isDragging.current || !ref.current) return;
+    e.preventDefault();
+    const x = e.pageX - ref.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5;
+    ref.current.scrollLeft = scrollLeftState.current - walk;
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  const scrollCarousel = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
+    if (ref.current) {
+      const { scrollLeft } = ref.current;
+      const cardWidth = ref.current.firstElementChild?.clientWidth || 280;
+      const gap = 16;
+      const step = cardWidth + gap;
+      const scrollTo = direction === 'left' ? scrollLeft - step : scrollLeft + step;
+      ref.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
   const [isPlaying, setIsPlaying] = useState(true);
+  const [userCountryCode, setUserCountryCode] = useState<string>('IN');
+  const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    getAffiliateLinks()
+      .then(links => {
+        setAffiliateLinks(links);
+      })
+      .catch(err => console.error('Error fetching affiliate links in MovieDetails:', err));
+
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      let detectedCode = '';
+
+      if (tz.includes('Kolkata') || tz.includes('Calcutta') || tz.includes('Asia/Kolkata') || tz.includes('Asia/Calcutta')) {
+        detectedCode = 'IN';
+      } else if (tz.includes('London')) {
+        detectedCode = 'GB';
+      } else if (tz.includes('Singapore')) {
+        detectedCode = 'SG';
+      } else if (tz.includes('Toronto') || tz.includes('Vancouver') || tz.includes('Montreal')) {
+        detectedCode = 'CA';
+      } else if (tz.includes('America/')) {
+        detectedCode = 'US';
+      } else if (tz.includes('Sydney') || tz.includes('Melbourne') || tz.includes('Australia')) {
+        detectedCode = 'AU';
+      } else if (tz.includes('Auckland')) {
+        detectedCode = 'NZ';
+      } else if (tz.includes('Tokyo')) {
+        detectedCode = 'JP';
+      } else if (tz.includes('Seoul')) {
+        detectedCode = 'KR';
+      } else if (tz.includes('Hong_Kong')) {
+        detectedCode = 'HK';
+      } else if (tz.includes('Manila')) {
+        detectedCode = 'PH';
+      }
+
+      if (!detectedCode) {
+        const lang = navigator.language || '';
+        if (lang.includes('-IN')) detectedCode = 'IN';
+        else if (lang.includes('-US')) detectedCode = 'US';
+        else if (lang.includes('-GB')) detectedCode = 'GB';
+        else if (lang.includes('-SG')) detectedCode = 'SG';
+        else if (lang.includes('-CA')) detectedCode = 'CA';
+        else if (lang.includes('-AU')) detectedCode = 'AU';
+      }
+
+      if (detectedCode) {
+        setUserCountryCode(detectedCode);
+      }
+    } catch (e) {
+      console.error('Error detecting country locally:', e);
+    }
+
+    fetch('/api/country')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.country) {
+          setUserCountryCode(data.country.toUpperCase());
+        }
+      })
+      .catch(err => console.error('Error fetching country from API:', err));
+  }, []);
 
   // Review & Feed states
   const [reviewInput, setReviewInput] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
 
+  const [isEditing, setIsEditing] = useState(false);
+
   const handleEditReview = () => {
-    reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (movie) {
+      setReviewInput(getUserReviewText(movie.id) || '');
+    }
+    setIsEditing(true);
     setTimeout(() => {
+      reviewSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
       reviewTextAreaRef.current?.focus();
-    }, 500);
+    }, 150);
   };
 
   const [communityReviews, setCommunityReviews] = useState<{
@@ -56,7 +193,8 @@ export default function MovieDetails() {
   }[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const reviewsPerPage = 5;
+  const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
+  const reviewsPerPage = 4;
 
   const togglePlay = () => {
     if (iframeRef.current && iframeRef.current.contentWindow) {
@@ -69,6 +207,10 @@ export default function MovieDetails() {
   useEffect(() => {
     const fetchDetails = async () => {
       if (!id) return;
+      if (initialMovie && initialMovie.id === Number(id)) {
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError(false);
       try {
@@ -82,7 +224,7 @@ export default function MovieDetails() {
       }
     };
     fetchDetails();
-  }, [id, typeParam]);
+  }, [id, typeParam, initialMovie]);
 
   // Load existing critique text when movie is resolved
   useEffect(() => {
@@ -104,9 +246,8 @@ export default function MovieDetails() {
   useEffect(() => {
     if (!id) return;
 
-    // 1. Subscribe to Firestore community reviews
-    const path = `movies/${id}/reviews`;
-    const q = query(collection(db, path));
+    // 1. Subscribe to Firestore community reviews using collection group query under user ratings
+    const q = query(collectionGroup(db, 'ratings'), where('movieId', '==', Number(id)));
 
     let unsubscribeFirestore = () => { };
 
@@ -125,7 +266,7 @@ export default function MovieDetails() {
           const data = docSnap.data();
           if (data.reviewText) {
             firestoreList.push({
-              userId: docSnap.id,
+              userId: data.userId || docSnap.ref.parent.parent?.id || 'anonymous',
               userName: data.userName || 'Anonymous Film Buff',
               userPhoto: data.userPhoto || '',
               rating: data.rating || 5,
@@ -215,6 +356,14 @@ export default function MovieDetails() {
 
   const saved = movie ? isInWatchlist(movie.id) : false;
   const userRating = movie ? getUserRating(movie.id) : 0;
+
+  const localPlatforms = movie ? [...(movie.platforms || [])]
+    .filter(p => p.countries?.includes(userCountryCode))
+    .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)) : [];
+
+  const otherPlatforms = movie ? [...(movie.platforms || [])]
+    .filter(p => !p.countries?.includes(userCountryCode))
+    .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)) : [];
 
   // Filter out our own review from the community feed to avoid duplicate rendering,
   // then prepend our latest review if it exists so it's always at the top!
@@ -391,20 +540,23 @@ export default function MovieDetails() {
               transition={{ delay: 0.2 }}
               className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border border-white/10"
             >
-              <Image
+              <img
                 src={movie.posterUrl}
                 alt={movie.title}
-                width={320}
-                height={480}
                 className="w-full h-auto aspect-[2/3] object-cover"
                 referrerPolicy="no-referrer"
-                priority
+                loading="eager"
+                fetchPriority="high"
               />
             </motion.div>
 
             <div className="mt-6 md:mt-8 flex flex-col gap-3 md:gap-4">
               <a
-                href={primaryPlatform.watchUrl}
+                href={resolveWatchUrl(
+                  primaryPlatform.name,
+                  localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode] || primaryPlatform.watchUrls?.['IN'] || primaryPlatform.watchUrl, userCountryCode),
+                  affiliateLinks
+                )}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -529,85 +681,102 @@ export default function MovieDetails() {
               )}
 
               {/* Interactive Rate & Review Section */}
-              <div ref={reviewSectionRef} className="mb-12 md:mb-16 bg-surface/30 rounded-2xl p-6 md:p-8 border border-white/5">
-                <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
-                  <span className="w-1 h-3 bg-brand"></span> RATE & WRITE A REVIEW
-                </h3>
+              {(!getUserReviewText(movie.id) || isEditing) && (
+                <div ref={reviewSectionRef} className="mb-12 md:mb-16 bg-surface/30 rounded-2xl p-6 md:p-8 border border-white/5 animate-reveal">
+                  <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
+                    <span className="w-1 h-3 bg-brand"></span> RATE & WRITE A REVIEW
+                  </h3>
 
-                {/* Star Rating Selector */}
-                <div className="flex items-center gap-3 mb-6">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onMouseEnter={() => setHoverRating(star)}
-                      onMouseLeave={() => setHoverRating(null)}
-                      onClick={() => setUserRating(movie.id, star, { title: movie.title, posterUrl: movie.posterUrl })}
-                      className="transition-transform hover:scale-125"
-                    >
-                      <Star
-                        className={`w-8 h-8 md:w-10 md:h-10 transition-colors ${star <= (hoverRating ?? userRating ?? 0)
-                          ? 'text-yellow-500 fill-current'
-                          : 'text-white/10'
-                          }`}
-                      />
-                    </button>
-                  ))}
-                  <span className="ml-4 text-2xl font-black text-white/20 italic">
-                    {(hoverRating ?? userRating ?? '—')} / 5
-                  </span>
-                </div>
+                  {/* Star Rating Selector */}
+                  <div className="flex items-center gap-3 mb-6">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onMouseEnter={() => setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(null)}
+                        onClick={() => setUserRating(movie.id, star, { title: movie.title, posterUrl: movie.posterUrl })}
+                        className="transition-transform hover:scale-125"
+                      >
+                        <Star
+                          className={`w-8 h-8 md:w-10 md:h-10 transition-colors ${star <= (hoverRating ?? userRating ?? 0)
+                            ? 'text-yellow-500 fill-current'
+                            : 'text-white/10'
+                            }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-4 text-2xl font-black text-white/20 italic">
+                      {(hoverRating ?? userRating ?? '—')} / 5
+                    </span>
+                  </div>
 
-                {/* Critique Text Box */}
-                <div className="space-y-4">
-                  <textarea
-                    ref={reviewTextAreaRef}
-                    value={reviewInput}
-                    onChange={(e) => setReviewInput(e.target.value)}
-                    placeholder={user ? "Tell other cinephiles what you thought of this masterpiece... (your thoughts will instantly sync to your Director's Notes)" : "Log in to share your written review!"}
-                    disabled={!user}
-                    className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm placeholder-white/30 focus:outline-none focus:border-brand/50 transition-colors resize-none font-medium disabled:opacity-40"
-                  />
-                  {/* Flagging Guidelines */}
-                  <div className="p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-xl flex gap-3 items-start">
-                    <Info className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-yellow-500">Critique & Flagging Policy</p>
-                      <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
-                        To maintain a healthy community, reviews must not contain 18+ profane words or inappropriate terms, especially for movies suitable for children. Offending reviews will be flagged and accounts may be deactivated or banned by system administrators.
+                  {/* Critique Text Box */}
+                  <div className="space-y-4">
+                    <textarea
+                      ref={reviewTextAreaRef}
+                      value={reviewInput}
+                      onChange={(e) => setReviewInput(e.target.value)}
+                      placeholder={user ? "Tell other cinephiles what you thought of this masterpiece... (your thoughts will instantly sync to your Director's Notes)" : "Log in to share your written review!"}
+                      disabled={!user}
+                      className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm placeholder-white/30 focus:outline-none focus:border-brand/50 transition-colors resize-none font-medium disabled:opacity-40"
+                    />
+                    {/* Flagging Guidelines */}
+                    <div className="p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-xl flex gap-3 items-start">
+                      <Info className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-yellow-500">Critique & Flagging Policy</p>
+                        <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
+                          To maintain a healthy community, reviews must not contain 18+ profane words or inappropriate terms, especially for movies suitable for children. Offending reviews will be flagged and accounts may be deactivated or banned by system administrators.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                        {reviewInput.length} characters
                       </p>
+                      <div className="flex items-center gap-2">
+                        {isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditing(false);
+                              setReviewInput('');
+                            }}
+                            className="px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-colors text-xs font-black uppercase tracking-widest"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        <button
+                          disabled={isSubmittingReview || !userRating || !user}
+                          onClick={async () => {
+                            setIsSubmittingReview(true);
+                            try {
+                              await setUserRating(movie.id, userRating || 5, { title: movie.title, posterUrl: movie.posterUrl }, reviewInput);
+                              setReviewSuccess(true);
+                              setIsEditing(false);
+                              setTimeout(() => setReviewSuccess(false), 3000);
+                            } catch (e) {
+                              console.error("Error submitting review:", e);
+                            } finally {
+                              setIsSubmittingReview(false);
+                            }
+                          }}
+                          className="px-6 py-2.5 rounded-lg bg-brand text-white font-black uppercase text-xs tracking-widest hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-brand/20"
+                        >
+                          {isSubmittingReview ? (
+                            <>Saving Review...</>
+                          ) : reviewSuccess ? (
+                            <>✓ Saved Successfully</>
+                          ) : (
+                            <>Save Critique</>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
-                      {reviewInput.length} characters
-                    </p>
-                    <button
-                      disabled={isSubmittingReview || !userRating || !user}
-                      onClick={async () => {
-                        setIsSubmittingReview(true);
-                        try {
-                          await setUserRating(movie.id, userRating || 5, { title: movie.title, posterUrl: movie.posterUrl }, reviewInput);
-                          setReviewSuccess(true);
-                          setTimeout(() => setReviewSuccess(false), 3000);
-                        } catch (e) {
-                          console.error("Error submitting review:", e);
-                        } finally {
-                          setIsSubmittingReview(false);
-                        }
-                      }}
-                      className="px-6 py-2.5 rounded-lg bg-brand text-white font-black uppercase text-xs tracking-widest hover:bg-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-brand/20"
-                    >
-                      {isSubmittingReview ? (
-                        <>Saving Review...</>
-                      ) : reviewSuccess ? (
-                        <>✓ Saved Successfully</>
-                      ) : (
-                        <>Save Critique</>
-                      )}
-                    </button>
-                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Community & Critic Reviews Section (Paginated 5 per page) */}
               <div className="mb-12 md:mb-16">
@@ -624,95 +793,184 @@ export default function MovieDetails() {
                     {/* Paginated Reviews List */}
                     {displayedReviews
                       .slice((currentPage - 1) * reviewsPerPage, currentPage * reviewsPerPage)
-                      .map((rev, index) => (
-                        <div key={rev.userId + '-' + index} className="p-6 bg-surface/30 border border-white/5 rounded-2xl flex gap-4 items-start hover:bg-surface/40 transition-colors">
-                          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center font-black text-brand text-xs uppercase shadow-md">
-                            {rev.userPhoto ? (
-                              <img src={rev.userPhoto} className="w-full h-full object-cover" alt={rev.userName} />
-                            ) : (
-                              rev.userName.slice(0, 2)
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <div>
-                                <span className="text-xs font-black uppercase text-white/80 tracking-tight block">
-                                  {rev.userName} {rev.isCurrentUser && <span className="text-[9px] font-black uppercase text-brand/60 ml-1.5">(You)</span>}
-                                </span>
-                                {rev.isCritic && (
-                                  <span className="text-[9px] font-black uppercase text-brand tracking-widest">
-                                    Top Critic
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {!rev.isCritic && (
-                                  <div className="flex gap-0.5">
-                                    {Array.from({ length: 5 }).map((_, s) => (
-                                      <Star
-                                        key={s}
-                                        className={`w-2.5 h-2.5 ${s < rev.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                                {rev.isCurrentUser && (
-                                  <button
-                                    onClick={handleEditReview}
-                                    className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand transition-colors text-[9px] font-black uppercase tracking-wider"
-                                    title="Edit Review"
-                                  >
-                                    <Pencil className="w-2.5 h-2.5" />
-                                    Edit
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-white/60 text-sm leading-relaxed font-medium italic whitespace-pre-wrap">
-                              "{rev.reviewText}"
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                      .map((rev, index) => {
+                        const reviewKey = `${rev.userId || rev.userName}-${index}`;
+                        const isExpanded = !!expandedReviews[reviewKey];
+                        const isLongReview = rev.reviewText.length > 100 || rev.reviewText.includes('\n');
 
-                    {/* Small / Compact Pagination Component */}
-                    {displayedReviews.length > reviewsPerPage && (
-                      <div className="flex items-center justify-center gap-4 mt-6 pt-4">
-                        <button
-                          disabled={currentPage === 1}
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          className="px-3 py-1.5 rounded bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-white/60"
-                        >
-                          Prev
-                        </button>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                          Page {currentPage} of {Math.ceil(displayedReviews.length / reviewsPerPage)}
-                        </span>
-                        <button
-                          disabled={currentPage === Math.ceil(displayedReviews.length / reviewsPerPage)}
-                          onClick={() => {
-                            setCurrentPage(prev => Math.min(prev + 1, Math.ceil(displayedReviews.length / reviewsPerPage)));
-                          }}
-                          className="px-3 py-1.5 rounded bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-white/60"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
+                        return (
+                          <div key={rev.userId + '-' + index} className="p-6 bg-surface/30 border border-white/5 rounded-2xl flex gap-4 items-start hover:bg-surface/40 transition-colors">
+                            <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center font-black text-brand text-xs uppercase shadow-md">
+                              {rev.userPhoto ? (
+                                <img src={rev.userPhoto} className="w-full h-full object-cover" alt={rev.userName} />
+                              ) : (
+                                rev.userName.slice(0, 2)
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <span className="text-xs font-black uppercase text-white/80 tracking-tight block">
+                                    {rev.userName} {rev.isCurrentUser && <span className="text-[9px] font-black uppercase text-brand/60 ml-1.5">(You)</span>}
+                                  </span>
+                                  {rev.isCritic && (
+                                    <span className="text-[9px] font-black uppercase text-brand tracking-widest">
+                                      Top Critic
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  {!rev.isCritic && (
+                                    <div className="flex gap-0.5">
+                                      {Array.from({ length: 5 }).map((_, s) => (
+                                        <Star
+                                          key={s}
+                                          className={`w-2.5 h-2.5 ${s < rev.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                  {rev.isCurrentUser && (
+                                    <button
+                                      onClick={handleEditReview}
+                                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand transition-colors text-[9px] font-black uppercase tracking-wider"
+                                      title="Edit Review"
+                                    >
+                                      <Pencil className="w-2.5 h-2.5" />
+                                      Edit
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <p className={`text-white/60 text-sm leading-relaxed font-medium italic whitespace-pre-wrap ${!isExpanded && isLongReview ? 'line-clamp-1' : ''}`}>
+                                "{rev.reviewText}"
+                              </p>
+                              {isLongReview && (
+                                <button
+                                  onClick={() => setExpandedReviews(prev => ({ ...prev, [reviewKey]: !isExpanded }))}
+                                  className="mt-2 text-[10px] font-black uppercase tracking-widest text-brand hover:text-brand/80 transition-colors"
+                                >
+                                  {isExpanded ? 'Show Less' : 'Show More'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                    {/* Compact Pagination Component */}
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={Math.ceil(displayedReviews.length / reviewsPerPage)}
+                      onPageChange={setCurrentPage}
+                      size="sm"
+                      disableScroll={true}
+                    />
                   </div>
                 )}
               </div>
 
               {/* Where to Watch Section */}
-              <div className="bg-surface/30 rounded-xl p-6 md:p-10 border border-white/5">
-                <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-brand mb-8 md:mb-10 flex items-center gap-3">
+              <div className="bg-surface/30 rounded-xl p-6 md:p-10 border border-white/5 overflow-hidden">
+                <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-brand mb-6 flex items-center gap-3">
                   <span className="w-3 md:w-4 h-0.5 bg-brand"></span> WHERE TO WATCH
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                  {[...(movie.platforms || [])].sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)).map((p, i) => (
-                    <WatchProviderCard key={i} platform={p} />
-                  ))}
-                </div>
+
+                {localPlatforms.length > 0 && (
+                  <div className="mb-8">
+                    <div className="mb-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/50 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand"></span>
+                        Available in {COUNTRY_NAMES[userCountryCode] || userCountryCode}
+                      </span>
+                    </div>
+                    <div className="relative group/carousel w-full max-w-[576px] mr-auto">
+                      {localPlatforms.length > 2 && (
+                        <>
+                          <button
+                            onClick={() => scrollCarousel(localScrollRef, 'left')}
+                            className="absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
+                            aria-label="Previous"
+                          >
+                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                          <button
+                            onClick={() => scrollCarousel(localScrollRef, 'right')}
+                            className="absolute -right-4 md:-right-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
+                            aria-label="Next"
+                          >
+                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                        </>
+                      )}
+                      <div
+                        ref={localScrollRef}
+                        className="flex gap-4 overflow-x-auto pb-4 scroll-smooth hide-scrollbar cursor-grab active:cursor-grabbing select-none w-full max-w-full"
+                        onMouseDown={(e) => handleMouseDown(localScrollRef, e)}
+                        onMouseMove={(e) => handleMouseMove(localScrollRef, e)}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                      >
+                        {localPlatforms.map((p, i) => (
+                          <div key={i} className="w-[240px] sm:w-[280px] shrink-0">
+                            <WatchProviderCard platform={p} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {otherPlatforms.length > 0 && (
+                  <div>
+                    <div className="mb-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/20"></span>
+                        Other Regions
+                      </span>
+                    </div>
+                    <div className="relative group/carousel w-full max-w-[750px] mr-auto">
+                      {otherPlatforms.length > 2 && (
+                        <>
+                          <button
+                            onClick={() => scrollCarousel(otherScrollRef, 'left')}
+                            className="absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
+                            aria-label="Previous"
+                          >
+                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                          <button
+                            onClick={() => scrollCarousel(otherScrollRef, 'right')}
+                            className="absolute -right-4 md:-right-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
+                            aria-label="Next"
+                          >
+                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                        </>
+                      )}
+                      <div
+                        ref={otherScrollRef}
+                        className="flex gap-4 overflow-x-auto pb-4 scroll-smooth hide-scrollbar cursor-grab active:cursor-grabbing select-none w-full max-w-full"
+                        onMouseDown={(e) => handleMouseDown(otherScrollRef, e)}
+                        onMouseMove={(e) => handleMouseMove(otherScrollRef, e)}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                      >
+                        {otherPlatforms.map((p, i) => (
+                          <div key={i} className="w-[240px] sm:w-[280px] shrink-0">
+                            <WatchProviderCard platform={p} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {localPlatforms.length === 0 && otherPlatforms.length === 0 && (
+                  <div className="p-8 bg-white/5 border border-white/5 rounded-2xl text-center">
+                    <p className="text-white/40 text-sm font-medium italic">No watch providers available.</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>

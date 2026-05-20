@@ -21,13 +21,15 @@ import {
   Cpu,
   LayoutDashboard,
   X,
-  Mail
+  Mail,
+  ExternalLink
 } from 'lucide-react';
 
 import AnalyticsView from './AnalyticsView';
 import UsersView from './UsersView';
 import ContentView from './ContentView';
 import SystemView from './SystemView';
+import AffiliatesView from './AffiliatesView';
 import { AdminUser, AdminRating } from './types';
 
 export default function AdminComponent() {
@@ -407,6 +409,7 @@ export default function AdminComponent() {
     { id: 'analytics', label: 'Analytics', icon: LayoutDashboard },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'content', label: 'Content', icon: Star },
+    { id: 'affiliates', label: 'Affiliates', icon: ExternalLink },
     { id: 'system', label: 'System', icon: Cpu },
   ];
 
@@ -525,6 +528,7 @@ service cloud.firestore {
             />
           )}
           {activeTab === 'system' && <SystemView key="system" />}
+          {activeTab === 'affiliates' && <AffiliatesView key="affiliates" />}
         </AnimatePresence>
       </main>
 

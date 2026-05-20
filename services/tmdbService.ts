@@ -70,26 +70,7 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
       name = 'Viu';
     }
 
-    let watchUrl = link;
-
-    if (title) {
-      const query = encodeURIComponent(title);
-      if (name === 'Netflix') watchUrl = `https://www.netflix.com/search?q=${query}`;
-      else if (name === 'Amazon Prime') watchUrl = `https://www.amazon.com/s?k=${query}+prime+video`;
-      else if (name === 'Disney+') watchUrl = 'https://www.disneyplus.com';
-      else if (name === 'Apple TV') watchUrl = `https://tv.apple.com/search?term=${query}`;
-      else if (name === 'Viki') watchUrl = `https://www.viki.com/search?q=${query}`;
-      else if (name === 'Viu') watchUrl = `https://www.viu.com/ott/no/en-us/search?keyword=${query}`;
-    }
-
-    if (!watchUrl || watchUrl === 'https://www.themoviedb.org') {
-      if (name === 'Netflix') watchUrl = 'https://www.netflix.com';
-      else if (name === 'Amazon Prime') watchUrl = 'https://www.amazon.com/gp/video/storefront';
-      else if (name === 'Disney+') watchUrl = 'https://www.disneyplus.com';
-      else if (name === 'Apple TV') watchUrl = 'https://tv.apple.com';
-      else if (name === 'Viki') watchUrl = 'https://www.viki.com';
-      else if (name === 'Viu') watchUrl = 'https://www.viu.com';
-    }
+    const watchUrl = link || 'https://www.themoviedb.org';
 
     return {
       name,
@@ -107,14 +88,21 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
         name: p.name,
         logo: p.logo,
         watchUrl: p.watchUrl,
-        countries: [p.region]
+        countries: [p.region],
+        watchUrls: { [p.region]: p.watchUrl }
       };
       seen.set(p.name, newPlatform);
       unique.push(newPlatform);
     } else {
       const existing = seen.get(p.name);
-      if (existing && existing.countries && !existing.countries.includes(p.region)) {
-        existing.countries.push(p.region);
+      if (existing) {
+        if (existing.countries && !existing.countries.includes(p.region)) {
+          existing.countries.push(p.region);
+        }
+        if (!existing.watchUrls) {
+          existing.watchUrls = {};
+        }
+        existing.watchUrls[p.region] = p.watchUrl;
       }
     }
   }

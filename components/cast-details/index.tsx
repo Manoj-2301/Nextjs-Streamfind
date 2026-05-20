@@ -11,28 +11,37 @@ import { Movie, CastMember } from '@/types';
 import ErrorMessage from '@/components/ui/error-message';
 import MovieCard from '@/components/ui/movie-card';
 
-export default function CastDetails() {
+export default function CastDetails({
+  initialCast,
+  initialMovies
+}: {
+  initialCast?: CastMember;
+  initialMovies?: Movie[];
+}) {
   const params = useParams<{ id: string }>();  const id = params.id;
   const router = useRouter();
-  const [cast, setCast] = useState<CastMember | null>(null);
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [cast, setCast] = useState<CastMember | null>(initialCast || null);
+  const [movies, setMovies] = useState<Movie[]>(initialMovies || []);
+  const [isLoading, setIsLoading] = useState(!initialCast);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
+      const personId = parseInt(id);
+      if (isNaN(personId)) {
+        setError(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (initialCast && initialCast.id === personId) {
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError(false);
       try {
-        // The id parameter contains both the ID and the name (e.g. '83271-chris-evans')
-        // parseInt will safely extract just the '83271' from the start of the string!
-        const personId = parseInt(id);
-        
-        if (isNaN(personId)) {
-          throw new Error('Invalid URL format. Please return to the movie page and click the cast member again.');
-        }
-
         const [details, castMovies] = await Promise.all([
           getCastDetails(personId),
           getCastMovies(personId)
@@ -47,7 +56,7 @@ export default function CastDetails() {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, initialCast]);
 
   if (isLoading) {
     return (
@@ -92,14 +101,13 @@ export default function CastDetails() {
               animate={{ y: 0, opacity: 1 }}
               className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border border-white/10"
             >
-              <Image
+              <img
                 src={cast.imageUrl}
                 alt={cast.name}
-                width={320}
-                height={480}
                 className="w-full h-auto aspect-[2/3] object-cover"
                 referrerPolicy="no-referrer"
-                priority
+                loading="eager"
+                fetchPriority="high"
               />
             </motion.div>
 

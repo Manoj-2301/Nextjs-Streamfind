@@ -93,7 +93,10 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
       const dataToSet: any = {
         movieId,
         rating,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Anonymous Film Buff',
+        userPhoto: user.photoURL || '',
       };
       
       if (movieDetails) {
