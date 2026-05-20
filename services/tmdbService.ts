@@ -112,7 +112,14 @@ const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch from TMDB: ${response.statusText}`);
+    let errorMsg = `Failed to fetch from TMDB: ${response.statusText}`;
+    try {
+      const errData = await response.json();
+      if (errData && errData.error) {
+        errorMsg = `TMDB Error: ${errData.error} ${errData.details ? `(${errData.details})` : ''}`;
+      }
+    } catch (_) {}
+    throw new Error(errorMsg);
   }
   return response.json();
 };

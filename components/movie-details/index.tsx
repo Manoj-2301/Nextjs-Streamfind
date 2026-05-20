@@ -559,6 +559,16 @@ export default function MovieDetails() {
                     disabled={!user}
                     className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm placeholder-white/30 focus:outline-none focus:border-brand/50 transition-colors resize-none font-medium disabled:opacity-40"
                   />
+                  {/* Flagging Guidelines */}
+                  <div className="p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-xl flex gap-3 items-start">
+                    <Info className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-yellow-500">Critique & Flagging Policy</p>
+                      <p className="text-[10px] text-white/40 mt-1 leading-relaxed">
+                        To maintain a healthy community, reviews must not contain 18+ profane words or inappropriate terms, especially for movies suitable for children. Offending reviews will be flagged and accounts may be deactivated or banned by system administrators.
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-black uppercase tracking-widest text-white/20">
                       {reviewInput.length} characters

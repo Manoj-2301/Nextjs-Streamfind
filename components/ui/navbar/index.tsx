@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Search, Play, Users, Globe, Menu as MenuIcon, X, Bookmark, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Search, Play, Users, Globe, Menu as MenuIcon, X, Bookmark, LogIn, LogOut, User as UserIcon, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
 import { useWatchlist } from '@/context/WatchlistContext';
@@ -17,7 +17,11 @@ export default function Navbar() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const pathname = usePathname();
 
-  if (pathname === '/profile') {
+  if (pathname === '/admin') {
+    return null;
+  }
+
+  if (pathname === '/profile' || pathname === '/auth/verify-email' || pathname === '/auth/reset-password' || pathname === '/auth/action') {
     return (
       <nav className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-white/10 px-4 py-4 flex items-center justify-center h-16">
         <Link href="/" className="flex items-center gap-2 group">
@@ -85,6 +89,18 @@ export default function Navbar() {
                     exit={{ opacity: 0, y: 10 }}
                     className="absolute top-full right-0 mt-2 w-48 glass-dark border border-white/10 rounded-lg p-2 shadow-2xl flex flex-col gap-1"
                   >
+                    {user?.email === 'mt398401@gmail.com' && (
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setShowProfileMenu(false)}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-white/70 hover:bg-white/10 hover:text-brand transition-all font-semibold"
+                        >
+                          <Shield className="w-4 h-4 text-brand" /> Director&apos;s Hub
+                        </Link>
+                        <div className="border-t border-white/5 my-1" />
+                      </>
+                    )}
                     <Link
                       href="/profile"
                       onClick={() => setShowProfileMenu(false)}
@@ -196,6 +212,15 @@ export default function Navbar() {
             <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
               {user ? (
                 <>
+                  {user?.email === 'mt398401@gmail.com' && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="w-full flex items-center gap-2 font-bold text-white/60 hover:text-brand"
+                    >
+                      <Shield className="w-5 h-5 text-brand" /> Director&apos;s Hub
+                    </Link>
+                  )}
                   <Link
                     href="/profile"
                     onClick={() => setIsMenuOpen(false)}

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 
 export default function Footer() {
   const pathname = usePathname();
-  if (pathname === '/profile') return null;
+  if (pathname === '/profile' || pathname === '/admin') return null;
   return (
     <footer className="pt-17 pb-7 px-6 lg:px-12 border-t border-white/5 bg-surface/30">
       <div className="container mx-auto max-w-7xl grid grid-cols-1 md:grid-cols-4 gap-12">

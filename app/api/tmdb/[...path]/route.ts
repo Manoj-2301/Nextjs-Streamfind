@@ -34,7 +34,25 @@ export async function GET(
         { status: response.status }
       );
     }
-    const data = await response.json();
+
+    const contentType = response.headers.get('Content-Type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      return NextResponse.json({
+        error: 'TMDB API returned a non-JSON response. Your network or ISP may be blocking or redirecting api.themoviedb.org.',
+        details: text.slice(0, 150)
+      }, { status: 502 });
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e: any) {
+      return NextResponse.json({
+        error: 'Failed to parse TMDB response as JSON.',
+        details: e.message
+      }, { status: 502 });
+    }
 
     // Cache the TMDB responses at Vercel's Edge layer using clean Cache-Control headers
     const headers = new Headers();
