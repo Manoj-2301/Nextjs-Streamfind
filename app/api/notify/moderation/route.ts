@@ -4,12 +4,14 @@ import nodemailer from 'nodemailer';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userEmail, userName, type, reviewText, contactUrl } = body as {
+    const { userEmail, userName, type, reviewText, contactUrl, movieTitle, reason } = body as {
       userEmail: string;
       userName: string;
-      type: 'flagged' | 'inactive';
+      type: 'flagged' | 'inactive' | 'removed';
       reviewText?: string;
       contactUrl?: string;
+      movieTitle?: string;
+      reason?: string;
     };
 
     if (!userEmail || !type) {
@@ -30,10 +32,14 @@ export async function POST(request: Request) {
 
     const subject = type === 'flagged'
       ? `⚠️ StreamFind: Your account has been flagged`
+      : type === 'removed'
+      ? `⚠️ StreamFind: Your critique has been removed`
       : `StreamFind: Your account has been marked inactive`;
 
     const htmlContent = type === 'flagged'
       ? generateFlaggedEmail(userName, reviewText, resolvedContactUrl, siteUrl)
+      : type === 'removed'
+      ? generateRemovedEmail(userName, movieTitle || 'Unknown Movie', reason || 'inappropriate content', siteUrl)
       : generateInactiveEmail(userName, siteUrl);
 
     const transporter = nodemailer.createTransport({
@@ -362,3 +368,109 @@ function generateInactiveEmail(name: string, siteUrl: string) {
   </body>
 </html>`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Removed Critique Email Template
+// ─────────────────────────────────────────────────────────────────────────────
+function generateRemovedEmail(name: string, movieTitle: string, reason: string, siteUrl: string) {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamFind Critique Removed</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+      body { font-family: 'Inter', -apple-system, sans-serif; background-color: #080808; color: #ffffff; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+      @media only screen and (max-width: 480px) { .main-table { width: 100% !important; } }
+    </style>
+  </head>
+  <body style="font-family:'Inter',-apple-system,sans-serif;background-color:#080808;color:#ffffff;margin:0;padding:40px 0;">
+
+    <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="main-table" style="width:600px;margin:0 auto;background-color:#0c0c0c;border:1px solid rgba(255,255,255,0.04);border-radius:28px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
+
+      <!-- Header -->
+      <tr>
+        <td style="padding:40px 24px;text-align:center;background:linear-gradient(to bottom,#250207 0%,#0c0c0c 100%);border-bottom:1px solid rgba(255,40,78,0.15);">
+          <table align="center" border="0" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="background-color:#ff284e;border-radius:8px;padding:6px 12px;box-shadow:0 0 15px rgba(255,40,78,0.6);">
+                <span style="color:#ffffff;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:3px;font-style:italic;">STREAMFIND</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div style="color:rgba(255,255,255,0.4);font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:4px;margin-top:6px;">COMMUNITY STANDARDS ALERT</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Warning Banner -->
+      <tr>
+        <td style="padding:0;">
+          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background:linear-gradient(135deg,#3d0a10 0%,#1a0507 100%);border-bottom:1px solid rgba(255,40,78,0.2);border-collapse:collapse;">
+            <tr>
+              <td style="padding:16px 32px;text-align:center;">
+                <span style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:3px;color:#ff284e;">⚠ Critique Status: REMOVED</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Body -->
+      <tr>
+        <td style="padding:36px 36px 0 36px;">
+
+          <!-- Greeting -->
+          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#161616;border-left:4px solid #ff284e;border-radius:8px;margin-bottom:28px;border-collapse:collapse;">
+            <tr>
+              <td style="padding:20px 24px;">
+                <h2 style="margin:0 0 10px 0;font-size:20px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;text-transform:uppercase;">Hey ${name},</h2>
+                <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(255,255,255,0.65);font-weight:500;">
+                  Your critique for the movie <strong style="color:#ffffff;">${movieTitle}</strong> has been <strong style="color:#ff284e;">removed</strong> by our moderation team.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Reason -->
+          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;border-collapse:collapse;">
+            <tr>
+              <td style="background-color:#111111;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:24px;">
+                <p style="margin:0 0 12px 0;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.3);">REASON FOR REMOVAL</p>
+                <p style="margin:0 0 10px 0;font-size:13px;line-height:1.7;color:rgba(255,255,255,0.65);">Reason: <strong style="color:#ff284e;text-transform:uppercase;">${reason}</strong></p>
+                <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(255,255,255,0.6);">To maintain a welcoming and safe community, StreamFind requires reviews to adhere to our Community Guidelines. Content featuring explicit language, harassment, spam, spoilers without tags, or inappropriate topics is subject to removal.</p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- CTA Button -->
+          <div style="text-align:center;padding-bottom:40px;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <a href="${siteUrl}/profile" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#ff284e 0%,#b8142f 100%);color:#ffffff;text-decoration:none;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:2px;padding:14px 36px;border-radius:12px;box-shadow:0 6px 20px rgba(255,40,78,0.4);">
+              GO TO MY PROFILE
+            </a>
+          </div>
+
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background-color:#090909;border-top:1px solid rgba(255,255,255,0.02);">
+          <p style="margin:0 0 8px 0;font-size:10px;color:rgba(255,255,255,0.3);font-weight:500;line-height:1.6;">
+            This is an automated account notification from StreamFind. If you believe this was done in error, please reply to this message.
+          </p>
+          <p style="margin:0;font-size:9px;color:rgba(255,255,255,0.15);font-weight:bold;text-transform:uppercase;letter-spacing:2px;">
+            © 2026 STREAMFIND. ALL RIGHTS RESERVED.
+          </p>
+        </td>
+      </tr>
+
+    </table>
+  </body>
+</html>`;
+}
+

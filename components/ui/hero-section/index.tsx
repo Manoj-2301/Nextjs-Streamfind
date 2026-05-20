@@ -5,6 +5,18 @@ import { Play, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
+
+const localizeTmdbUrl = (url: string, countryCode: string): string => {
+  if (!url || !url.includes('themoviedb.org')) return url;
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.searchParams.set('locale', countryCode);
+    return parsedUrl.toString();
+  } catch (e) {
+    return url;
+  }
+};
 
 interface HeroSectionProps {
   movies: Movie[];
@@ -18,6 +30,70 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const [hasStartedTrailerOnce, setHasStartedTrailerOnce] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [userCountryCode, setUserCountryCode] = useState<string>('IN');
+  const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    getAffiliateLinks()
+      .then(links => {
+        setAffiliateLinks(links);
+      })
+      .catch(err => console.error('Error fetching affiliate links in HeroSection:', err));
+
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      let detectedCode = '';
+
+      if (tz.includes('Kolkata') || tz.includes('Calcutta') || tz.includes('Asia/Kolkata') || tz.includes('Asia/Calcutta')) {
+        detectedCode = 'IN';
+      } else if (tz.includes('London')) {
+        detectedCode = 'GB';
+      } else if (tz.includes('Singapore')) {
+        detectedCode = 'SG';
+      } else if (tz.includes('Toronto') || tz.includes('Vancouver') || tz.includes('Montreal')) {
+        detectedCode = 'CA';
+      } else if (tz.includes('America/')) {
+        detectedCode = 'US';
+      } else if (tz.includes('Sydney') || tz.includes('Melbourne') || tz.includes('Australia')) {
+        detectedCode = 'AU';
+      } else if (tz.includes('Auckland')) {
+        detectedCode = 'NZ';
+      } else if (tz.includes('Tokyo')) {
+        detectedCode = 'JP';
+      } else if (tz.includes('Seoul')) {
+        detectedCode = 'KR';
+      } else if (tz.includes('Hong_Kong')) {
+        detectedCode = 'HK';
+      } else if (tz.includes('Manila')) {
+        detectedCode = 'PH';
+      }
+
+      if (!detectedCode) {
+        const lang = navigator.language || '';
+        if (lang.includes('-IN')) detectedCode = 'IN';
+        else if (lang.includes('-US')) detectedCode = 'US';
+        else if (lang.includes('-GB')) detectedCode = 'GB';
+        else if (lang.includes('-SG')) detectedCode = 'SG';
+        else if (lang.includes('-CA')) detectedCode = 'CA';
+        else if (lang.includes('-AU')) detectedCode = 'AU';
+      }
+
+      if (detectedCode) {
+        setUserCountryCode(detectedCode);
+      }
+    } catch (e) {
+      console.error('Error detecting country locally:', e);
+    }
+
+    fetch('/api/country')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.country) {
+          setUserCountryCode(data.country.toUpperCase());
+        }
+      })
+      .catch(err => console.error('Error fetching country from API:', err));
+  }, []);
 
   const paginate = useCallback((newDirection: number) => {
     setDirection(newDirection);
@@ -203,10 +279,12 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   exit={{ opacity: 0 }}
                   className="w-full h-full relative"
                 >
-                  {/* The requested logic implies the trailer stays but might "pause" or be muted/active based on scroll */}
                   <iframe
                     className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
-                    src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`}
+                    src={movie.trailerSite?.toLowerCase() === 'vimeo'
+                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
+                      : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                    }
                     title={movie.title}
                     frameBorder="0"
                     allow="autoplay; encrypted-media; fullscreen;"
@@ -252,7 +330,11 @@ export default function HeroSection({ movies }: HeroSectionProps) {
 
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
                 <a
-                  href={primaryPlatform.watchUrl}
+                  href={resolveWatchUrl(
+                    primaryPlatform.name,
+                    localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode] || primaryPlatform.watchUrls?.['IN'] || primaryPlatform.watchUrl, userCountryCode),
+                    affiliateLinks
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto"
@@ -265,7 +347,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                     <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
                   </motion.button>
                 </a>
-                <Link href={`/movie/${movie.id}`} className="w-full sm:w-auto">
+                <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

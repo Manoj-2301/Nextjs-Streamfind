@@ -3,6 +3,8 @@ export interface Platform {
   logo: string;
   watchUrl: string;
   isSponsored?: boolean;
+  countries?: string[];
+  watchUrls?: Record<string, string>;
 }
 
 export interface CastMember {
@@ -29,4 +31,6 @@ export interface Movie {
   platforms: Platform[];
   cast: CastMember[];
   trailerYoutubeId?: string;
+  trailerSite?: string;
+  type?: 'movie' | 'tv';
 }
