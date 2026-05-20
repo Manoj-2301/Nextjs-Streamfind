@@ -365,6 +365,34 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     .filter(p => !p.countries?.includes(userCountryCode))
     .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)) : [];
 
+  const [localScrollStatus, setLocalScrollStatus] = useState({ canScrollLeft: false, canScrollRight: true });
+  const [otherScrollStatus, setOtherScrollStatus] = useState({ canScrollLeft: false, canScrollRight: true });
+
+  const updateScrollStatus = (ref: React.RefObject<HTMLDivElement | null>, setStatus: Function) => {
+    if (ref.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = ref.current;
+      setStatus({
+        canScrollLeft: scrollLeft > 0,
+        canScrollRight: Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      updateScrollStatus(localScrollRef, setLocalScrollStatus);
+      updateScrollStatus(otherScrollRef, setOtherScrollStatus);
+    };
+    
+    const timer = setTimeout(handleResize, 100);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [localPlatforms.length, otherPlatforms.length]);
+
   // Filter out our own review from the community feed to avoid duplicate rendering,
   // then prepend our latest review if it exists so it's always at the top!
   const displayedReviews = (() => {
@@ -455,7 +483,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
             >
               {/* <iframe
                 className="w-full h-full scale-110 md:scale-125 pointer-events-none"
-                src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=${window.location.origin}`}
+                src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`}
                 title={movie.title}
                 frameBorder="0"
                 allow="autoplay; encrypted-media;fullscreen;"
@@ -669,7 +697,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                     <iframe
                       src={movie.trailerSite?.toLowerCase() === 'vimeo'
                         ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=0`
-                        : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1&origin=${window.location.origin}`
+                        : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1`
                       }
                       title={`${movie.title} Trailer`}
                       className="absolute inset-0 w-full h-full"
@@ -884,28 +912,33 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                         Available in {COUNTRY_NAMES[userCountryCode] || userCountryCode}
                       </span>
                     </div>
-                    <div className="relative group/carousel w-full max-w-[576px] mr-auto">
+                    <div className="relative group/carousel w-full max-w-[750px] mr-auto">
                       {localPlatforms.length > 2 && (
                         <>
-                          <button
-                            onClick={() => scrollCarousel(localScrollRef, 'left')}
-                            className="absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
-                            aria-label="Previous"
-                          >
-                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </button>
-                          <button
-                            onClick={() => scrollCarousel(localScrollRef, 'right')}
-                            className="absolute -right-4 md:-right-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
-                            aria-label="Next"
-                          >
-                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </button>
+                          <div className="absolute -left-2 top-0 bottom-0 w-20 md:w-28 bg-gradient-to-r from-[#0c0c0c] via-[#0c0c0c]/80 to-transparent z-20 flex items-center justify-start pointer-events-none">
+                            <button
+                              onClick={() => scrollCarousel(localScrollRef, 'left')}
+                              className={`pointer-events-auto md:-ml-2 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl flex items-center justify-center ${localScrollStatus.canScrollLeft ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}
+                              aria-label="Previous"
+                            >
+                              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                          </div>
+                          <div className="absolute -right-2 top-0 bottom-0 w-20 md:w-28 bg-gradient-to-l from-[#0c0c0c] via-[#0c0c0c]/80 to-transparent z-20 flex items-center justify-end pointer-events-none">
+                            <button
+                              onClick={() => scrollCarousel(localScrollRef, 'right')}
+                              className={`pointer-events-auto md:-mr-2 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl flex items-center justify-center ${localScrollStatus.canScrollRight ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}
+                              aria-label="Next"
+                            >
+                              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                          </div>
                         </>
                       )}
                       <div
                         ref={localScrollRef}
-                        className="flex gap-4 overflow-x-auto pb-4 scroll-smooth hide-scrollbar cursor-grab active:cursor-grabbing select-none w-full max-w-full"
+                        className="flex gap-4 overflow-x-auto py-4 px-2 -mx-2 scroll-smooth hide-scrollbar cursor-grab active:cursor-grabbing select-none w-[calc(100%+16px)] max-w-full"
+                        onScroll={() => updateScrollStatus(localScrollRef, setLocalScrollStatus)}
                         onMouseDown={(e) => handleMouseDown(localScrollRef, e)}
                         onMouseMove={(e) => handleMouseMove(localScrollRef, e)}
                         onMouseUp={handleMouseUp}
@@ -932,25 +965,30 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                     <div className="relative group/carousel w-full max-w-[750px] mr-auto">
                       {otherPlatforms.length > 2 && (
                         <>
-                          <button
-                            onClick={() => scrollCarousel(otherScrollRef, 'left')}
-                            className="absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
-                            aria-label="Previous"
-                          >
-                            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </button>
-                          <button
-                            onClick={() => scrollCarousel(otherScrollRef, 'right')}
-                            className="absolute -right-4 md:-right-12 top-1/2 -translate-y-1/2 z-10 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl opacity-100 sm:opacity-0 sm:group-hover/carousel:opacity-100 focus:opacity-100 flex items-center justify-center"
-                            aria-label="Next"
-                          >
-                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </button>
+                          <div className="absolute -left-2 top-0 bottom-0 w-20 md:w-28 bg-gradient-to-r from-[#0c0c0c] via-[#0c0c0c]/80 to-transparent z-20 flex items-center justify-start pointer-events-none">
+                            <button
+                              onClick={() => scrollCarousel(otherScrollRef, 'left')}
+                              className={`pointer-events-auto md:-ml-2 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl flex items-center justify-center ${otherScrollStatus.canScrollLeft ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}
+                              aria-label="Previous"
+                            >
+                              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                          </div>
+                          <div className="absolute -right-2 top-0 bottom-0 w-20 md:w-28 bg-gradient-to-l from-[#0c0c0c] via-[#0c0c0c]/80 to-transparent z-20 flex items-center justify-end pointer-events-none">
+                            <button
+                              onClick={() => scrollCarousel(otherScrollRef, 'right')}
+                              className={`pointer-events-auto md:-mr-2 p-2 sm:p-2.5 rounded-full bg-black/80 hover:bg-brand hover:text-black border border-white/10 text-white transition-all shadow-xl flex items-center justify-center ${otherScrollStatus.canScrollRight ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}
+                              aria-label="Next"
+                            >
+                              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </button>
+                          </div>
                         </>
                       )}
                       <div
                         ref={otherScrollRef}
-                        className="flex gap-4 overflow-x-auto pb-4 scroll-smooth hide-scrollbar cursor-grab active:cursor-grabbing select-none w-full max-w-full"
+                        className="flex gap-4 overflow-x-auto py-4 px-2 -mx-2 scroll-smooth hide-scrollbar cursor-grab active:cursor-grabbing select-none w-[calc(100%+16px)] max-w-full"
+                        onScroll={() => updateScrollStatus(otherScrollRef, setOtherScrollStatus)}
                         onMouseDown={(e) => handleMouseDown(otherScrollRef, e)}
                         onMouseMove={(e) => handleMouseMove(otherScrollRef, e)}
                         onMouseUp={handleMouseUp}
