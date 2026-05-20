@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 import { db } from '@/lib/firebase';
 import {
   collection,
@@ -241,10 +242,10 @@ export default function AdminComponent() {
       setIsEditModalOpen(false);
       setSelectedUser(null);
       const emailNote = (wasJustFlagged || wasJustInactivated) ? ' A notification email has been sent to the user.' : '';
-      alert(`User configuration saved successfully.${emailNote}`);
+      toast.success(`User configuration saved successfully.${emailNote}`);
     } catch (err) {
       console.error("Error updating user configuration:", err);
-      alert("Failed to update user: " + (err instanceof Error ? err.message : String(err)));
+      toast.error("Failed to update user: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSavingUser(false);
     }
@@ -256,10 +257,10 @@ export default function AdminComponent() {
       const { auth } = await import('@/lib/firebase');
       const { sendPasswordResetEmail } = await import('firebase/auth');
       await sendPasswordResetEmail(auth, email);
-      alert(`Password reset link sent to ${email} successfully.`);
+      toast.success(`Password reset link sent to ${email} successfully.`);
     } catch (err) {
       console.error("Error sending reset password:", err);
-      alert("Failed to send reset password email: " + (err instanceof Error ? err.message : String(err)));
+      toast.error("Failed to send reset password email: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -306,10 +307,10 @@ export default function AdminComponent() {
       setUsers(prev => prev.filter(u => u.id !== userId));
       setRatings(prev => prev.filter(r => r.userId !== userId));
       setIsDataLoading(false);
-      alert("User and all associated database records have been deleted successfully.");
+      toast.success("User and all associated database records have been deleted successfully.");
     } catch (err) {
       console.error("Error deleting user document recursively:", err);
-      alert("Failed to delete user: " + (err instanceof Error ? err.message : String(err)));
+      toast.error("Failed to delete user: " + (err instanceof Error ? err.message : String(err)));
       setIsDataLoading(false);
     }
   };
@@ -361,7 +362,7 @@ export default function AdminComponent() {
       setRatings(prev => prev.filter(r => !(r.userId === userId && r.movieId === movieId)));
     } catch (err) {
       console.error('Error deleting review document:', err);
-      alert('Failed to delete review: ' + (err instanceof Error ? err.message : String(err)));
+      toast.error('Failed to delete review: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -378,7 +379,7 @@ export default function AdminComponent() {
       }));
     } catch (err) {
       console.error("Error approving review:", err);
-      alert("Failed to approve review: " + (err instanceof Error ? err.message : String(err)));
+      toast.error("Failed to approve review: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 

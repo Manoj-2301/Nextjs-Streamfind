@@ -127,20 +127,22 @@ export function computeRadarData(watchlist: Movie[]): { genre: string; A: number
     });
   });
 
-  // 2. Map metrics into scores
-  // Formula: Score = (WatchlistCount * 30) + (ViewedCount * 12) + (SearchedCount * 6)
-  // Plus a small default baseline (e.g. 10) so the radar has some initial shape
-  return RADAR_GENRES.map((genre) => {
+  // 2. Map metrics into raw scores
+  const rawScores = RADAR_GENRES.map((genre) => {
     const watchlistCount = watchlistCounts[genre] || 0;
     const viewCount = metrics.viewed[genre] || 0;
     const searchCount = metrics.searched[genre] || 0;
-
     const baseScore = 15; // Small initial shape for aesthetic appeal
-    const calculatedScore = baseScore + (watchlistCount * 30) + (viewCount * 12) + (searchCount * 6);
-    
-    // Cap score at 150 to keep it within the radar boundaries cleanly
-    const score = Math.min(calculatedScore, 150);
+    return baseScore + (watchlistCount * 30) + (viewCount * 12) + (searchCount * 6);
+  });
 
+  // 3. Normalize against the highest score (with a minimum max of 150)
+  const maxScore = Math.max(150, ...rawScores);
+
+  return RADAR_GENRES.map((genre, idx) => {
+    // Normalize to max 150 to fit the chart boundary cleanly
+    const score = (rawScores[idx] / maxScore) * 150;
+    
     return {
       genre,
       A: score,
