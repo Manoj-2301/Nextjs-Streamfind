@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Star, Clock, Calendar, ChevronLeft, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil } from 'lucide-react';
 import WatchProviderCard from '@/components/ui/watch-provider-card';
@@ -18,6 +18,8 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function MovieDetails() {
   const params = useParams<{ id: string }>(); const id = params.id;
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get('type') as 'movie' | 'tv' | null;
   const { user } = useAuth();
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
@@ -70,7 +72,7 @@ export default function MovieDetails() {
       setIsLoading(true);
       setError(false);
       try {
-        const details = await getMovieDetails(Number(id));
+        const details = await getMovieDetails(Number(id), typeParam || undefined);
         setMovie(details);
       } catch (err) {
         console.error('Error fetching details:', err);
@@ -80,7 +82,7 @@ export default function MovieDetails() {
       }
     };
     fetchDetails();
-  }, [id]);
+  }, [id, typeParam]);
 
   // Load existing critique text when movie is resolved
   useEffect(() => {
@@ -112,7 +114,7 @@ export default function MovieDetails() {
       // 2. Fetch TMDB critic reviews
       let tmdbReviews: CriticReview[] = [];
       try {
-        tmdbReviews = await getMovieReviews(Number(id));
+        tmdbReviews = await getMovieReviews(Number(id), typeParam || undefined);
       } catch (e) {
         console.error("Error fetching TMDB reviews:", e);
       }
@@ -165,7 +167,7 @@ export default function MovieDetails() {
     return () => {
       unsubscribeFirestore();
     };
-  }, [id]);
+  }, [id, typeParam]);
 
   const getPartnerStyles = (platform: Platform) => {
     const isPartner = platform.isSponsored || (platform as any).isPartner;
@@ -313,7 +315,10 @@ export default function MovieDetails() {
               <iframe
                 ref={iframeRef}
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
-                src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`}
+                src={movie.trailerSite?.toLowerCase() === 'vimeo'
+                  ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
+                  : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                }
                 title={movie.title}
                 frameBorder="0"
                 allow="autoplay; encrypted-media; fullscreen;"
@@ -510,7 +515,10 @@ export default function MovieDetails() {
                   </h3>
                   <div className="relative aspect-video rounded-xl overflow-hidden border border-white/5 shadow-2xl">
                     <iframe
-                      src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1&origin=${window.location.origin}`}
+                      src={movie.trailerSite?.toLowerCase() === 'vimeo'
+                        ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=0`
+                        : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1&origin=${window.location.origin}`
+                      }
                       title={`${movie.title} Trailer`}
                       className="absolute inset-0 w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

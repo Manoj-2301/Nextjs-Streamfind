@@ -49,10 +49,11 @@ export default function GlobalSearch() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const handleSelect = (movieId: number) => {
+  const handleSelect = (movie: Movie) => {
     setIsOpen(false);
     setQuery('');
-    router.push(`/movie/${movieId}`);
+    const typeParam = movie.type ? `?type=${movie.type}` : '';
+    router.push(`/movie/${movie.id}${typeParam}`);
   };
 
   return (
@@ -77,7 +78,7 @@ export default function GlobalSearch() {
               <input
                 autoFocus
                 type="text"
-                placeholder="Search movies, genres..."
+                placeholder="Search movies, TV shows, anime..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="bg-transparent border-none outline-none text-white text-sm w-full"
@@ -100,7 +101,7 @@ export default function GlobalSearch() {
                   {results.map((movie) => (
                     <button
                       key={movie.id}
-                      onClick={() => handleSelect(movie.id)}
+                      onClick={() => handleSelect(movie)}
                       className="flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-all text-left group"
                     >
                       <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0">

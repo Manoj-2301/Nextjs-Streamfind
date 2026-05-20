@@ -39,7 +39,7 @@ export default function MovieCard({ movie, priority = false }: MovieCardProps) {
   };
 
   return (
-    <Link href={`/movie/${movie.id}`}>
+    <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`}>
       <motion.div
         whileHover={{ scale: 1.02, y: -4 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}

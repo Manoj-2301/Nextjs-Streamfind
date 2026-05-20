@@ -203,10 +203,12 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   exit={{ opacity: 0 }}
                   className="w-full h-full relative"
                 >
-                  {/* The requested logic implies the trailer stays but might "pause" or be muted/active based on scroll */}
                   <iframe
                     className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
-                    src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`}
+                    src={movie.trailerSite?.toLowerCase() === 'vimeo'
+                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
+                      : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                    }
                     title={movie.title}
                     frameBorder="0"
                     allow="autoplay; encrypted-media; fullscreen;"
@@ -265,7 +267,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                     <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
                   </motion.button>
                 </a>
-                <Link href={`/movie/${movie.id}`} className="w-full sm:w-auto">
+                <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
