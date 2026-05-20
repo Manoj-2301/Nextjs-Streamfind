@@ -261,27 +261,27 @@ export const getTrendingMovies = async (): Promise<Movie[]> => {
   try {
     const data = await fetchFromTmdb('trending/all/day');
 
-    const moviesWithTrailers = await Promise.all(
-      data.results
-        .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
-        .slice(0, 10)
-        .map(async (item: any) => {
-          try {
-            const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=videos,watch/providers,images`);
-            const mapped = item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
+    const itemsToProcess = data.results
+      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      .slice(0, 10);
+      
+    const moviesWithTrailers = [];
+    for (const item of itemsToProcess) {
+      try {
+        const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=videos,watch/providers,images`);
+        const mapped = item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
 
-            return {
-              ...mapped,
-              runtime: item.media_type === 'tv'
-                ? (detailData.episode_run_time && detailData.episode_run_time.length > 0 ? `${detailData.episode_run_time[0]} Min` : 'N/A')
-                : (detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A'),
-            };
-          } catch (error) {
-            console.error(`Error fetching details for trending item ${item.id}:`, error);
-            return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-          }
-        })
-    );
+        moviesWithTrailers.push({
+          ...mapped,
+          runtime: item.media_type === 'tv'
+            ? (detailData.episode_run_time && detailData.episode_run_time.length > 0 ? `${detailData.episode_run_time[0]} Min` : 'N/A')
+            : (detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A'),
+        });
+      } catch (error) {
+        console.error(`Error fetching details for trending item ${item.id}:`, error);
+        moviesWithTrailers.push(item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item));
+      }
+    }
     return moviesWithTrailers;
   } catch (error) {
     console.error('Error fetching trending movies:', error);
