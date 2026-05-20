@@ -134,7 +134,8 @@ export default function Navbar() {
             </Link>
           )}
 
-          <Link href="/sponsorship">
+          {/* Hiding Partner With Us button for now */}
+          {/* <Link href="/sponsorship">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -142,7 +143,7 @@ export default function Navbar() {
             >
               PARTNER WITH US
             </motion.button>
-          </Link>
+          </Link> */}
         </div>
 
         {/* Mobile menu toggle */}
