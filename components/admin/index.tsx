@@ -382,8 +382,8 @@ export default function AdminComponent() {
     <div className="min-h-screen bg-background text-white selection:bg-brand/30 mt-[-64px] pt-0">
       {/* 1. Subtle Glass Header */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1600px] mx-auto px-4 md:px-6 min-h-[80px] py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-center md:justify-start">
             <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center shadow-lg shadow-brand/20">
               <Shield className="w-6 h-6 text-white" />
             </div>
@@ -393,7 +393,7 @@ export default function AdminComponent() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full md:w-auto justify-center overflow-x-auto pb-2 md:pb-0 scrollbar-none">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -509,7 +509,7 @@ service cloud.firestore {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-surface/90 border border-white/5 rounded-[32px] max-w-md w-full p-8 space-y-6 relative overflow-hidden bg-black/90"
+              className="bg-surface/90 border border-white/5 rounded-[32px] max-w-md w-full p-6 sm:p-8 space-y-6 relative overflow-hidden bg-black/90"
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-black uppercase italic tracking-tight font-display">Configure <span className="text-brand">Cinephile</span></h3>
@@ -536,7 +536,7 @@ service cloud.firestore {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-2">Account Status</label>
                     <select
@@ -575,7 +575,7 @@ service cloud.firestore {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-white/5">
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-white/5">
                 <button
                   onClick={() => {
                     setIsEditModalOpen(false);
@@ -782,7 +782,7 @@ function AnalyticsView({
       exit={{ opacity: 0, y: -20 }}
       className="space-y-8"
     >
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {items.map((stat) => (
           <div key={stat.label} className="p-8 rounded-[32px] bg-surface/30 border border-white/5 hover:border-brand/20 transition-all group">
             <stat.icon className={`w-8 h-8 ${stat.color} mb-6`} />
@@ -796,8 +796,8 @@ function AnalyticsView({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 p-10 bg-surface/30 border border-white/5 rounded-[40px]">
-          <div className="flex items-center justify-between mb-8">
+        <div className="lg:col-span-2 p-6 md:p-10 bg-surface/30 border border-white/5 rounded-[40px]">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <h3 className="text-xl font-black uppercase italic tracking-tight font-display">Growth <span className="text-brand">Analytics</span></h3>
             <div className="flex gap-2">
               <button className="px-4 py-2 bg-brand/10 border border-brand/20 rounded-xl text-[10px] text-brand font-black">REAL-TIME</button>
@@ -825,7 +825,7 @@ function AnalyticsView({
           </div>
         </div>
 
-        <div className="p-10 bg-surface/30 border border-white/5 rounded-[40px]">
+        <div className="p-6 md:p-10 bg-surface/30 border border-white/5 rounded-[40px]">
           <h3 className="text-xl font-black uppercase italic tracking-tight font-display mb-8">Trending <span className="text-brand">Radar</span></h3>
           <div className="overflow-y-auto h-[290px] pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 block overscroll-contain touch-pan-y">
             <div className="flex flex-col gap-6">
@@ -942,7 +942,8 @@ function UsersView({
         </div>
       </div>
 
-      <div className="bg-surface/30 border border-white/5 rounded-[40px] overflow-hidden shadow-2xl overflow-x-auto">
+      {/* Desktop Table View */}
+      <div className="hidden lg:block bg-surface/30 border border-white/5 rounded-[40px] overflow-hidden shadow-2xl overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
             <tr className="bg-white/5">
@@ -1025,6 +1026,72 @@ function UsersView({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile/Tablet Card View */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:hidden">
+        {filteredUsers.length === 0 ? (
+          <div className="col-span-full p-12 text-center bg-surface/30 border border-white/5 rounded-[40px] text-white/40 font-bold uppercase tracking-widest text-xs">
+            No match found in user mainframe
+          </div>
+        ) : (
+          filteredUsers.map((u) => (
+            <div key={u.id} className="bg-surface/30 border border-white/5 rounded-[32px] p-6 space-y-6 flex flex-col">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center font-black text-brand italic shrink-0">
+                    {u.name[0]?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-black text-white uppercase tracking-tight truncate">{u.name}</p>
+                      {u.flagged && (
+                        <span className="px-2 py-0.5 rounded bg-red-500/20 border border-red-500/30 text-[8px] font-black text-red-500 uppercase tracking-widest flex items-center gap-0.5 animate-pulse shrink-0">
+                          <AlertCircle className="w-2.5 h-2.5" /> FLAGGED
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] font-medium text-white/30 truncate">{u.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className={`w-2 h-2 rounded-full ${u.status === 'Active' ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${u.status === 'Active' ? 'text-green-400' : 'text-red-400'} hidden sm:inline`}>
+                    {u.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 bg-black/20 p-4 rounded-2xl">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Type</span>
+                  <span className="text-[10px] font-black uppercase text-white/60 truncate">{u.type}</span>
+                </div>
+                <div className="flex flex-col gap-1 items-end shrink-0">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Level {u.level}</span>
+                  <div className="w-24 bg-white/5 rounded-full h-1.5 mt-1">
+                    <div className="bg-brand h-full rounded-full" style={{ width: `${(u.level / 100) * 100}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-white/5 mt-auto">
+                <button
+                  onClick={() => onConfigureUser(u)}
+                  className="flex-1 py-3 bg-white/5 rounded-xl hover:bg-brand/10 hover:text-brand transition-all cursor-pointer text-white/40 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                >
+                  <Settings className="w-4 h-4" /> Config
+                </button>
+                <button
+                  onClick={() => onDeleteUser(u.id)}
+                  className="flex-1 py-3 bg-white/5 rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-all cursor-pointer text-white/40 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                >
+                  <Trash2 className="w-4 h-4" /> Banish
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </motion.div>
   );
@@ -1112,8 +1179,8 @@ function ContentView({
               </div>
             ) : (
               reviews.map((review, i) => (
-                <div key={i} className="p-8 bg-surface/30 border border-white/5 rounded-[32px] group">
-                  <div className="flex items-center justify-between mb-6">
+                <div key={i} className="p-6 sm:p-8 bg-surface/30 border border-white/5 rounded-[32px] group">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-surface border border-white/5 flex items-center justify-center text-[10px] font-black text-brand italic">
                         {review.rating}★
@@ -1130,7 +1197,7 @@ function ContentView({
                   </div>
                   <p className="text-sm font-medium text-white/60 leading-relaxed italic">&quot;{review.text}&quot;</p>
 
-                  <div className="mt-8 pt-6 border-t border-white/5 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="mt-8 pt-6 border-t border-white/5 flex flex-col sm:flex-row gap-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     {review.status !== 'Approved' && (
                       <button
                         onClick={() => onApproveReview(review.userId, review.movieId.toString())}
@@ -1159,9 +1226,9 @@ function ContentView({
             <button className="w-10 h-10 bg-brand rounded-2xl flex items-center justify-center text-white shadow-lg"><Plus className="w-5 h-5" /></button>
           </div>
 
-          <div className="p-10 bg-brand/5 border border-brand/20 rounded-[40px] space-y-8">
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-36 bg-surface border border-white/10 rounded-2xl overflow-hidden relative group">
+          <div className="p-6 md:p-10 bg-brand/5 border border-brand/20 rounded-[40px] space-y-8">
+            <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-6">
+              <div className="w-24 h-36 mx-auto sm:mx-0 bg-surface border border-white/10 rounded-2xl overflow-hidden relative group shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="https://image.tmdb.org/t/p/w200/gEU2QniE6E77NI6vCU677iS7Z3P.jpg" className="w-full h-full object-cover" alt="Inception" />
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center">
