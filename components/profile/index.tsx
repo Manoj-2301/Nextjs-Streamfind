@@ -647,9 +647,10 @@ export default function ProfileComponent() {
     if (profile.top10.some(m => m.id === movie.id)) return;
 
     const updatedTop10 = [...profile.top10, movie];
+    const sanitizedTop10 = JSON.parse(JSON.stringify(updatedTop10));
     try {
       const docRef = doc(db, `users/${user.uid}`);
-      await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
+      await setDoc(docRef, { top10: sanitizedTop10 }, { merge: true });
       setSearchQuery('');
       setSearchResults([]);
       setShowSearch(false);
