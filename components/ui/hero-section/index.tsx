@@ -5,7 +5,7 @@ import { Play, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
+import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
@@ -32,7 +32,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
-  const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
+  const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
   useEffect(() => {
     getAffiliateLinks()

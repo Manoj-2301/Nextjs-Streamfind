@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-import { toast } from 'react-hot-toast';
+import { toast, ToastBar } from 'react-hot-toast';
 import { app } from '@/lib/firebase';
 import {
   collection,
@@ -24,6 +24,8 @@ import {
   LayoutDashboard,
   X,
   Mail,
+  MessageCircle,
+  AlertTriangle,
   ExternalLink
 } from 'lucide-react';
 
@@ -32,7 +34,8 @@ import UsersView from './UsersView';
 import ContentView from './ContentView';
 import SystemView from './SystemView';
 import AffiliatesView from './AffiliatesView';
-import { AdminUser, AdminRating } from './types';
+import ContactQueriesView, { ContactQuery } from './ContactQueriesView';
+import { AdminUser, AdminRating, FeaturedCuration } from './types';
 
 export default function AdminComponent() {
   const { user, loading } = useAuth();
@@ -40,36 +43,62 @@ export default function AdminComponent() {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [ratings, setRatings] = useState<AdminRating[]>([]);
+  const [queries, setQueries] = useState<ContactQuery[]>([]);
+  const [curations, setCurations] = useState<FeaturedCuration[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!user || user.email !== 'mt398401@gmail.com') return;
-
     let active = true;
-    const fetchData = async () => {
+
+    const setupListeners = async () => {
+      if (!isMounted) return;
+      setIsDataLoading(true);
+      setError(null);
       try {
-        setError(null);
-        // Fetch all users
-        const usersSnap = await getDocs(collection(getFirestore(app), 'users'));
-        const fetchedUsers: AdminUser[] = [];
-        usersSnap.forEach((docSnap) => {
-          fetchedUsers.push({
-            id: docSnap.id,
-            ...docSnap.data()
-          } as AdminUser);
+        const { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc } = await import('firebase/firestore');
+        const { app } = await import('@/lib/firebase');
+        const db = getFirestore(app);
+
+        // Setup real-time listeners
+        const unsubQueries = onSnapshot(collection(db, 'contact_queries'), (snap) => {
+          if (!active) return;
+          const items: ContactQuery[] = [];
+          snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as ContactQuery));
+          setQueries(items);
+        }, (err) => {
+          if (active) setError('Failed to fetch contact_queries: ' + err.message);
         });
 
-        // Auto-mark users inactive after 30 days and send email
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        for (const u of fetchedUsers) {
-          if (u.status === 'Inactive') continue; // already inactive
-          const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().getTime() : null;
-          if (lastActive !== null && lastActive < thirtyDaysAgo) {
-            try {
-              await updateDoc(doc(getFirestore(app), 'users', u.id), { status: 'Inactive' });
+        const unsubCurations = onSnapshot(collection(db, 'featured_curations'), (snap) => {
+          if (!active) return;
+          const items: FeaturedCuration[] = [];
+          snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as FeaturedCuration));
+          items.sort((a, b) => (a.slotNo || '').localeCompare(b.slotNo || ''));
+          setCurations(items);
+        }, (err) => {
+          if (active) setError('Failed to fetch featured_curations: ' + err.message);
+        });
+
+        const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+          if (!active) return;
+          const items: AdminUser[] = [];
+          snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as AdminUser));
+          
+          // Auto-mark inactive
+          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          items.forEach(u => {
+            if (u.status === 'Inactive') return;
+            const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().getTime() : null;
+            if (lastActive !== null && lastActive < thirtyDaysAgo) {
+              updateDoc(doc(db, 'users', u.id), { status: 'Inactive' }).catch(e => console.warn(e));
               u.status = 'Inactive';
-              // Fire-and-forget: send inactive email
               if (u.email) {
                 fetch('/api/notify/moderation', {
                   method: 'POST',
@@ -79,36 +108,29 @@ export default function AdminComponent() {
                     userName: u.displayName || u.email.split('@')[0] || 'Cinephile',
                     type: 'inactive'
                   })
-                }).catch(err => console.warn('Auto-inactive email failed:', err));
+                }).catch(e => console.warn(e));
               }
-            } catch (e) {
-              console.warn(`Could not auto-mark user ${u.id} inactive:`, e);
             }
-          }
-        }
-
-        // Fetch all ratings (collection group)
-        const ratingsSnap = await getDocs(collectionGroup(getFirestore(app), 'ratings'));
-        const fetchedRatings: AdminRating[] = [];
-        ratingsSnap.forEach((docSnap) => {
-          const parts = docSnap.ref.path.split('/');
-          const userId = parts[1] || '';
-          const movieId = parts[3] || '';
-          fetchedRatings.push({
-            id: docSnap.id,
-            userId,
-            movieId,
-            ...docSnap.data()
-          } as AdminRating);
+          });
+          setUsers(items);
+        }, (err) => {
+          if (active) setError('Failed to fetch users: ' + err.message);
         });
 
-        if (active) {
-          setUsers(fetchedUsers);
-          setRatings(fetchedRatings);
+        const unsubRatings = onSnapshot(collectionGroup(db, 'ratings'), (snap) => {
+          if (!active) return;
+          const items: AdminRating[] = [];
+          snap.forEach(docSnap => {
+            const parts = docSnap.ref.path.split('/');
+            const userId = parts[1] || '';
+            const movieId = parts[3] || '';
+            items.push({ id: docSnap.id, userId, movieId, ...docSnap.data() } as AdminRating);
+          });
+          setRatings(items);
           setIsDataLoading(false);
 
           // Asynchronously fetch missing movie titles from TMDB API proxy
-          const ratingsMissingTitles = fetchedRatings.filter(r => !r.movieTitle && r.movieId);
+          const ratingsMissingTitles = items.filter(r => !r.movieTitle && r.movieId);
           if (ratingsMissingTitles.length > 0) {
             import('@/services/tmdbService').then(({ getMovieDetails }) => {
               Promise.all(
@@ -142,7 +164,20 @@ export default function AdminComponent() {
               });
             }).catch(e => console.warn('Failed to dynamically import tmdbService in index.tsx:', e));
           }
-        }
+        }, (err) => {
+          if (active) {
+            setError(err.message || String(err));
+            setIsDataLoading(false);
+          }
+        });
+
+        return () => {
+          unsubQueries();
+          unsubCurations();
+          unsubUsers();
+          unsubRatings();
+        };
+
       } catch (err: any) {
         console.error("Error loading admin dashboard metrics:", err);
         if (active) {
@@ -152,11 +187,16 @@ export default function AdminComponent() {
       }
     };
 
-    fetchData();
+    let cleanupListeners: (() => void) | void;
+    setupListeners().then(cleanup => {
+      cleanupListeners = cleanup;
+    });
+
     return () => {
       active = false;
+      if (cleanupListeners) cleanupListeners();
     };
-  }, [user]);
+  }, [user, isMounted]);
 
   // Configure User Modal state
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -266,7 +306,26 @@ export default function AdminComponent() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm(`Are you sure you want to completely delete this user, including their profile, watchlist, and all reviews/ratings? This action is permanent.`)) return;
+    toast((t) => (
+      <div className="flex flex-col gap-4 min-w-[280px]">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-white font-bold text-base mb-1">Delete User</h4>
+            <span className="text-sm font-medium text-white/60 leading-relaxed">Are you sure you want to completely delete this user? This action is permanent.</span>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-xs font-bold text-white transition-all">Cancel</button>
+          <button onClick={() => { toast.dismiss(t.id); executeDeleteUser(userId); }} className="px-5 py-2.5 bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] rounded-xl text-xs font-bold text-white transition-all">Yes, Delete</button>
+        </div>
+      </div>
+    ), { duration: Infinity, style: { padding: '20px', borderRadius: '24px', background: 'rgba(10,10,10,0.95)', border: '1px solid rgba(255,255,255,0.1)' } });
+  };
+
+  const executeDeleteUser = async (userId: string) => {
     try {
       setIsDataLoading(true);
 
@@ -317,7 +376,26 @@ export default function AdminComponent() {
   };
 
   const handleDeleteReview = async (userId: string, movieId: string) => {
-    if (!confirm(`Are you sure you want to delete this critique/review?`)) return;
+    toast((t) => (
+      <div className="flex flex-col gap-4 min-w-[280px]">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-white font-bold text-base mb-1">Delete Review</h4>
+            <span className="text-sm font-medium text-white/60 leading-relaxed">Are you sure you want to delete this critique/review?</span>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-xs font-bold text-white transition-all">Cancel</button>
+          <button onClick={() => { toast.dismiss(t.id); executeDeleteReview(userId, movieId); }} className="px-5 py-2.5 bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] rounded-xl text-xs font-bold text-white transition-all">Yes, Delete</button>
+        </div>
+      </div>
+    ), { duration: Infinity, style: { padding: '20px', borderRadius: '24px', background: 'rgba(10,10,10,0.95)', border: '1px solid rgba(255,255,255,0.1)' } });
+  };
+
+  const executeDeleteReview = async (userId: string, movieId: string) => {
     try {
       await deleteDoc(doc(getFirestore(app), `users/${userId}/ratings/${movieId}`));
 
@@ -360,7 +438,8 @@ export default function AdminComponent() {
           if (!res.ok) console.warn('Removal email may not have sent:', res.status);
         }).catch(err => console.warn('Removal email failed:', err));
       }
-      setRatings(prev => prev.filter(r => !(r.userId === userId && r.movieId === movieId)));
+      setRatings(prev => prev.filter(r => !(r.userId === userId && String(r.movieId) === String(movieId))));
+      toast.success("Review deleted successfully.");
     } catch (err) {
       console.error('Error deleting review document:', err);
       toast.error('Failed to delete review: ' + (err instanceof Error ? err.message : String(err)));
@@ -373,11 +452,12 @@ export default function AdminComponent() {
         approved: true
       });
       setRatings(prev => prev.map(r => {
-        if (r.userId === userId && r.movieId === movieId) {
+        if (r.userId === userId && String(r.movieId) === String(movieId)) {
           return { ...r, approved: true };
         }
         return r;
       }));
+      toast.success("Review approved successfully.");
     } catch (err) {
       console.error("Error approving review:", err);
       toast.error("Failed to approve review: " + (err instanceof Error ? err.message : String(err)));
@@ -411,9 +491,52 @@ export default function AdminComponent() {
     { id: 'analytics', label: 'Analytics', icon: LayoutDashboard },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'content', label: 'Content', icon: Star },
+    { id: 'contact', label: 'Queries', icon: Mail },
     { id: 'affiliates', label: 'Affiliates', icon: ExternalLink },
     { id: 'system', label: 'System', icon: Cpu },
   ];
+
+  const handleDeleteQuery = async (id: string) => {
+    toast((t) => (
+      <div className="flex flex-col gap-4 min-w-[280px]">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-white font-bold text-base mb-1">Delete Query</h4>
+            <span className="text-sm font-medium text-white/60 leading-relaxed">Are you sure you want to delete this query?</span>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-xs font-bold text-white transition-all">Cancel</button>
+          <button onClick={() => { toast.dismiss(t.id); executeDeleteQuery(id); }} className="px-5 py-2.5 bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] rounded-xl text-xs font-bold text-white transition-all">Yes, Delete</button>
+        </div>
+      </div>
+    ), { duration: Infinity, style: { padding: '20px', borderRadius: '24px', background: 'rgba(10,10,10,0.95)', border: '1px solid rgba(255,255,255,0.1)' } });
+  };
+
+  const executeDeleteQuery = async (id: string) => {
+    try {
+      await deleteDoc(doc(getFirestore(app), 'contact_queries', id));
+      setQueries(prev => prev.filter(q => q.id !== id));
+      toast.success('Query deleted successfully');
+    } catch (error) {
+      console.error('Error deleting query:', error);
+      toast.error('Failed to delete query');
+    }
+  };
+
+  const handleMarkQueryAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(getFirestore(app), 'contact_queries', id), {
+        status: 'Read'
+      });
+      setQueries(prev => prev.map(q => q.id === id ? { ...q, status: 'Read' } : q));
+    } catch (error) {
+      console.error('Error updating query status:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-white selection:bg-brand/30 mt-[-64px] pt-0">
@@ -524,12 +647,23 @@ service cloud.firestore {
               key="content"
               ratings={ratings}
               users={users}
+              curations={curations}
               isLoading={isDataLoading}
               onDeleteReview={handleDeleteReview}
               onApproveReview={handleApproveReview}
+              onSetCurations={setCurations}
             />
           )}
           {activeTab === 'system' && <SystemView key="system" />}
+          {activeTab === 'contact' && (
+            <ContactQueriesView 
+              key="contact"
+              queries={queries}
+              isLoading={isDataLoading}
+              onDeleteQuery={handleDeleteQuery}
+              onMarkAsRead={handleMarkQueryAsRead}
+            />
+          )}
           {activeTab === 'affiliates' && <AffiliatesView key="affiliates" />}
         </AnimatePresence>
       </main>

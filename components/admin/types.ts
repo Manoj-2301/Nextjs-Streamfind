@@ -11,6 +11,7 @@ export interface AdminUser {
   status?: string;
   flagged?: boolean;
   lastActive?: any;
+  newsletterOptIn?: boolean;
 }
 
 export interface AdminRating {
@@ -24,4 +25,16 @@ export interface AdminRating {
   updatedAt?: any;
   liked?: boolean;
   approved?: boolean;
+}
+
+export interface FeaturedCuration {
+  id: string;
+  slotNo: string;
+  type: string;
+  movieId: string;
+  movieTitle: string;
+  movieImage: string;
+  movieOverview?: string;
+  mediaType: 'movie' | 'tv';
+  updatedAt?: any;
 }

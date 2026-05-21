@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, ExternalLink, Plus, Trash2, Edit3, Save, CheckCircle2, RefreshCw } from 'lucide-react';
+import { AlertCircle, ExternalLink, Plus, Trash2, Edit3, Save, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { getAffiliateLinks, saveAffiliateLinks, AffiliateLinks } from '@/services/affiliateService';
+import { toast } from 'react-hot-toast';
 
 export default function AffiliatesView() {
   const [links, setLinks] = useState<AffiliateLinks>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Form states
   const [platformKey, setPlatformKey] = useState('');
   const [affiliateUrl, setAffiliateUrl] = useState('');
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [offerText, setOfferText] = useState('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,26 +24,24 @@ export default function AffiliatesView() {
     setIsLoading(true);
     try {
       const data = await getAffiliateLinks();
-      setLinks(data);
+      setLinks(data || {});
     } catch (e) {
       console.error(e);
-      setMessage({ text: 'Failed to load affiliate links.', type: 'error' });
+      toast.error('Failed to load affiliate links.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSave = async (updatedLinks: AffiliateLinks) => {
+  const handleSave = async (updatedLinks: AffiliateLinks, action: 'added' | 'updated' | 'deleted') => {
     setIsSaving(true);
-    setMessage(null);
     try {
       await saveAffiliateLinks(updatedLinks);
       setLinks(updatedLinks);
-      setMessage({ text: 'Affiliate links updated successfully!', type: 'success' });
-      setTimeout(() => setMessage(null), 3000);
+      toast.success(`Affiliate link ${action} successfully!`);
     } catch (e: any) {
       console.error(e);
-      setMessage({ text: e.message || 'Failed to save affiliate links.', type: 'error' });
+      toast.error(e.message || `Failed to ${action} affiliate link.`);
     } finally {
       setIsSaving(false);
     }
@@ -52,28 +52,60 @@ export default function AffiliatesView() {
     if (!platformKey.trim() || !affiliateUrl.trim()) return;
 
     const key = platformKey.trim().toLowerCase();
+    const linkData = isFeatured 
+      ? { url: affiliateUrl.trim(), isFeatured: true, offerText: offerText.trim() }
+      : affiliateUrl.trim();
+
     const updated = {
       ...links,
-      [key]: affiliateUrl.trim()
+      [key]: linkData
     };
 
-    handleSave(updated);
+    handleSave(updated, 'added');
     setPlatformKey('');
     setAffiliateUrl('');
+    setIsFeatured(false);
+    setOfferText('');
   };
 
   const handleDeleteLink = (keyToDelete: string) => {
-    if (!confirm(`Are you sure you want to delete the affiliate link for "${keyToDelete}"?`)) return;
-    
-    const updated = { ...links };
-    delete updated[keyToDelete];
-    handleSave(updated);
+    toast((t) => (
+      <div className="flex flex-col gap-4 min-w-[280px]">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/20">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-white font-bold text-base mb-1">Delete Affiliate Link</h4>
+            <span className="text-sm font-medium text-white/60 leading-relaxed">Delete the link for "{keyToDelete}"?</span>
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-xs font-bold text-white transition-all">Cancel</button>
+          <button onClick={() => {
+            toast.dismiss(t.id);
+            const updated = { ...links };
+            delete updated[keyToDelete];
+            handleSave(updated, 'deleted');
+          }} className="px-5 py-2.5 bg-red-500 hover:bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] rounded-xl text-xs font-bold text-white transition-all">Yes, Delete</button>
+        </div>
+      </div>
+    ), { duration: Infinity, style: { padding: '20px', borderRadius: '24px', background: 'rgba(10,10,10,0.95)', border: '1px solid rgba(255,255,255,0.1)' } });
   };
 
   const handleStartEdit = (key: string) => {
+    const linkData = links[key];
     setEditingKey(key);
-    setAffiliateUrl(links[key]);
     setPlatformKey(key);
+    if (typeof linkData === 'string') {
+      setAffiliateUrl(linkData);
+      setIsFeatured(false);
+      setOfferText('');
+    } else {
+      setAffiliateUrl(linkData?.url || '');
+      setIsFeatured(linkData?.isFeatured || false);
+      setOfferText(linkData?.offerText || '');
+    }
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -87,18 +119,26 @@ export default function AffiliatesView() {
       delete updated[editingKey];
     }
     
-    updated[newKey] = affiliateUrl.trim();
+    const linkData = isFeatured 
+      ? { url: affiliateUrl.trim(), isFeatured: true, offerText: offerText.trim() }
+      : affiliateUrl.trim();
+      
+    updated[newKey] = linkData;
     
-    handleSave(updated);
+    handleSave(updated, 'updated');
     setEditingKey(null);
     setPlatformKey('');
     setAffiliateUrl('');
+    setIsFeatured(false);
+    setOfferText('');
   };
 
   const handleCancelEdit = () => {
     setEditingKey(null);
     setPlatformKey('');
     setAffiliateUrl('');
+    setIsFeatured(false);
+    setOfferText('');
   };
 
   if (isLoading) {
@@ -173,18 +213,44 @@ export default function AffiliatesView() {
               />
             </div>
 
+            <div className="pt-2">
+              <label className="flex items-center gap-3 cursor-pointer group w-fit">
+                <input 
+                  type="checkbox" 
+                  className="hidden" 
+                  checked={isFeatured} 
+                  onChange={(e) => setIsFeatured(e.target.checked)} 
+                />
+                <div className={`w-10 h-5 rounded-full p-1 transition-colors ${isFeatured ? 'bg-brand' : 'bg-white/10 group-hover:bg-white/20'}`}>
+                  <div className={`w-3 h-3 rounded-full bg-white transition-transform ${isFeatured ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/70 group-hover:text-white transition-colors">
+                  Set as Featured Partner
+                </span>
+              </label>
+              <p className="text-[9px] text-white/30 mt-1.5 font-medium ml-13">
+                If enabled, a promotional banner will appear on the homepage for this partner.
+              </p>
+            </div>
+
             <AnimatePresence>
-              {message && (
+              {isFeatured && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className={`p-4 rounded-xl flex items-center gap-2 text-xs font-bold ${
-                    message.type === 'success' ? 'bg-green-500/10 text-green-400 border border-green-500/10' : 'bg-red-500/10 text-red-400 border border-red-500/10'
-                  }`}
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  className="overflow-hidden"
                 >
-                  {message.type === 'success' && <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
-                  <span>{message.text}</span>
+                  <label className="text-[8px] font-black uppercase tracking-widest text-brand block mb-2">
+                    Custom Offer Text (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Special 3 Month Free Trial Offer"
+                    value={offerText}
+                    onChange={(e) => setOfferText(e.target.value)}
+                    className="w-full bg-brand/5 border border-brand/20 rounded-xl px-4 py-3 text-xs text-brand focus:outline-none focus:border-brand/50 transition-colors placeholder:text-brand/30 font-bold"
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -241,24 +307,35 @@ export default function AffiliatesView() {
                 <p className="text-[9px] text-white/20 max-w-[200px] font-medium">All streaming platforms are routing to TMDB directly.</p>
               </div>
             ) : (
-              Object.keys(links).map((key) => (
-                <div
-                  key={key}
-                  className="p-4 bg-black/20 border border-white/5 hover:border-white/10 rounded-2xl flex items-center justify-between gap-4 transition-all group"
-                >
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-white group-hover:text-brand transition-colors block">
-                      {key}
-                    </span>
-                    <a
-                      href={links[key]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[9px] text-white/40 hover:text-white/60 font-mono block truncate hover:underline"
-                    >
-                      {links[key]}
-                    </a>
-                  </div>
+              Object.keys(links).map((key) => {
+                const linkData = links[key];
+                const url = typeof linkData === 'string' ? linkData : linkData?.url;
+                const featured = typeof linkData === 'object' && linkData?.isFeatured;
+                return (
+                  <div
+                    key={key}
+                    className="p-4 bg-black/20 border border-white/5 hover:border-white/10 rounded-2xl flex items-center justify-between gap-4 transition-all group"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-white group-hover:text-brand transition-colors block">
+                          {key}
+                        </span>
+                        {featured && (
+                          <span className="text-[8px] font-black uppercase tracking-widest bg-brand/20 text-brand px-1.5 py-0.5 rounded-md">
+                            Featured
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[9px] text-white/40 hover:text-white/60 font-mono block truncate hover:underline"
+                      >
+                        {url}
+                      </a>
+                    </div>
 
                   <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
                     <button
@@ -277,7 +354,8 @@ export default function AffiliatesView() {
                     </button>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
           </div>
         </div>

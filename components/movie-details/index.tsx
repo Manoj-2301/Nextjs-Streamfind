@@ -15,7 +15,7 @@ import { Movie, Platform } from '@/types';
 import { app } from '@/lib/firebase';
 import { collection, query, onSnapshot, collectionGroup, where , getFirestore } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
+import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import Pagination from '@/components/ui/pagination';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
@@ -101,7 +101,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const [isPlaying, setIsPlaying] = useState(true);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
-  const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
+  const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
   useEffect(() => {
     getAffiliateLinks()

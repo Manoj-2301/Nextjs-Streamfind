@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import AuthPosterBg from './poster-bg';
 
 type SignInStep = 'email' | 'password';
 
@@ -126,12 +127,19 @@ export default function AuthPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen pt-24 pb-12 flex items-center justify-center px-4 relative overflow-hidden"
+      className="fixed inset-0 flex items-center justify-center px-4 overflow-y-auto bg-background"
     >
-      {/* Decorative background */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand/20 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand/10 rounded-full blur-[120px] pointer-events-none" />
-
+      {/* Animated poster background */}
+      <AuthPosterBg />
+      {/* Dark overlay so form stays readable */}
+      <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+      {/* Radial red glow behind the card */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(229,9,20,0.15) 0%, transparent 70%)' }} />
+      </div>
+<button onClick={() => router.push('/')} className="absolute top-4 left-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+  <ArrowLeft className="w-5 h-5" /> Home
+</button>
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -161,6 +169,9 @@ export default function AuthPage() {
 
           ) : (
             <>
+              
+                
+
               {/* ── Header ── */}
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-black uppercase tracking-tighter text-white mb-2">
@@ -307,7 +318,7 @@ export default function AuthPage() {
                       <button
                         type="button"
                         onClick={() => { setSignInStep('email'); setError(''); setPassword(''); }}
-                        className="flex items-center gap-2 text-white/40 hover:text-white/70 text-sm font-medium transition-colors w-fit mb-1"
+        
                       >
                         <ArrowLeft className="w-4 h-4" />
                         Use a different email

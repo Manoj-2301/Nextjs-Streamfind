@@ -2,7 +2,7 @@ import Home from '@/components/home';
 import { Movie } from '@/types';
 import { getTrendingMovies, getMoviesByGenre, getPopularMovies } from '@/services/tmdbService';
 
-export const revalidate = 3600; // Revalidate every 3600 seconds (1 hour)
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   let initialTrending: Movie[] = [];

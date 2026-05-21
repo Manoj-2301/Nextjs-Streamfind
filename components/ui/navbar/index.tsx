@@ -17,7 +17,7 @@ export default function Navbar() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const pathname = usePathname();
 
-  if (pathname === '/admin') {
+  if (pathname === '/admin' || pathname?.startsWith('/auth')) {
     return null;
   }
 

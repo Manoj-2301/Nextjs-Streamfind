@@ -37,6 +37,12 @@ export default function Home({
   const { user } = useAuth();
   const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
+  const [featuredPartner, setFeaturedPartner] = useState<{
+    movieName: string;
+    providerName: string;
+    offerText?: string;
+    affiliateUrl: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -111,6 +117,37 @@ export default function Home({
           }
           setRecSource(null);
         }
+
+        // Fetch Featured Partner
+        const { getAffiliateLinks } = await import('@/services/affiliateService');
+        const links = await getAffiliateLinks();
+        const featuredKey = Object.keys(links).find(key => {
+          const linkData = links[key];
+          return typeof linkData === 'object' && linkData?.isFeatured;
+        });
+
+        if (featuredKey && currentTrending.length > 0) {
+          const topMovie = currentTrending[0];
+          const linkData = links[featuredKey] as any;
+          
+          const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
+          
+          let movieName = topMovie.title || 'Top Movie';
+          if (movieName.includes(':')) {
+            const parts = movieName.split(':');
+            movieName = parts[parts.length - 1].trim();
+          }
+          
+          setFeaturedPartner({
+            movieName,
+            providerName,
+            offerText: linkData.offerText,
+            affiliateUrl: linkData.url,
+          });
+        } else {
+           setFeaturedPartner(null);
+        }
+
       } catch (error) {
         console.error('Error loading home data:', error);
       } finally {
@@ -119,8 +156,6 @@ export default function Home({
     };
     loadData();
   }, [watchlist.length]);
-
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
@@ -170,7 +205,14 @@ export default function Home({
 
         <ScrollableRow title="Trending Now" movies={filteredTrending} />
 
-        <SponsorBanner />
+        {featuredPartner && (
+          <SponsorBanner 
+            movieName={featuredPartner.movieName}
+            providerName={featuredPartner.providerName}
+            offerText={featuredPartner.offerText}
+            affiliateUrl={featuredPartner.affiliateUrl}
+          />
+        )}
 
         <ScrollableRow title="Top Rated" movies={topRated} />
         <ScrollableRow title="By Genre: Sci-Fi" movies={filteredSciFi} />
