@@ -494,7 +494,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
                 src={movie.trailerSite?.toLowerCase() === 'vimeo'
                   ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
-                  : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                  : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                 }
                 title={movie.title}
                 frameBorder="0"
@@ -697,7 +697,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                     <iframe
                       src={movie.trailerSite?.toLowerCase() === 'vimeo'
                         ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=0`
-                        : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1`
+                        : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1`
                       }
                       title={`${movie.title} Trailer`}
                       className="absolute inset-0 w-full h-full"

@@ -284,7 +284,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                     className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
                       ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
-                      : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                      : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                     }
                     title={movie.title}
                     frameBorder="0"
@@ -364,7 +364,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
       </AnimatePresence>
 
       {/* Navigation Indicators */}
-      <div className="absolute bottom-12 md:bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+      <div className="absolute bottom-12 md:bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center">
         {movies.map((_, i) => (
           <button
             key={i}
@@ -373,8 +373,10 @@ export default function HeroSection({ movies }: HeroSectionProps) {
               setDirection(i > currentIndex ? 1 : -1);
               setCurrentIndex(i);
             }}
-            className={`h-1.5 transition-all rounded-full ${i === currentIndex ? 'w-10 bg-brand' : 'w-2 bg-white/20 hover:bg-white/40'}`}
-          />
+            className="p-3"
+          >
+            <div className={`h-1.5 transition-all rounded-full ${i === currentIndex ? 'w-10 bg-brand' : 'w-2 bg-white/20 hover:bg-white/40'}`} />
+          </button>
         ))}
       </div>
     </section>

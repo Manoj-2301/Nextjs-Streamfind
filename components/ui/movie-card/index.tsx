@@ -70,6 +70,7 @@ export default function MovieCard({ movie, priority = false }: MovieCardProps) {
         {/* Watchlist Bookmark (Hover only) */}
         <button
           onClick={toggleWatchlist}
+          aria-label={saved ? "Remove from watchlist" : "Add to watchlist"}
           className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 z-30 opacity-0 group-hover/card:opacity-100 ${
             saved 
               ? 'bg-brand text-white shadow-[0_0_10px_rgba(229,9,20,0.5)] !opacity-100' 
