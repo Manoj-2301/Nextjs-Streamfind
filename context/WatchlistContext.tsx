@@ -1,10 +1,10 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Movie } from '@/types';
 import { useAuth } from './AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, serverTimestamp } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 import { logUserActivity } from '@/lib/genreTracker';
 
@@ -56,38 +56,42 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     }
 
     // User is logged in: Merge local items to Firebase
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed: LocalWatchlistItem[] = JSON.parse(stored);
-        const now = Date.now();
-        const validItems = parsed.filter(item => now - item.addedAt < EXPIRY_TIME_MS);
-        
-        validItems.forEach(async (item) => {
-          const path = `users/${user.uid}/watchlist/${item.movie.id}`;
-          await setDoc(doc(db, path), {
-            ...item.movie,
-            addedAt: serverTimestamp()
-          }, { merge: true });
-        });
-        
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-      } catch (e) {
-        console.error("Error merging local watchlist:", e);
-      }
-    }
+    let unsubscribe = () => {};
 
-    const path = `users/${user.uid}/watchlist`;
-    const q = query(collection(db, path));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items: Movie[] = [];
-      snapshot.forEach((doc) => {
-        items.push(doc.data() as Movie);
+    import('firebase/firestore').then(({ collection, doc, setDoc, onSnapshot, query, serverTimestamp }) => {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsed: LocalWatchlistItem[] = JSON.parse(stored);
+          const now = Date.now();
+          const validItems = parsed.filter(item => now - item.addedAt < EXPIRY_TIME_MS);
+          
+          validItems.forEach(async (item) => {
+            const path = `users/${user.uid}/watchlist/${item.movie.id}`;
+            await setDoc(doc(getFirestore(app), path), {
+              ...item.movie,
+              addedAt: serverTimestamp()
+            }, { merge: true });
+          });
+          
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+        } catch (e) {
+          console.error("Error merging local watchlist:", e);
+        }
+      }
+
+      const path = `users/${user.uid}/watchlist`;
+      const q = query(collection(getFirestore(app), path));
+      
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const items: Movie[] = [];
+        snapshot.forEach((docSnap) => {
+          items.push(docSnap.data() as Movie);
+        });
+        setWatchlist(items);
+      }, (error: any) => {
+        handleFirestoreError(error, OperationType.LIST, path);
       });
-      setWatchlist(items);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
     });
 
     return () => unsubscribe();
@@ -112,7 +116,8 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
 
     const path = `users/${user.uid}/watchlist/${movie.id}`;
     try {
-      await setDoc(doc(db, path), {
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      await setDoc(doc(getFirestore(app), path), {
         ...movie,
         addedAt: serverTimestamp()
       });
@@ -141,7 +146,8 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
 
     const path = `users/${user.uid}/watchlist/${movieId}`;
     try {
-      await deleteDoc(doc(db, path));
+      const { doc, deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(getFirestore(app), path));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }

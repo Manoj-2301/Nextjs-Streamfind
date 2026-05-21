@@ -1,11 +1,12 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { db } from '@/lib/firebase';
+import { app } from '@/lib/firebase';
 import {
   collection,
   getDocs,
@@ -50,7 +51,7 @@ export default function AdminComponent() {
       try {
         setError(null);
         // Fetch all users
-        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersSnap = await getDocs(collection(getFirestore(app), 'users'));
         const fetchedUsers: AdminUser[] = [];
         usersSnap.forEach((docSnap) => {
           fetchedUsers.push({
@@ -66,7 +67,7 @@ export default function AdminComponent() {
           const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().getTime() : null;
           if (lastActive !== null && lastActive < thirtyDaysAgo) {
             try {
-              await updateDoc(doc(db, 'users', u.id), { status: 'Inactive' });
+              await updateDoc(doc(getFirestore(app), 'users', u.id), { status: 'Inactive' });
               u.status = 'Inactive';
               // Fire-and-forget: send inactive email
               if (u.email) {
@@ -87,7 +88,7 @@ export default function AdminComponent() {
         }
 
         // Fetch all ratings (collection group)
-        const ratingsSnap = await getDocs(collectionGroup(db, 'ratings'));
+        const ratingsSnap = await getDocs(collectionGroup(getFirestore(app), 'ratings'));
         const fetchedRatings: AdminRating[] = [];
         ratingsSnap.forEach((docSnap) => {
           const parts = docSnap.ref.path.split('/');
@@ -179,7 +180,7 @@ export default function AdminComponent() {
     if (!selectedUser) return;
     setIsSavingUser(true);
     try {
-      const userRef = doc(db, 'users', selectedUser.id);
+      const userRef = doc(getFirestore(app), 'users', selectedUser.id);
       await updateDoc(userRef, {
         displayName: editName,
         status: editStatus,
@@ -275,7 +276,7 @@ export default function AdminComponent() {
       // Delete all public movie review subcollection docs
       for (const rating of userRatings) {
         try {
-          await deleteDoc(doc(db, `movies/${rating.movieId}/reviews/${userId}`));
+          await deleteDoc(doc(getFirestore(app), `movies/${rating.movieId}/reviews/${userId}`));
         } catch (e) {
           console.warn(`Could not delete public review for movie ${rating.movieId}:`, e);
         }
@@ -284,7 +285,7 @@ export default function AdminComponent() {
       // Delete all rating subcollection docs
       for (const rating of userRatings) {
         try {
-          await deleteDoc(doc(db, `users/${userId}/ratings/${rating.movieId}`));
+          await deleteDoc(doc(getFirestore(app), `users/${userId}/ratings/${rating.movieId}`));
         } catch (e) {
           console.warn(`Could not delete rating ${rating.movieId}:`, e);
         }
@@ -292,7 +293,7 @@ export default function AdminComponent() {
 
       // Delete all watchlist documents
       try {
-        const watchlistSnap = await getDocs(collection(db, `users/${userId}/watchlist`));
+        const watchlistSnap = await getDocs(collection(getFirestore(app), `users/${userId}/watchlist`));
         for (const docSnap of watchlistSnap.docs) {
           await deleteDoc(docSnap.ref);
         }
@@ -301,7 +302,7 @@ export default function AdminComponent() {
       }
 
       // 2. Delete main user profile document
-      await deleteDoc(doc(db, 'users', userId));
+      await deleteDoc(doc(getFirestore(app), 'users', userId));
 
       // 3. Update local state
       setUsers(prev => prev.filter(u => u.id !== userId));
@@ -318,11 +319,11 @@ export default function AdminComponent() {
   const handleDeleteReview = async (userId: string, movieId: string) => {
     if (!confirm(`Are you sure you want to delete this critique/review?`)) return;
     try {
-      await deleteDoc(doc(db, `users/${userId}/ratings/${movieId}`));
+      await deleteDoc(doc(getFirestore(app), `users/${userId}/ratings/${movieId}`));
 
       // Clean up public movie review doc if possible (similar to handleDeleteUser logic)
       try {
-        await deleteDoc(doc(db, `movies/${movieId}/reviews/${userId}`));
+        await deleteDoc(doc(getFirestore(app), `movies/${movieId}/reviews/${userId}`));
       } catch (e) {
         console.warn(`Could not delete public review for movie ${movieId}:`, e);
       }
@@ -368,7 +369,7 @@ export default function AdminComponent() {
 
   const handleApproveReview = async (userId: string, movieId: string) => {
     try {
-      await updateDoc(doc(db, `users/${userId}/ratings/${movieId}`), {
+      await updateDoc(doc(getFirestore(app), `users/${userId}/ratings/${movieId}`), {
         approved: true
       });
       setRatings(prev => prev.map(r => {

@@ -1,4 +1,5 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,7 +8,7 @@ import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings, UserReview } from '@/context/RatingContext';
 import { searchMovies, getMovieAdditionalDetails, MovieAdditionalDetails } from '@/services/tmdbService';
 import { Movie } from '@/types';
-import { db, storage } from '@/lib/firebase';
+import {  storage , app } from '@/lib/firebase';
 import { doc, setDoc, onSnapshot, collection, query } from 'firebase/firestore';
 import { updateProfile, verifyBeforeUpdateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -192,7 +193,7 @@ export default function ProfileComponent() {
   const handleToggleLike = async (movieId: number, currentLiked: boolean) => {
     if (!user) return;
     try {
-      const ratingRef = doc(db, `users/${user.uid}/ratings/${movieId}`);
+      const ratingRef = doc(getFirestore(app), `users/${user.uid}/ratings/${movieId}`);
       await setDoc(ratingRef, { liked: !currentLiked }, { merge: true });
     } catch (e) {
       console.error("Error toggling like:", e);
@@ -315,7 +316,7 @@ export default function ProfileComponent() {
       await updateProfile(user, { photoURL: finalImageUrl });
 
       // Save photoURL to Firestore as a robust backup/sync mechanism
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { photoURL: finalImageUrl }, { merge: true });
 
       setProfile(prev => ({ ...prev, photoURL: finalImageUrl }));
@@ -340,7 +341,7 @@ export default function ProfileComponent() {
 
     setIsLoadingSharedData(true);
     const watchlistPath = `users/${targetUid}/watchlist`;
-    const watchlistQuery = query(collection(db, watchlistPath));
+    const watchlistQuery = query(collection(getFirestore(app), watchlistPath));
     const unsubscribeWatchlist = onSnapshot(watchlistQuery, (snapshot) => {
       const items: Movie[] = [];
       snapshot.forEach((doc) => {
@@ -352,7 +353,7 @@ export default function ProfileComponent() {
     });
 
     const ratingsPath = `users/${targetUid}/ratings`;
-    const ratingsQuery = query(collection(db, ratingsPath));
+    const ratingsQuery = query(collection(getFirestore(app), ratingsPath));
     const unsubscribeRatings = onSnapshot(ratingsQuery, (snapshot) => {
       const reviews: UserReview[] = [];
       snapshot.forEach((docSnap) => {
@@ -386,7 +387,7 @@ export default function ProfileComponent() {
 
     const syncAuthToFirestore = async () => {
       try {
-        const docRef = doc(db, `users/${user.uid}`);
+        const docRef = doc(getFirestore(app), `users/${user.uid}`);
         await setDoc(docRef, {
           displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff',
           email: user.email || '',
@@ -406,7 +407,7 @@ export default function ProfileComponent() {
     if (!targetUid) return;
 
     const path = `users/${targetUid}`;
-    const docRef = doc(db, path);
+    const docRef = doc(getFirestore(app), path);
 
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -499,7 +500,7 @@ export default function ProfileComponent() {
     setModalError('');
     setModalSuccess('');
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
 
       // Save both avatarFrame and frameId (for backward compatibility with Vite app)
       const savePromise = setDoc(docRef, {
@@ -580,7 +581,7 @@ export default function ProfileComponent() {
     }
 
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { subscriptions: updatedSubs }, { merge: true });
       toast.success(updatedSubs.includes(platformName) ? `Subscribed to ${platformName}` : `Unsubscribed from ${platformName}`);
     } catch (err) {
@@ -592,7 +593,7 @@ export default function ProfileComponent() {
   const handleTogglePref = async (field: 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter' | 'notifyFavGenres') => {
     if (!user) return;
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { [field]: !profile[field] }, { merge: true });
       toast.success("Preference updated successfully");
     } catch (err) {
@@ -616,7 +617,7 @@ export default function ProfileComponent() {
     }
 
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { favoriteGenres: updatedGenres }, { merge: true });
 
       if (isFirstGenreSelection) {
@@ -655,7 +656,7 @@ export default function ProfileComponent() {
     const updatedTop10 = [...profile.top10, movie];
     const sanitizedTop10 = JSON.parse(JSON.stringify(updatedTop10));
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { top10: sanitizedTop10 }, { merge: true });
       setSearchQuery('');
       setSearchResults([]);
@@ -671,7 +672,7 @@ export default function ProfileComponent() {
     if (!user) return;
     const updatedTop10 = profile.top10.filter(m => m.id !== movieId);
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
       toast.success("Removed movie from Top 5");
     } catch (err) {
@@ -691,7 +692,7 @@ export default function ProfileComponent() {
     updatedTop10[targetIndex] = temp;
 
     try {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
       toast.success("Reordered Top 5");
     } catch (err) {

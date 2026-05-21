@@ -1,9 +1,9 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, onSnapshot, query, serverTimestamp } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 import { logUserActivity } from '@/lib/genreTracker';
 
@@ -44,32 +44,36 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const path = `users/${user.uid}/ratings`;
-    const q = query(collection(db, path));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ratings: Record<number, number> = {};
-      const reviews: UserReview[] = [];
+    let unsubscribe = () => {};
+
+    import('firebase/firestore').then(({ collection, query, onSnapshot }) => {
+      const path = `users/${user.uid}/ratings`;
+      const q = query(collection(getFirestore(app), path));
       
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const rVal = data.rating;
-        ratings[Number(docSnap.id)] = rVal;
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const ratings: Record<number, number> = {};
+        const reviews: UserReview[] = [];
         
-        reviews.push({
-          movieId: Number(docSnap.id),
-          rating: rVal,
-          movieTitle: data.movieTitle || 'Unknown Movie',
-          moviePoster: data.moviePoster || '',
-          reviewText: data.reviewText || '',
-          updatedAt: data.updatedAt,
-          liked: !!data.liked
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const rVal = data.rating;
+          ratings[Number(docSnap.id)] = rVal;
+          
+          reviews.push({
+            movieId: Number(docSnap.id),
+            rating: rVal,
+            movieTitle: data.movieTitle || 'Unknown Movie',
+            moviePoster: data.moviePoster || '',
+            reviewText: data.reviewText || '',
+            updatedAt: data.updatedAt,
+            liked: !!data.liked
+          });
         });
+        setUserRatings(ratings);
+        setUserReviews(reviews);
+      }, (error: any) => {
+        handleFirestoreError(error, OperationType.LIST, path);
       });
-      setUserRatings(ratings);
-      setUserReviews(reviews);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
     });
 
     return () => unsubscribe();
@@ -90,6 +94,7 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
       } else {
         logUserActivity("Rating", `Rated "${movieDetails?.title || 'Movie'}" ${rating}/5 stars`);
       }
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
       const dataToSet: any = {
         movieId,
         rating,
@@ -108,13 +113,14 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
         dataToSet.reviewText = reviewText;
       }
 
-      await setDoc(doc(db, path), dataToSet, { merge: true });
+      await setDoc(doc(getFirestore(app), path), dataToSet, { merge: true });
 
       // Save to global reviews as well (wrapped in individual try-catch to be resilient to security rule restrictions)
       try {
         const existingReview = userReviews.find(r => r.movieId === movieId);
         const textToWrite = reviewText !== undefined ? reviewText : (existingReview?.reviewText || '');
 
+        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
         const globalData = {
           userId: user.uid,
           userName: user.displayName || user.email?.split('@')[0] || 'Anonymous Film Buff',
@@ -123,7 +129,7 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
           reviewText: textToWrite,
           updatedAt: serverTimestamp()
         };
-        await setDoc(doc(db, globalPath), globalData, { merge: true });
+        await setDoc(doc(getFirestore(app), globalPath), globalData, { merge: true });
       } catch (globalErr) {
         console.warn("Failed to write to public global reviews collection (check security rules):", globalErr);
       }

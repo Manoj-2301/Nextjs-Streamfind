@@ -1,4 +1,5 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import { motion, AnimatePresence } from 'motion/react';
 import FilterBar from '@/components/ui/filter-bar';
@@ -11,7 +12,7 @@ import ErrorMessage from '@/components/ui/error-message';
 import MovieCardSkeleton from '@/components/ui/movie-card-skeleton';
 import { Movie } from '@/types';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase';
+import { app } from '@/lib/firebase';
 import { searchMovies, getTrendingMovies, getMoviesByGenre, browseSearchMovies, browseDiscoverMovies } from '@/services/tmdbService';
 
 const ITEMS_PER_PAGE = 20;
@@ -65,7 +66,7 @@ export default function Browse() {
     let unsubscribe = () => {};
 
     import('firebase/firestore').then(({ doc, onSnapshot }) => {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       unsubscribe = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -350,7 +351,7 @@ export default function Browse() {
                           e.stopPropagation();
                           try {
                             const { doc, updateDoc } = await import('firebase/firestore');
-                            await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
+                            await updateDoc(doc(getFirestore(app), `users/${user!.uid}`), { autoFilter: false });
                             setIsDnaExpanded(false);
                           } catch (e) {
                             console.error(e);
@@ -388,7 +389,7 @@ export default function Browse() {
                   e.stopPropagation();
                   try {
                     const { doc, updateDoc } = await import('firebase/firestore');
-                    await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
+                    await updateDoc(doc(getFirestore(app), `users/${user!.uid}`), { autoFilter: true });
                     setIsDnaExpanded(true);
                   } catch (e) {
                     console.error(e);

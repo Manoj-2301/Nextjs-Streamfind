@@ -1,9 +1,9 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, signInWithPopup, signInWithRedirect, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, signInWithPopup, signInWithRedirect, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, app } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -42,7 +42,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       // Write lastActive on login
       if (result?.user) {
-        await setDoc(doc(db, 'users', result.user.uid), { lastActive: serverTimestamp() }, { merge: true });
+        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+        await setDoc(doc(getFirestore(app), 'users', result.user.uid), { lastActive: serverTimestamp() }, { merge: true });
       }
     } catch (error) {
       console.error("Login failed:", error);
@@ -56,7 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Please verify your email before logging in. Check your inbox.");
     }
     // Write lastActive on login
-    await setDoc(doc(db, 'users', userCredential.user.uid), { lastActive: serverTimestamp() }, { merge: true });
+    const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+    await setDoc(doc(getFirestore(app), 'users', userCredential.user.uid), { lastActive: serverTimestamp() }, { merge: true });
   };
 
   const signupWithEmail = async (email: string, pass: string, name: string) => {
