@@ -3,7 +3,7 @@
 import { motion } from 'motion/react';
 import { Star, Play, Bookmark } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { OptimizedImage } from '@/components/ui/optimized-media';
 import { Movie } from '@/types';
 import React from 'react';
 import { useWatchlist } from '@/context/WatchlistContext';
@@ -46,13 +46,12 @@ export default function MovieCard({ movie, priority = false }: MovieCardProps) {
         className="relative group/card w-full aspect-[2/3] rounded-lg md:rounded-xl overflow-hidden glass border border-white/10 hover:border-brand/40 shadow-lg hover:shadow-[0_8px_30px_rgba(229,9,20,0.15)] transition-all duration-300"
       >
         {/* Poster Image */}
-        <Image
+        <OptimizedImage
           src={movie.posterUrl}
           alt={movie.title}
           fill
           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
           className="object-cover transition-transform duration-500 group-hover/card:scale-105"
-          referrerPolicy="no-referrer"
           priority={priority}
         />
 

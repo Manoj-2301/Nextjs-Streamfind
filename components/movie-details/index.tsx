@@ -17,6 +17,7 @@ import { collection, query, onSnapshot, collectionGroup, where } from 'firebase/
 import { useAuth } from '@/context/AuthContext';
 import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
 import Pagination from '@/components/ui/pagination';
+import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
   if (!url || !url.includes('themoviedb.org')) return url;
@@ -463,12 +464,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   })();
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="pb-20"
-    >
+    <div className="pb-20">
 
       {/* Backdrop Section */}
       <div className="relative w-full h-[40vh] md:h-[70vh] overflow-hidden bg-black">
@@ -489,8 +485,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                 allow="autoplay; encrypted-media;fullscreen;"
                 referrerPolicy="no-referrer"
               /> */}
-              <iframe
-                ref={iframeRef}
+              <OptimizedIframe
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
                 src={movie.trailerSite?.toLowerCase() === 'vimeo'
                   ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
@@ -504,15 +499,14 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               {/* <div className="absolute inset-0 bg-black/20" /> */}
             </motion.div>
           ) : (
-            <motion.img
+            <OptimizedImage
               key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
               src={movie.backdropUrl}
               alt={movie.title}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
+              fill
+              sizes="100vw"
+              priority={true}
+              className="object-cover"
             />
           )}
         </AnimatePresence>
@@ -562,21 +556,16 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
         <div className="flex flex-col md:flex-row gap-8 md:gap-12">
           {/* Poster Column */}
           <div className="w-48 md:w-80 shrink-0 mx-auto md:mx-0">
-            <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border border-white/10"
-            >
-              <img
+            <div className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative w-full aspect-[2/3]">
+              <OptimizedImage
                 src={movie.posterUrl}
                 alt={movie.title}
-                className="w-full h-auto aspect-[2/3] object-cover"
-                referrerPolicy="no-referrer"
-                loading="eager"
-                fetchPriority="high"
+                fill
+                sizes="(max-width: 768px) 192px, 320px"
+                priority={true}
+                className="object-cover"
               />
-            </motion.div>
+            </div>
 
             <div className="mt-6 md:mt-8 flex flex-col gap-3 md:gap-4">
               <a
@@ -1014,6 +1003,6 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
