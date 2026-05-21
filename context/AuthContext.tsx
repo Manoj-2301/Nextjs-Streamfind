@@ -45,8 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
         await setDoc(doc(getFirestore(app), 'users', result.user.uid), { lastActive: serverTimestamp() }, { merge: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
+      const { toast } = await import('react-hot-toast');
+      toast.error(error.message || "Failed to login with Google");
     }
   };
 
