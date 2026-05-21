@@ -1,4 +1,5 @@
-import { db } from '@/lib/firebase';
+import { getFirestore } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export interface AffiliateLinks {
@@ -21,7 +22,7 @@ export async function getAffiliateLinks(): Promise<AffiliateLinks> {
 
   fetchPromise = (async () => {
     try {
-      const docRef = doc(db, AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
+      const docRef = doc(getFirestore(app), AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         cachedLinks = docSnap.data() as AffiliateLinks;
@@ -42,7 +43,7 @@ export async function getAffiliateLinks(): Promise<AffiliateLinks> {
  * Saves/updates global affiliate links in Firestore and updates the cache.
  */
 export async function saveAffiliateLinks(links: AffiliateLinks): Promise<void> {
-  const docRef = doc(db, AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
+  const docRef = doc(getFirestore(app), AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
   await setDoc(docRef, links);
   cachedLinks = links;
 }

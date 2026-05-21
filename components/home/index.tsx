@@ -1,4 +1,5 @@
 'use client';
+import { getFirestore } from 'firebase/firestore';
 
 import HeroSection from '@/components/ui/hero-section';
 import ScrollableRow from '@/components/ui/scrollable-row';
@@ -11,7 +12,7 @@ import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase';
+import { app } from '@/lib/firebase';
 
 interface HomeProps {
   initialTrending?: Movie[];
@@ -42,7 +43,7 @@ export default function Home({
     let unsubscribe = () => {};
 
     import('firebase/firestore').then(({ doc, onSnapshot }) => {
-      const docRef = doc(db, `users/${user.uid}`);
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
       unsubscribe = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -240,7 +241,7 @@ export default function Home({
                           e.stopPropagation();
                           try {
                             const { doc, updateDoc } = await import('firebase/firestore');
-                            await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
+                            await updateDoc(doc(getFirestore(app), `users/${user!.uid}`), { autoFilter: false });
                             setIsDnaExpanded(false);
                           } catch (e) {
                             console.error(e);
@@ -278,7 +279,7 @@ export default function Home({
                   e.stopPropagation();
                   try {
                     const { doc, updateDoc } = await import('firebase/firestore');
-                    await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
+                    await updateDoc(doc(getFirestore(app), `users/${user!.uid}`), { autoFilter: true });
                     setIsDnaExpanded(true);
                   } catch (e) {
                     console.error(e);

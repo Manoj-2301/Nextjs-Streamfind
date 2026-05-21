@@ -12,8 +12,8 @@ import { useRatings } from '@/context/RatingContext';
 import { useState, useEffect, useRef } from 'react';
 import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
 import { Movie, Platform } from '@/types';
-import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, collectionGroup, where } from 'firebase/firestore';
+import { app } from '@/lib/firebase';
+import { collection, query, onSnapshot, collectionGroup, where , getFirestore } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
 import Pagination from '@/components/ui/pagination';
@@ -248,7 +248,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     if (!id) return;
 
     // 1. Subscribe to Firestore community reviews using collection group query under user ratings
-    const q = query(collectionGroup(db, 'ratings'), where('movieId', '==', Number(id)));
+    const q = query(collectionGroup(getFirestore(app), 'ratings'), where('movieId', '==', Number(id)));
 
     let unsubscribeFirestore = () => { };
 

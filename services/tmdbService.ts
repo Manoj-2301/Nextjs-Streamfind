@@ -32,8 +32,11 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
 
   const allProviders: { prov: any; link: string; region: string }[] = [];
 
-  // Iterate over all region keys to aggregate all available platforms globally
+  // Iterate over select regions to avoid massive JSON payloads in SSR HTML
+  const topRegions = ['US', 'IN', 'GB', 'CA', 'AU'];
   for (const region of Object.keys(results)) {
+    if (!topRegions.includes(region)) continue;
+    
     const regionData = results[region];
     if (regionData && typeof regionData === 'object') {
       const regionLink = regionData.link || 'https://www.themoviedb.org';
