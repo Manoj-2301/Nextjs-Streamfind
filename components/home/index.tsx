@@ -2,7 +2,8 @@
 
 import HeroSection from '@/components/ui/hero-section';
 import ScrollableRow from '@/components/ui/scrollable-row';
-import SponsorBanner from '@/components/ui/sponsor-banner';
+import dynamic from 'next/dynamic';
+const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { ssr: true });
 import { motion, AnimatePresence } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies } from '@/services/tmdbService';
@@ -156,7 +157,7 @@ export default function Home({
       <div className="relative z-20 space-y-4 md:space-y-8 pb-14 -mt-10 md:-mt-20">
         {filteredRecs.length > 0 && (
           <div className="pt-4 md:pt-8">
-            <div className="px-6 md:px-12 flex items-center gap-2 text-brand text-[10px] md:text-xs font-black uppercase tracking-[0.2em] mb-2 drop-shadow-lg">
+            <div className="px-6 md:px-12 flex items-center gap-2 text-brand text-xs font-black uppercase tracking-[0.2em] mb-2 drop-shadow-lg">
               <Sparkles className="w-4 h-4 fill-current" />
               {recSource ? `Because of ${recSource}` : "Recommended for You"}
             </div>
@@ -216,21 +217,22 @@ export default function Home({
                           e.stopPropagation();
                           setIsDnaExpanded(false);
                         }}
-                        className="text-[10px] font-black uppercase text-brand tracking-widest cursor-pointer hover:text-white transition-colors"
+                        className="text-xs font-black uppercase text-brand tracking-widest cursor-pointer hover:text-white transition-colors"
                       >
                         Subscription DNA Active
                       </p>
                       <button 
+                        aria-label="Close subscription filter details"
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsDnaExpanded(false);
                         }}
-                        className="text-white/40 hover:text-white text-[10px] font-bold transition-colors ml-2"
+                        className="text-white/40 hover:text-white text-xs font-bold transition-colors ml-2 p-2 min-h-[48px] min-w-[48px] flex items-center justify-center"
                       >
                         ✕
                       </button>
                     </div>
-                    <p className="text-[10px] text-white/50 mt-1.5 leading-relaxed">
+                    <p className="text-xs text-white/50 mt-1.5 leading-relaxed">
                       Filtering library to show only movies on your active subscriptions: <strong className="text-white font-bold">{profile.subscriptions.join(', ')}</strong>.
                     </p>
                     <div className="flex gap-2 mt-4">
@@ -244,14 +246,14 @@ export default function Home({
                             console.error(e);
                           }
                         }}
-                        className="text-[9px] font-black uppercase tracking-wider bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 active:scale-95"
+                        className="text-xs font-black uppercase tracking-wider bg-brand/10 hover:bg-brand/20 border border-brand/20 text-brand px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 active:scale-95"
                       >
                         Disable Filter
                       </button>
                       <a 
                         href="/profile"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[9px] font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center"
+                        className="text-xs font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center flex items-center"
                       >
                         Customize DNA
                       </a>
@@ -263,7 +265,7 @@ export default function Home({
                   <div className="w-8 h-8 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shrink-0 text-base animate-pulse">
                     🍿
                   </div>
-                  <span className="hidden md:inline text-[10px] font-black uppercase text-brand tracking-widest">
+                  <span className="hidden md:inline text-xs font-black uppercase text-brand tracking-widest">
                     Subscription DNA Active
                   </span>
                 </div>
@@ -281,7 +283,7 @@ export default function Home({
                     console.error(e);
                   }
                 }}
-                className="bg-black/95 hover:bg-black/100 border border-white/10 hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-white/80 hover:text-brand cursor-pointer transition-all duration-300 backdrop-blur-md animate-bounce-subtle"
+                className="bg-black/95 hover:bg-black/100 border border-white/10 hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest text-white/80 hover:text-brand cursor-pointer transition-all duration-300 backdrop-blur-md animate-bounce-subtle"
               >
                 <span>🍿</span>
                 <span>Enable Subs DNA Filter</span>

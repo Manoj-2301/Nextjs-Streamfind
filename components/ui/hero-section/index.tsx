@@ -270,6 +270,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   alt={movie.title}
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  fetchPriority="high"
                 />
               ) : (
                 <motion.div
@@ -291,7 +292,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   />
                   {isInView && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <p className="text-[10px] font-black tracking-[0.5em] text-white/20 uppercase">Trailer Running in Background</p>
+                      <p className="text-xs font-black tracking-[0.5em] text-white/20 uppercase">Trailer Running in Background</p>
                     </div>
                   )}
                 </motion.div>
@@ -311,7 +312,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="max-w-3xl"
             >
-              <div className="flex items-center gap-3 mb-4 md:mb-6 text-[10px] md:text-xs font-bold transition-opacity duration-700">
+              <div className="flex items-center gap-3 mb-4 md:mb-6 text-xs font-bold transition-opacity duration-700">
                 <span className="bg-yellow-500 text-black px-2 py-0.5 rounded shadow-lg font-black">IMDb {movie.rating}</span>
                 <span className="text-white color-white uppercase tracking-widest drop-shadow-md font-bold">{movie.year} • {movie.genre[0]} • {movie.runtime}</span>
               </div>
@@ -367,6 +368,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
         {movies.map((_, i) => (
           <button
             key={i}
+            aria-label={`Go to slide ${i + 1}`}
             onClick={() => {
               setDirection(i > currentIndex ? 1 : -1);
               setCurrentIndex(i);

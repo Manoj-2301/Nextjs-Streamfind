@@ -1,5 +1,25 @@
 import type { Metadata } from 'next';
+import { Inter, Space_Grotesk, Bebas_Neue } from 'next/font/google';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
+});
+
+const bebasNeue = Bebas_Neue({
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-accent',
+});
 import Providers from './providers';
 import Navbar from '@/components/ui/navbar';
 import Footer from './footer';
@@ -30,8 +50,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-background selection:bg-brand/30 selection:text-brand">
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${bebasNeue.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://image.tmdb.org" />
+      </head>
+      <body className="min-h-screen bg-background selection:bg-brand/30 selection:text-brand font-sans">
         <Providers>
           <SmoothScroll />
           <Navbar />
