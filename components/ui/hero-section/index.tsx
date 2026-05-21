@@ -130,9 +130,30 @@ export default function HeroSection({ movies }: HeroSectionProps) {
     return () => clearInterval(interval);
   }, [currentIndex, isPlayingTrailer, paginate]);
 
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
+
+  useEffect(() => {
+    const handleInteraction = () => {
+      setUserHasInteracted(true);
+      ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
+        window.removeEventListener(e, handleInteraction)
+      );
+    };
+
+    ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
+      window.addEventListener(e, handleInteraction, { once: true, passive: true })
+    );
+
+    return () => {
+      ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
+        window.removeEventListener(e, handleInteraction)
+      );
+    };
+  }, []);
+
   // Trailer countdown logic
   useEffect(() => {
-    if (isPlayingTrailer) return;
+    if (isPlayingTrailer || !userHasInteracted) return;
 
     // Clear existing timer
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -142,7 +163,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
       timerRef.current = setTimeout(() => {
         setIsPlayingTrailer(true);
         setHasStartedTrailerOnce(true);
-      }, 12000);
+      }, 5000); // 5 seconds AFTER interaction
     }
 
     return () => {
@@ -237,7 +258,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
           key={currentIndex}
           custom={direction}
           variants={variants}
-          initial="enter"
+          initial={false}
           animate="center"
           exit="exit"
           transition={{
@@ -302,13 +323,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
 
           {/* Content */}
           <div className="relative z-10 container mx-auto px-6 md:px-12 max-w-7xl h-full flex flex-col justify-end pb-32 md:pb-48">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{
-                opacity: 1,
-                y: 0
-              }}
-              transition={{ duration: 0.8, delay: 0.2 }}
+            <div
               className="max-w-3xl"
             >
               <div className="flex items-center gap-3 mb-4 md:mb-6 text-xs font-bold transition-opacity duration-700">
@@ -316,13 +331,11 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                 <span className="text-white color-white uppercase tracking-widest drop-shadow-md font-bold">{movie.year} • {movie.genre[0]} • {movie.runtime}</span>
               </div>
 
-              <motion.h1
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
+              <h1
                 className="text-3xl sm:text-5xl md:text-6xl font-black mb-4 md:mb-6 tracking-tighter uppercase leading-[0.9] text-white drop-shadow-[0_8px_32px_rgba(0,0,0,0.8)]"
               >
                 {movie.title}
-              </motion.h1>
+              </h1>
 
               <p className="text-white text-xs md:text-base leading-relaxed mb-6 md:mb-8 line-clamp-2 max-w-2xl font-medium drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
                 {movie.description}
@@ -357,7 +370,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   </motion.button>
                 </Link>
               </div>
-            </motion.div>
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>
