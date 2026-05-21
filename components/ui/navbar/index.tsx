@@ -51,8 +51,8 @@ export default function Navbar() {
       <div className="hidden min-[931px]:flex items-center gap-8 text-sm font-medium text-white/70">
         <Link href="/" className={getDesktopLinkClass('/')}>Home</Link>
         <Link href="/browse" className={getDesktopLinkClass('/browse')}>Browse</Link>
-        <Link href="/watchlist" className={`${getDesktopLinkClass('/watchlist')} flex items-center gap-2`}>
-          Watchlist {watchlist.length > 0 && <span className="text-[10px] bg-brand text-white px-1.5 py-0.5 rounded-full font-black leading-none">{watchlist.length}</span>}
+        <Link href="/watchlist" className={`${getDesktopLinkClass('/watchlist')} flex items-center gap-2 min-h-[48px] px-2`}>
+          Watchlist {watchlist.length > 0 && <span className="text-xs bg-brand text-white px-1.5 py-0.5 rounded-full font-black leading-none">{watchlist.length}</span>}
         </Link>
         <Link href="/search" className={`${getDesktopLinkClass('/search')} flex items-center gap-2`}>
           Search
@@ -68,8 +68,9 @@ export default function Navbar() {
           {user ? (
             <div className="relative">
               <button
+                aria-label="Toggle profile menu"
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-2 border border-white/10 p-1 pr-3 rounded-full hover:bg-white/5 transition-colors"
+                className="flex items-center gap-2 border border-white/10 p-1 pr-3 rounded-full hover:bg-white/5 transition-colors min-h-[48px]"
               >
                 {user.photoURL ? (
                   <Image src={user.photoURL} alt="" width={32} height={32} className="w-8 h-8 rounded-full border border-white/20" referrerPolicy="no-referrer" />
@@ -148,8 +149,9 @@ export default function Navbar() {
 
         {/* Mobile menu toggle */}
         <button
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="min-[931px]:hidden text-white hover:text-brand transition-colors"
+          className="min-[931px]:hidden text-white hover:text-brand transition-colors p-3 min-h-[48px] min-w-[48px] flex items-center justify-center"
         >
           {isMenuOpen ? <X className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
         </button>
