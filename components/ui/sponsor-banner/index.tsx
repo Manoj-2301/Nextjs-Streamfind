@@ -25,9 +25,9 @@ export default function SponsorBanner() {
             </div>
             
             <div className="text-center lg:text-left">
-              <h4 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase leading-[0.85] mb-3">
+              <h2 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase leading-[0.85] mb-3">
                 Stream <span className="text-brand italic">"INTERSTELLAR"</span><br className="hidden md:block" /> now on Disney+
-              </h4>
+              </h2>
               <p className="text-[10px] md:text-[11px] text-white/40 font-black tracking-[0.3em] uppercase flex items-center justify-center lg:justify-start gap-3">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand shadow-[0_0_10px_rgba(var(--color-brand),1)]"></span>
                 Special 3 Months Free Trial Offer

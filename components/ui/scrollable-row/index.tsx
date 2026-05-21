@@ -71,12 +71,14 @@ export default function ScrollableRow({ title, movies, className = "" }: Scrolla
           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => scroll('left')}
+              aria-label="Scroll left"
               className="p-2 rounded-full glass hover:bg-brand hover:text-black transition-all"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={() => scroll('right')}
+              aria-label="Scroll right"
               className="p-2 rounded-full glass hover:bg-brand hover:text-black transition-all"
             >
               <ChevronRight className="w-5 h-5" />
