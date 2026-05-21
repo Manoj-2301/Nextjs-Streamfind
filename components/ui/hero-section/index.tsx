@@ -142,7 +142,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
       timerRef.current = setTimeout(() => {
         setIsPlayingTrailer(true);
         setHasStartedTrailerOnce(true);
-      }, 5000);
+      }, 12000);
     }
 
     return () => {
