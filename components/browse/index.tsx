@@ -12,7 +12,6 @@ import MovieCardSkeleton from '@/components/ui/movie-card-skeleton';
 import { Movie } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { searchMovies, getTrendingMovies, getMoviesByGenre, browseSearchMovies, browseDiscoverMovies } from '@/services/tmdbService';
 
 const ITEMS_PER_PAGE = 20;
@@ -63,16 +62,21 @@ export default function Browse() {
       setProfile(null);
       return;
     }
-    const docRef = doc(db, `users/${user.uid}`);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setProfile({
-          subscriptions: data.subscriptions || [],
-          autoFilter: data.autoFilter ?? false
-        });
-      }
+    let unsubscribe = () => {};
+
+    import('firebase/firestore').then(({ doc, onSnapshot }) => {
+      const docRef = doc(db, `users/${user.uid}`);
+      unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setProfile({
+            subscriptions: data.subscriptions || [],
+            autoFilter: data.autoFilter ?? false
+          });
+        }
+      });
     });
+
     return () => unsubscribe();
   }, [user]);
 
@@ -345,6 +349,7 @@ export default function Browse() {
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
+                            const { doc, updateDoc } = await import('firebase/firestore');
                             await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
                             setIsDnaExpanded(false);
                           } catch (e) {
@@ -382,6 +387,7 @@ export default function Browse() {
                 onClick={async (e) => {
                   e.stopPropagation();
                   try {
+                    const { doc, updateDoc } = await import('firebase/firestore');
                     await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
                     setIsDnaExpanded(true);
                   } catch (e) {

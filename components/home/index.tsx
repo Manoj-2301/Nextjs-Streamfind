@@ -12,7 +12,6 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 interface HomeProps {
   initialTrending?: Movie[];
@@ -40,16 +39,21 @@ export default function Home({
       setProfile(null);
       return;
     }
-    const docRef = doc(db, `users/${user.uid}`);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setProfile({
-          subscriptions: data.subscriptions || [],
-          autoFilter: data.autoFilter ?? false
-        });
-      }
+    let unsubscribe = () => {};
+
+    import('firebase/firestore').then(({ doc, onSnapshot }) => {
+      const docRef = doc(db, `users/${user.uid}`);
+      unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setProfile({
+            subscriptions: data.subscriptions || [],
+            autoFilter: data.autoFilter ?? false
+          });
+        }
+      });
     });
+
     return () => unsubscribe();
   }, [user]);
 
@@ -235,6 +239,7 @@ export default function Home({
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
+                            const { doc, updateDoc } = await import('firebase/firestore');
                             await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: false });
                             setIsDnaExpanded(false);
                           } catch (e) {
@@ -272,6 +277,7 @@ export default function Home({
                 onClick={async (e) => {
                   e.stopPropagation();
                   try {
+                    const { doc, updateDoc } = await import('firebase/firestore');
                     await updateDoc(doc(db, `users/${user!.uid}`), { autoFilter: true });
                     setIsDnaExpanded(true);
                   } catch (e) {
