@@ -1,10 +1,7 @@
 'use client';
 import { getFirestore } from 'firebase/firestore';
-
 import HeroSection from '@/components/ui/hero-section';
-import ScrollableRow from '@/components/ui/scrollable-row';
 import dynamic from 'next/dynamic';
-const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { ssr: true });
 import { motion, AnimatePresence } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies } from '@/services/tmdbService';
@@ -13,6 +10,12 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
+
+const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), { 
+  ssr: true,
+  loading: () => <div className="h-64 w-full animate-pulse bg-white/5 rounded-xl my-4" /> 
+});
+const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { ssr: true });
 
 interface HomeProps {
   initialTrending?: Movie[];
