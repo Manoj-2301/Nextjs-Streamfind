@@ -6,6 +6,7 @@ import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
+import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
   if (!url || !url.includes('themoviedb.org')) return url;
@@ -261,16 +262,14 @@ export default function HeroSection({ movies }: HeroSectionProps) {
           <div className="absolute inset-0">
             <AnimatePresence mode="wait">
               {!isPlayingTrailer ? (
-                <motion.img
+                <OptimizedImage
                   key="image"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
                   src={movie.backdropUrl}
                   alt={movie.title}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                  fetchPriority="high"
+                  fill
+                  sizes="100vw"
+                  priority={currentIndex === 0}
+                  className="w-full h-full"
                 />
               ) : (
                 <motion.div
@@ -280,7 +279,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   exit={{ opacity: 0 }}
                   className="w-full h-full relative"
                 >
-                  <iframe
+                  <OptimizedIframe
                     className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
                       ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
