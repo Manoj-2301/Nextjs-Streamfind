@@ -2,8 +2,14 @@ import { getFirestore } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+export interface AffiliateLinkConfig {
+  url: string;
+  isFeatured?: boolean;
+  offerText?: string;
+}
+
 export interface AffiliateLinks {
-  [platformKey: string]: string; // key: platform name (e.g. 'amazon', 'netflix'), value: affiliate URL
+  [platformKey: string]: string | AffiliateLinkConfig; // string for backwards compatibility
 }
 
 // Under user's current security rules, document path '/users/global_config/ratings/affiliates'
@@ -57,7 +63,8 @@ export function resolveWatchUrl(platformName: string, fallbackUrl: string, affil
 
   for (const key of Object.keys(affiliateLinks)) {
     if (key && nameLower.includes(key.toLowerCase())) {
-      const affiliateUrl = affiliateLinks[key];
+      const linkData = affiliateLinks[key];
+      const affiliateUrl = typeof linkData === 'string' ? linkData : linkData?.url;
       if (affiliateUrl && affiliateUrl.trim() !== '') {
         return affiliateUrl.trim();
       }

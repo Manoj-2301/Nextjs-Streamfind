@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { Platform } from '@/types';
 import React, { useState, useEffect } from 'react';
-import { getAffiliateLinks, resolveWatchUrl } from '@/services/affiliateService';
+import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 
 interface WatchProviderCardProps {
   platform: Platform;
@@ -56,7 +56,7 @@ const localizeTmdbUrl = (url: string, countryCode: string): string => {
 export default function WatchProviderCard({ platform }: WatchProviderCardProps) {
   const isPartner = platform.isSponsored || (platform as any).isPartner;
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
-  const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
+  const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
   useEffect(() => {
     getAffiliateLinks()

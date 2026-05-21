@@ -134,8 +134,13 @@ const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
       const errData = await response.json();
       if (errData && errData.error) {
         errorMsg = `TMDB Error: ${errData.error} ${errData.details ? `(${errData.details})` : ''}`;
+      } else if (errData && errData.status_message) {
+        errorMsg = `TMDB Error: ${errData.status_message}`;
       }
     } catch (_) {}
+    if (response.status === 404) {
+      errorMsg = 'TMDB API error: Not Found';
+    }
     throw new Error(errorMsg);
   }
   return response.json();
@@ -342,15 +347,19 @@ export const getMovieDetails = async (id: number, type?: 'movie' | 'tv'): Promis
       tagline: movieData.tagline,
       cast
     };
-  } catch (error) {
+  } catch (error: any) {
     if (type !== 'tv') {
       try {
         return await getTvDetails(id);
-      } catch (tvError) {
-        console.error('Error fetching details from both Movie and TV endpoints:', tvError);
+      } catch (tvError: any) {
+        if (!tvError.message?.includes('Not Found')) {
+          console.error('Error fetching details from both Movie and TV endpoints:', tvError);
+        }
       }
     }
-    console.error('Error fetching movie details:', error);
+    if (!error.message?.includes('Not Found')) {
+      console.error('Error fetching movie details:', error);
+    }
     throw error;
   }
 };
