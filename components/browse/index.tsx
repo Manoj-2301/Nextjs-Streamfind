@@ -164,11 +164,7 @@ export default function Browse() {
   if (error) return <div className="pt-20"><ErrorMessage onRetry={retry} /></div>;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="container mx-auto px-4 md:px-6 lg:px-12 max-w-7xl py-6 md:py-6 overflow-hidden"
-    >
+    <div className="container mx-auto px-4 md:px-6 lg:px-12 max-w-7xl py-6 md:py-6 overflow-hidden">
       
       <div className="flex flex-col gap-6 md:gap-12 mb-8 md:mb-16">
         <div>
@@ -401,6 +397,6 @@ export default function Browse() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

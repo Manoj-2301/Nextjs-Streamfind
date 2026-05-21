@@ -146,12 +146,7 @@ export default function Home({
   const topRated = [...filteredTrending].sort((a, b) => b.rating - a.rating);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="bg-background"
-    >
+    <div className="bg-background">
       <HeroSection movies={featuredMovies} />
 
       <div className="relative z-20 space-y-4 md:space-y-8 pb-14 -mt-10 md:-mt-20">
@@ -292,6 +287,6 @@ export default function Home({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
