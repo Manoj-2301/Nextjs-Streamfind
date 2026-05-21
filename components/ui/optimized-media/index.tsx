@@ -10,12 +10,19 @@ export function OptimizedImage({
   alt,
   priority = false, 
   className = '',
+  src,
   ...props 
 }: OptimizedImageProps) {
+  // If the image is from TMDB, we can bypass Next.js image optimization
+  // to avoid huge TTFB delays on the Edge/Server, and rely on TMDB's fast CDN.
+  const isTmdb = typeof src === 'string' && src.includes('tmdb.org');
+
   return (
     <Image
+      src={src}
       alt={alt}
       priority={priority}
+      unoptimized={isTmdb} // Bypasses slow next/image processing for LCP image
       // Add a subtle fade-in ONLY if it's not a priority image (LCP element)
       className={`object-cover ${!priority ? 'transition-opacity duration-500' : ''} ${className}`}
       {...props}

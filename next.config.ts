@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       { hostname: 'firebasestorage.googleapis.com' },
     ],
   },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'motion/react'],
+  },
 };
 
 export default nextConfig;
