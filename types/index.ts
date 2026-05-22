@@ -21,6 +21,7 @@ export interface Movie {
   id: number;
   title: string;
   year: number;
+  releaseDate?: string;
   genre: string[];
   rating: number;
   description: string;
@@ -30,7 +31,9 @@ export interface Movie {
   backdropUrl: string;
   platforms: Platform[];
   cast: CastMember[];
+  crew?: CastMember[];
   trailerYoutubeId?: string;
   trailerSite?: string;
   type?: 'movie' | 'tv';
+  originalLanguage?: string;
 }

@@ -46,6 +46,7 @@ export default function Browse() {
   const [rating, setRating] = useState<number | null>(null);
   const [yearRange, setYearRange] = useState<[number, number] | null>(null);
   const [platforms, setPlatforms] = useState<string[]>([]);
+  const [language, setLanguage] = useState<string>("All");
   const [sortBy, setSortBy] = useState("popularity");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isLoading, setIsLoading] = useState(true);
@@ -94,6 +95,19 @@ export default function Browse() {
   }, [profile, platforms]);
 
   useEffect(() => {
+    // If a year is at the end of the search, sync it to the year filter
+    let extractedYear: number | undefined;
+    if (search) {
+      const match = search.match(/(.*)\s+(\d{4})$/);
+      if (match) {
+        extractedYear = parseInt(match[2]);
+        // Update year range dynamically if it's not already set to this year
+        if (!yearRange || yearRange[0] !== extractedYear || yearRange[1] !== extractedYear) {
+           setYearRange([extractedYear, extractedYear]);
+        }
+      }
+    }
+
     const loadMovies = async () => {
       setIsLoading(true);
       setError(false);
@@ -102,8 +116,8 @@ export default function Browse() {
         let pages = 1;
 
         if (search) {
-          // TMDB search API doesn't support advanced filtering, so we only use the query and page
-          const data = await browseSearchMovies(search, currentPage);
+          // TMDB search API doesn't support advanced filtering natively, but we now pass yearRange
+          const data = await browseSearchMovies(search, currentPage, yearRange);
           results = data.movies;
           pages = data.totalPages;
         } else {
@@ -119,7 +133,8 @@ export default function Browse() {
             minRating,
             minYear,
             maxYear,
-            sortBy
+            sortBy,
+            language
           );
 
           results = data.movies;
@@ -150,7 +165,7 @@ export default function Browse() {
 
     const timer = setTimeout(loadMovies, 500);
     return () => clearTimeout(timer);
-  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage]);
+  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language]);
 
   const totalPages = apiTotalPages;
   const currentMovies = movies;
@@ -229,8 +244,13 @@ export default function Browse() {
                 });
               }
             }}
+            onLanguageChange={(l) => {
+              setLanguage(l);
+              setCurrentPage(1);
+            }}
             onSortChange={(s, o) => { setSortBy(s); setSortOrder(o); setCurrentPage(1); }}
             activeGenre={genre}
+            activeLanguage={language}
             activeRating={rating}
             activeYearRange={yearRange}
             selectedPlatforms={platforms}

@@ -201,10 +201,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   // Select the primary watch platform for the CTA button
   const primaryPlatform = movie.platforms?.[0];
 
-  if (!primaryPlatform) {
-    // Fallback if no platforms are found for some reason
-    return null;
-  }
+  // Fallback handled safely below by conditionally rendering the button.
 
   const getPartnerStyles = (platform: Platform) => {
     const isPartner = platform.isSponsored || (platform as any).isPartner;
@@ -236,7 +233,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
 
   const variants = {
     enter: (direction: number) => ({
-      x: direction > 0 ? 1000 : -1000,
+      x: direction > 0 ? "100%" : "-100%",
       opacity: 0
     }),
     center: {
@@ -246,7 +243,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
     },
     exit: (direction: number) => ({
       zIndex: 0,
-      x: direction < 0 ? 1000 : -1000,
+      x: direction < 0 ? "100%" : "-100%",
       opacity: 0
     })
   };
@@ -258,7 +255,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
           key={currentIndex}
           custom={direction}
           variants={variants}
-          initial={false}
+          initial="enter"
           animate="center"
           exit="exit"
           transition={{
@@ -280,28 +277,27 @@ export default function HeroSection({ movies }: HeroSectionProps) {
           className="absolute inset-0 cursor-grab active:cursor-grabbing"
         >
           {/* Background with overlay and Trailer */}
-          <div className="absolute inset-0">
-            <AnimatePresence mode="wait">
-              {!isPlayingTrailer ? (
-                <OptimizedImage
-                  key="image"
-                  src={movie.backdropUrl}
-                  alt={movie.title}
-                  fill
-                  sizes="100vw"
-                  priority={currentIndex === 0}
-                  className="w-full h-full"
-                />
-              ) : (
+          <div className="absolute inset-0 bg-black">
+            <OptimizedImage
+              src={movie.backdropUrl}
+              alt={movie.title}
+              fill
+              sizes="100vw"
+              priority={currentIndex === 0}
+              className={`w-full h-full object-cover transition-opacity duration-1000 ${isPlayingTrailer ? 'opacity-0' : 'opacity-100'}`}
+            />
+            <AnimatePresence>
+              {isPlayingTrailer && (
                 <motion.div
                   key="trailer"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="w-full h-full relative"
+                  transition={{ duration: 1 }}
+                  className="absolute inset-0"
                 >
                   <OptimizedIframe
-                    className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
+                    className="w-full h-full scale-110 md:scale-125 pointer-events-none"
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
                       ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
                       : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
@@ -331,35 +327,35 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                 <span className="text-white color-white uppercase tracking-widest drop-shadow-md font-bold">{movie.year} • {movie.genre[0]} • {movie.runtime}</span>
               </div>
 
-              <h1
-                className="text-3xl sm:text-5xl md:text-6xl font-black mb-4 md:mb-6 tracking-tighter uppercase leading-[0.9] text-white drop-shadow-[0_8px_32px_rgba(0,0,0,0.8)]"
-              >
+              <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.9] text-white drop-shadow-[0_8px_32px_rgba(0,0,0,0.8)] line-clamp-2 mb-4 md:mb-6">
                 {movie.title}
               </h1>
 
-              <p className="text-white text-xs md:text-base leading-relaxed mb-6 md:mb-8 line-clamp-2 max-w-2xl font-medium drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+              <p className="text-white text-xs md:text-base leading-relaxed line-clamp-2 max-w-2xl font-medium drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] mb-6 md:mb-8">
                 {movie.description}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-                <a
-                  href={resolveWatchUrl(
-                    primaryPlatform.name,
-                    localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode] || primaryPlatform.watchUrls?.['IN'] || primaryPlatform.watchUrl, userCountryCode),
-                    affiliateLinks
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto"
-                >
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all uppercase flex items-center justify-center gap-2 ${getPartnerStyles(primaryPlatform)}`}
+                {primaryPlatform && (
+                  <a
+                    href={resolveWatchUrl(
+                      primaryPlatform.name,
+                      localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode] || primaryPlatform.watchUrls?.['IN'] || primaryPlatform.watchUrl, userCountryCode),
+                      affiliateLinks
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto"
                   >
-                    <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
-                  </motion.button>
-                </a>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all uppercase flex items-center justify-center gap-2 ${getPartnerStyles(primaryPlatform)}`}
+                    >
+                      <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
+                    </motion.button>
+                  </a>
+                )}
                 <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
                   <motion.button
                     whileHover={{ scale: 1.05 }}

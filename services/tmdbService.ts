@@ -26,7 +26,7 @@ const getMoviePlatforms = (movieId: number): Platform[] => {
 // Parser to extract and normalize real watch providers from TMDB API
 const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: string): Platform[] => {
   if (!watchProvidersObj || !watchProvidersObj.results) {
-    return getMoviePlatforms(movieId);
+    return [];
   }
   const results = watchProvidersObj.results;
 
@@ -52,7 +52,7 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
   }
 
   if (allProviders.length === 0) {
-    return getMoviePlatforms(movieId);
+    return [];
   }
 
   const mapped = allProviders.map(({ prov, link, region }) => {
@@ -119,12 +119,17 @@ const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
   const isServer = typeof window === 'undefined';
   let url = '';
 
+  let finalPathAndParams = pathAndParams;
+  if (finalPathAndParams.includes('append_to_response=') && finalPathAndParams.includes('videos')) {
+    finalPathAndParams += '&include_video_language=en,te,ta,hi,ml,kn,mr,bn,gu,pa,ur,zh,ja,ko,es,fr,de,it,pt,ru,null';
+  }
+
   if (isServer) {
     const apiKey = process.env.TMDB_API_KEY || process.env.NEXT_PUBLIC_TMDB_API_KEY;
-    const separator = pathAndParams.includes('?') ? '&' : '?';
-    url = `${BASE_URL}/${pathAndParams}${separator}api_key=${apiKey}`;
+    const separator = finalPathAndParams.includes('?') ? '&' : '?';
+    url = `${BASE_URL}/${finalPathAndParams}${separator}api_key=${apiKey}`;
   } else {
-    url = `/api/tmdb/${pathAndParams}`;
+    url = `/api/tmdb/${finalPathAndParams}`;
   }
 
   const response = await fetch(url);
@@ -164,23 +169,20 @@ const fetchGenres = async () => {
   }
 };
 
-const extractTrailer = (videosObj: any): { key?: string; site?: string } => {
+const extractTrailer = (videosObj: any, originalLanguage?: string): { key?: string; site?: string } => {
   if (!videosObj || !videosObj.results || videosObj.results.length === 0) {
     return {};
   }
-  const results = videosObj.results;
+  let results = videosObj.results;
 
-  // 1. Look for type === 'Trailer' (YouTube first, then Vimeo, then others)
-  const trailerYoutube = results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube');
-  if (trailerYoutube) return { key: trailerYoutube.key, site: 'YouTube' };
+  if (originalLanguage) {
+    const langResults = results.filter((v: any) => v.iso_639_1 === originalLanguage);
+    if (langResults.length > 0) {
+      results = langResults;
+    }
+  }
 
-  const trailerVimeo = results.find((v: any) => v.type === 'Trailer' && v.site === 'Vimeo');
-  if (trailerVimeo) return { key: trailerVimeo.key, site: 'Vimeo' };
-
-  const trailerAny = results.find((v: any) => v.type === 'Trailer');
-  if (trailerAny) return { key: trailerAny.key, site: trailerAny.site };
-
-  // 2. Look for type === 'Teaser' (YouTube first, then Vimeo, then others)
+  // 1. Look for type === 'Teaser' (YouTube first, then Vimeo, then others)
   const teaserYoutube = results.find((v: any) => v.type === 'Teaser' && v.site === 'YouTube');
   if (teaserYoutube) return { key: teaserYoutube.key, site: 'YouTube' };
 
@@ -189,6 +191,16 @@ const extractTrailer = (videosObj: any): { key?: string; site?: string } => {
 
   const teaserAny = results.find((v: any) => v.type === 'Teaser');
   if (teaserAny) return { key: teaserAny.key, site: teaserAny.site };
+
+  // 2. Look for type === 'Trailer' (YouTube first, then Vimeo, then others)
+  const trailerYoutube = results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube');
+  if (trailerYoutube) return { key: trailerYoutube.key, site: 'YouTube' };
+
+  const trailerVimeo = results.find((v: any) => v.type === 'Trailer' && v.site === 'Vimeo');
+  if (trailerVimeo) return { key: trailerVimeo.key, site: 'Vimeo' };
+
+  const trailerAny = results.find((v: any) => v.type === 'Trailer');
+  if (trailerAny) return { key: trailerAny.key, site: trailerAny.site };
 
   // 3. Look for type === 'Clip' or 'Featurette' (YouTube first, then Vimeo, then others)
   const clipYoutube = results.find((v: any) => (v.type === 'Clip' || v.type === 'Featurette') && v.site === 'YouTube');
@@ -210,12 +222,21 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
     posterPath = tmdbMovie.images.posters[1]?.file_path || tmdbMovie.images.posters[0]?.file_path;
   }
 
-  const trailerInfo = extractTrailer(tmdbMovie.videos);
+  const trailerInfo = extractTrailer(tmdbMovie.videos, tmdbMovie.original_language);
+
+  let fullLanguage = tmdbMovie.original_language;
+  if (fullLanguage) {
+    try {
+      const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+      fullLanguage = displayNames.of(fullLanguage);
+    } catch (e) {}
+  }
 
   return {
     id: tmdbMovie.id,
     title: tmdbMovie.title || tmdbMovie.original_title || 'Unknown Movie',
     year: tmdbMovie.release_date ? new Date(tmdbMovie.release_date).getFullYear() : 0,
+    releaseDate: tmdbMovie.release_date,
     genre: tmdbMovie.genre_ids ? tmdbMovie.genre_ids.map((id: number) => genresMap[id] || 'Unknown') : (tmdbMovie.genres ? tmdbMovie.genres.map((g: any) => g.name) : []),
     rating: Number(tmdbMovie.vote_average?.toFixed(1) || 0),
     description: tmdbMovie.overview || '',
@@ -224,11 +245,12 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
     backdropUrl: tmdbMovie.backdrop_path ? `${BACKDROP_IMAGE_BASE_URL}${tmdbMovie.backdrop_path}` : 'https://placehold.co/1920x1080?text=No+Backdrop',
     platforms: tmdbMovie['watch/providers']
       ? parseWatchProviders(tmdbMovie['watch/providers'], tmdbMovie.id, tmdbMovie.title || tmdbMovie.original_title)
-      : getMoviePlatforms(tmdbMovie.id),
+      : [],
     cast: [],
     trailerYoutubeId: trailerInfo.key,
     trailerSite: trailerInfo.site,
-    type: 'movie'
+    type: 'movie',
+    originalLanguage: fullLanguage
   };
 };
 
@@ -242,12 +264,21 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
     posterPath = tmdbTv.images.posters[1]?.file_path || tmdbTv.images.posters[0]?.file_path;
   }
 
-  const trailerInfo = extractTrailer(tmdbTv.videos);
+  const trailerInfo = extractTrailer(tmdbTv.videos, tmdbTv.original_language);
+
+  let fullLanguage = tmdbTv.original_language;
+  if (fullLanguage) {
+    try {
+      const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+      fullLanguage = displayNames.of(fullLanguage);
+    } catch (e) {}
+  }
 
   return {
     id: tmdbTv.id,
     title: tmdbTv.name || tmdbTv.original_name || 'Unknown Show',
     year: tmdbTv.first_air_date ? new Date(tmdbTv.first_air_date).getFullYear() : 0,
+    releaseDate: tmdbTv.first_air_date,
     genre: tmdbTv.genre_ids ? tmdbTv.genre_ids.map((id: number) => genresMap[id] || 'Unknown') : (tmdbTv.genres ? tmdbTv.genres.map((g: any) => g.name) : []),
     rating: Number(tmdbTv.vote_average?.toFixed(1) || 0),
     description: tmdbTv.overview || '',
@@ -256,11 +287,12 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
     backdropUrl: tmdbTv.backdrop_path ? `${BACKDROP_IMAGE_BASE_URL}${tmdbTv.backdrop_path}` : 'https://placehold.co/1920x1080?text=No+Backdrop',
     platforms: tmdbTv['watch/providers']
       ? parseWatchProviders(tmdbTv['watch/providers'], tmdbTv.id, tmdbTv.name || tmdbTv.original_name)
-      : getMoviePlatforms(tmdbTv.id),
+      : [],
     cast: [],
     trailerYoutubeId: trailerInfo.key,
     trailerSite: trailerInfo.site,
-    type: 'tv'
+    type: 'tv',
+    originalLanguage: fullLanguage
   };
 };
 
@@ -301,12 +333,41 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
   await fetchGenres();
   const tvData = await fetchFromTmdb(`tv/${id}?append_to_response=videos,credits,watch/providers,images`);
 
-  const cast: CastMember[] = tvData.credits?.cast?.slice(0, 10).map((c: any) => ({
+  const basicCast = tvData.credits?.cast?.slice(0, 10) || [];
+  const cast: CastMember[] = await Promise.all(
+    basicCast.map(async (c: any) => {
+      let birthday, placeOfBirth;
+      try {
+        const personData = await fetchFromTmdb(`person/${c.id}`);
+        birthday = personData.birthday;
+        placeOfBirth = personData.place_of_birth;
+      } catch (err) {
+        // Ignore error and just return what we have
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        role: c.character,
+        imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image',
+        birthday,
+        placeOfBirth
+      };
+    })
+  );
+
+  const uniqueCrew = Array.from(new Map(
+    (tvData.credits?.crew || [])
+      // .filter((c: any) => c.department === 'Directing' || c.department === 'Writing')
+      .filter((c: any) => c.job === 'Director' || (c.department === 'Directing' && !c.job.includes('Assistant')))
+      .map((c: any) => [c.id, c])
+  ).values()).slice(0, 10);
+
+  const crew: CastMember[] = uniqueCrew.map((c: any) => ({
     id: c.id,
     name: c.name,
-    role: c.character,
+    role: c.job || c.department,
     imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image'
-  })) || [];
+  }));
 
   return {
     ...mapTmdbTvShow(tvData),
@@ -315,7 +376,8 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
       ? `${tvData.episode_run_time[0]} Min` 
       : (tvData.number_of_seasons ? `${tvData.number_of_seasons} Season${tvData.number_of_seasons > 1 ? 's' : ''}` : 'N/A'),
     tagline: tvData.tagline,
-    cast
+    cast,
+    crew
   };
 };
 
@@ -333,19 +395,49 @@ export const getMovieDetails = async (id: number, type?: 'movie' | 'tv'): Promis
   try {
     const movieData = await fetchFromTmdb(`movie/${id}?append_to_response=videos,credits,watch/providers,images`);
 
-    const cast: CastMember[] = movieData.credits?.cast?.slice(0, 10).map((c: any) => ({
+    const basicCast = movieData.credits?.cast?.slice(0, 10) || [];
+    const cast: CastMember[] = await Promise.all(
+      basicCast.map(async (c: any) => {
+        let birthday, placeOfBirth;
+        try {
+          const personData = await fetchFromTmdb(`person/${c.id}`);
+          birthday = personData.birthday;
+          placeOfBirth = personData.place_of_birth;
+        } catch (err) {
+          // Ignore error and just return what we have
+        }
+        return {
+          id: c.id,
+          name: c.name,
+          role: c.character,
+          imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image',
+          birthday,
+          placeOfBirth
+        };
+      })
+    );
+
+    const uniqueCrew = Array.from(new Map(
+      (movieData.credits?.crew || [])
+        // .filter((c: any) => c.department === 'Directing' || c.department === 'Writing')
+        .filter((c: any) => c.job === 'Director')
+        .map((c: any) => [c.id, c])
+    ).values()).slice(0, 10);
+
+    const crew: CastMember[] = uniqueCrew.map((c: any) => ({
       id: c.id,
       name: c.name,
-      role: c.character,
+      role: c.job || c.department,
       imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image'
-    })) || [];
+    }));
 
     return {
       ...mapTmdbMovie(movieData),
       genre: movieData.genres?.map((g: any) => g.name) || [],
       runtime: movieData.runtime ? `${Math.floor(movieData.runtime / 60)}H ${movieData.runtime % 60}M` : 'N/A',
       tagline: movieData.tagline,
-      cast
+      cast,
+      crew
     };
   } catch (error: any) {
     if (type !== 'tv') {
@@ -430,15 +522,57 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
   }
 };
 
-export const browseSearchMovies = async (query: string, page: number = 1): Promise<{ movies: Movie[], totalPages: number }> => {
+export const browseSearchMovies = async (query: string, page: number = 1, yearRange?: [number, number] | null): Promise<{ movies: Movie[], totalPages: number }> => {
   if (!query) return { movies: [], totalPages: 0 };
   await fetchGenres();
   try {
-    const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(query)}&page=${page}`);
+    let actualQuery = query.trim();
+    let exactYear: number | undefined;
+    
+    // Check if query ends with a 4 digit year
+    const yearMatch = actualQuery.match(/(.*)\s+(\d{4})$/);
+    if (yearMatch) {
+      actualQuery = yearMatch[1].trim();
+      exactYear = parseInt(yearMatch[2]);
+    }
+
+    let dataResults: any[] = [];
+    let totalPages = 0;
+
+    if (exactYear) {
+      // Use specific movie/tv search with year
+      const [movieData, tvData] = await Promise.all([
+        fetchFromTmdb(`search/movie?query=${encodeURIComponent(actualQuery)}&primary_release_year=${exactYear}&page=${page}`),
+        fetchFromTmdb(`search/tv?query=${encodeURIComponent(actualQuery)}&first_air_date_year=${exactYear}&page=${page}`)
+      ]);
+      dataResults = [
+        ...movieData.results.map((r: any) => ({ ...r, media_type: 'movie' })),
+        ...tvData.results.map((r: any) => ({ ...r, media_type: 'tv' }))
+      ];
+      dataResults.sort((a, b) => b.popularity - a.popularity);
+      totalPages = Math.max(movieData.total_pages || 0, tvData.total_pages || 0);
+    } else {
+      // Normal multi search
+      const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(actualQuery)}&page=${page}`);
+      dataResults = data.results;
+      totalPages = data.total_pages;
+
+      // Apply yearRange filter locally if provided and no exactYear was in query
+      if (yearRange) {
+        const [min, max] = yearRange;
+        dataResults = dataResults.filter((item: any) => {
+          const dateStr = item.release_date || item.first_air_date;
+          if (!dateStr) return false;
+          const y = parseInt(dateStr.split('-')[0]);
+          return y >= min && y <= max;
+        });
+      }
+    }
 
     const moviesWithDetails = await Promise.all(
-      data.results
+      dataResults
         .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+        .slice(0, 20)
         .map(async (item: any) => {
           try {
             const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
@@ -451,7 +585,7 @@ export const browseSearchMovies = async (query: string, page: number = 1): Promi
 
     return {
       movies: moviesWithDetails,
-      totalPages: Math.min(data.total_pages, 500)
+      totalPages: Math.min(totalPages, 500)
     };
   } catch (error) {
     console.error('Error in browseSearchMovies:', error);
@@ -465,7 +599,8 @@ export const browseDiscoverMovies = async (
   minRating?: number,
   minYear?: number,
   maxYear?: number,
-  sortBy: string = 'popularity.desc'
+  sortBy: string = 'popularity.desc',
+  language: string = 'All'
 ): Promise<{ movies: Movie[], totalPages: number }> => {
   await fetchGenres();
 
@@ -508,6 +643,11 @@ export const browseDiscoverMovies = async (
 
     if (genreId) movieParams.set('with_genres', genreId.toString());
     if (tvGenreId) tvParams.set('with_genres', tvGenreId.toString());
+
+    if (language && language !== 'All') {
+      movieParams.set('with_original_language', language);
+      tvParams.set('with_original_language', language);
+    }
 
     const shouldFetchTv = genreId !== 10770; // 10770 is TV Movie (movie only)
 
@@ -616,6 +756,31 @@ export const getPopularMovies = async (): Promise<Movie[]> => {
   }
 };
 
+export const getUpcomingMovies = async (): Promise<Movie[]> => {
+  await fetchGenres();
+  try {
+    const data = await fetchFromTmdb('movie/upcoming?region=IN|US');
+
+    // We only have movies in upcoming, no TV shows
+    const itemsToProcess = data.results.slice(0, 20);
+
+    const moviesWithTrailers = await Promise.all(
+      itemsToProcess.map(async (item: any) => {
+        try {
+          const detailData = await fetchFromTmdb(`movie/${item.id}?append_to_response=videos,watch/providers,images`);
+          return mapTmdbMovie(detailData);
+        } catch (e) {
+          return mapTmdbMovie(item);
+        }
+      })
+    );
+    return moviesWithTrailers;
+  } catch (error) {
+    console.error('Error fetching upcoming movies:', error);
+    return [];
+  }
+};
+
 export const getCastDetails = async (id: number): Promise<CastMember> => {
   try {
     const data = await fetchFromTmdb(`person/${id}`);
@@ -634,17 +799,21 @@ export const getCastDetails = async (id: number): Promise<CastMember> => {
   }
 };
 
-export const getCastMovies = async (id: number): Promise<Movie[]> => {
+export const getCastMovies = async (id: number, page: number = 1): Promise<{ items: Movie[], totalPages: number, currentPage: number }> => {
   await fetchGenres();
   try {
     const data = await fetchFromTmdb(`person/${id}/combined_credits`);
     const castItems = data.cast
       .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
-      .sort((a: any, b: any) => b.popularity - a.popularity)
-      .slice(0, 12);
+      .sort((a: any, b: any) => b.popularity - a.popularity);
+
+    const ITEMS_PER_PAGE = 12;
+    const totalItems = castItems.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const paginatedItems = castItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     const itemsWithDetails = await Promise.all(
-      castItems.map(async (item: any) => {
+      paginatedItems.map(async (item: any) => {
         try {
           const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
           return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
@@ -653,10 +822,10 @@ export const getCastMovies = async (id: number): Promise<Movie[]> => {
         }
       })
     );
-    return itemsWithDetails;
+    return { items: itemsWithDetails, totalPages, currentPage: page };
   } catch (error) {
     console.error('Error fetching cast credits:', error);
-    return [];
+    return { items: [], totalPages: 0, currentPage: 1 };
   }
 };
 

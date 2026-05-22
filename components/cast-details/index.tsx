@@ -11,18 +11,27 @@ import { Movie, CastMember } from '@/types';
 import ErrorMessage from '@/components/ui/error-message';
 import MovieCard from '@/components/ui/movie-card';
 
+import Pagination from '@/components/ui/pagination';
+
 export default function CastDetails({
   initialCast,
-  initialMovies
+  initialMovies,
+  initialTotalPages = 1,
+  initialCurrentPage = 1
 }: {
   initialCast?: CastMember;
   initialMovies?: Movie[];
+  initialTotalPages?: number;
+  initialCurrentPage?: number;
 }) {
   const params = useParams<{ id: string }>();  const id = params.id;
   const router = useRouter();
   const [cast, setCast] = useState<CastMember | null>(initialCast || null);
   const [movies, setMovies] = useState<Movie[]>(initialMovies || []);
+  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  const [currentPage, setCurrentPage] = useState(initialCurrentPage);
   const [isLoading, setIsLoading] = useState(!initialCast);
+  const [isMoviesLoading, setIsMoviesLoading] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -44,10 +53,12 @@ export default function CastDetails({
       try {
         const [details, castMovies] = await Promise.all([
           getCastDetails(personId),
-          getCastMovies(personId)
+          getCastMovies(personId, 1)
         ]);
         setCast(details);
-        setMovies(castMovies);
+        setMovies(castMovies.items);
+        setTotalPages(castMovies.totalPages);
+        setCurrentPage(castMovies.currentPage);
       } catch (err) {
         console.error('Error fetching cast details:', err);
         setError(true);
@@ -57,6 +68,22 @@ export default function CastDetails({
     };
     fetchData();
   }, [id, initialCast]);
+
+  const handlePageChange = async (page: number) => {
+    if (!id || page === currentPage) return;
+    const personId = parseInt(id);
+    setIsMoviesLoading(true);
+    try {
+      const data = await getCastMovies(personId, page);
+      setMovies(data.items);
+      setTotalPages(data.totalPages);
+      setCurrentPage(data.currentPage);
+    } catch (err) {
+      console.error('Error fetching paginated movies', err);
+    } finally {
+      setIsMoviesLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -163,11 +190,19 @@ export default function CastDetails({
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-8 flex items-center gap-2">
                   <span className="w-1 h-3 bg-brand"></span> KNOWN FOR
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 transition-opacity duration-300 ${isMoviesLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                   {movies.map((movie) => (
                     <MovieCard key={movie.id} movie={movie} />
                   ))}
                 </div>
+                
+                {totalPages > 1 && (
+                  <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                )}
               </div>
             </motion.div>
           </div>

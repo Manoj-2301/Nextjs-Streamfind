@@ -25,6 +25,7 @@ import Navbar from '@/components/ui/navbar';
 import Footer from './footer';
 import SmoothScroll from '@/components/ui/smooth-scroll';
 import NewsletterPopup from '@/components/ui/newsletter-popup';
+import MaintenanceGuard from '@/components/ui/maintenance-guard';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -57,42 +58,44 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background selection:bg-brand/30 selection:text-brand font-sans">
         <Providers>
-          <SmoothScroll />
-          <Navbar />
-          <Toaster 
-            position="top-center"
-            containerStyle={{ zIndex: 999999 }}
-            toastOptions={{
-              className: 'font-sans font-medium text-sm tracking-wide shadow-2xl',
-              style: {
-                background: 'rgba(5, 5, 5, 0.85)',
-                color: '#fff',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                padding: '16px 24px',
-                borderRadius: '24px',
-                boxShadow: '0 30px 60px -15px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981', // Premium green
-                  secondary: '#000',
+          <MaintenanceGuard>
+            <SmoothScroll />
+            <Navbar />
+            <Toaster 
+              position="top-center"
+              containerStyle={{ zIndex: 999999 }}
+              toastOptions={{
+                className: 'font-sans font-medium text-sm tracking-wide shadow-2xl',
+                style: {
+                  background: 'rgba(5, 5, 5, 0.85)',
+                  color: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  padding: '16px 24px',
+                  borderRadius: '24px',
+                  boxShadow: '0 30px 60px -15px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ff284e',
-                  secondary: '#fff',
+                success: {
+                  iconTheme: {
+                    primary: '#10b981', // Premium green
+                    secondary: '#000',
+                  },
                 },
-              },
-            }}
-          />
-          <main className="pt-16">
-            {children}
-          </main>
-          <Footer />
-          <NewsletterPopup />
+                error: {
+                  iconTheme: {
+                    primary: '#ff284e',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
+            <main className="pt-16">
+              {children}
+            </main>
+            <Footer />
+            <NewsletterPopup />
+          </MaintenanceGuard>
         </Providers>
       </body>
     </html>

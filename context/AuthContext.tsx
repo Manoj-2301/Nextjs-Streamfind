@@ -46,6 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await setDoc(doc(getFirestore(app), 'users', result.user.uid), { lastActive: serverTimestamp() }, { merge: true });
       }
     } catch (error: any) {
+      if (error?.code === 'auth/popup-closed-by-user') {
+        // User closed the popup, no need to show an error
+        return;
+      }
       console.error("Login failed:", error);
       const { toast } = await import('react-hot-toast');
       toast.error(error.message || "Failed to login with Google");

@@ -4,7 +4,7 @@ import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies } from '@/services/tmdbService';
+import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
@@ -19,16 +19,19 @@ const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { 
 
 interface HomeProps {
   initialTrending?: Movie[];
+  initialUpcoming?: Movie[];
   initialSciFi?: Movie[];
   initialPopular?: Movie[];
 }
 
 export default function Home({
   initialTrending = [],
+  initialUpcoming = [],
   initialSciFi = [],
   initialPopular = []
 }: HomeProps) {
   const [trending, setTrending] = useState<Movie[]>(initialTrending);
+  const [upcoming, setUpcoming] = useState<Movie[]>(initialUpcoming);
   const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
   const [recommendations, setRecommendations] = useState<Movie[]>(initialPopular);
   const [recSource, setRecSource] = useState<string | null>(null);
@@ -73,14 +76,16 @@ export default function Home({
         let currentTrending = trending;
         let currentSciFi = sciFi;
 
-        if (trending.length === 0 || sciFi.length === 0) {
-          const [trendingData, sciFiData] = await Promise.all([
+        if (trending.length === 0 || sciFi.length === 0 || upcoming.length === 0) {
+          const [trendingData, upcomingData, sciFiData] = await Promise.all([
             getTrendingMovies(),
+            getUpcomingMovies(),
             getMoviesByGenre(878) // 878 is Sci-Fi genre ID in TMDB
           ]);
           currentTrending = trendingData;
           currentSciFi = sciFiData;
           setTrending(trendingData);
+          setUpcoming(upcomingData);
           setSciFi(sciFiData);
         }
 
@@ -182,6 +187,7 @@ export default function Home({
   };
 
   const filteredTrending = filterBySubs(trending);
+  const filteredUpcoming = filterBySubs(upcoming);
   const filteredSciFi = filterBySubs(sciFi);
   const filteredRecs = filterBySubs(recommendations);
 
@@ -201,6 +207,10 @@ export default function Home({
             </div>
             <ScrollableRow title="" movies={filteredRecs} className="!py-0" />
           </div>
+        )}
+
+        {filteredUpcoming.length > 0 && (
+          <ScrollableRow title="Upcoming Movies" movies={filteredUpcoming} />
         )}
 
         <ScrollableRow title="Trending Now" movies={filteredTrending} />

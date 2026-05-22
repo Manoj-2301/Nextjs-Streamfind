@@ -28,8 +28,15 @@ export default function AuthPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
+  const { user, loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
+
+  // Redirect if already logged in (especially for mobile redirect logins)
+  useEffect(() => {
+    if (user) {
+      router.push('/');
+    }
+  }, [user, router]);
 
   // Auto-focus the active field on step change
   useEffect(() => {
@@ -318,7 +325,7 @@ export default function AuthPage() {
                       <button
                         type="button"
                         onClick={() => { setSignInStep('email'); setError(''); setPassword(''); }}
-        
+                        className="flex items-center justify-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors mb-2"
                       >
                         <ArrowLeft className="w-4 h-4" />
                         Use a different email

@@ -10,7 +10,9 @@ interface FilterBarProps {
   onYearChange: (range: [number, number] | null) => void;
   onPlatformChange: (platforms: string[]) => void;
   onSortChange: (sortBy: string, order: 'asc' | 'desc') => void;
+  onLanguageChange: (language: string) => void;
   activeGenre: string;
+  activeLanguage: string;
   activeRating: number | null;
   activeYearRange: [number, number] | null;
   selectedPlatforms: string[];
@@ -25,7 +27,9 @@ export default function FilterBar({
   onYearChange,
   onPlatformChange,
   onSortChange,
+  onLanguageChange,
   activeGenre,
+  activeLanguage,
   activeRating,
   activeYearRange,
   selectedPlatforms,
@@ -51,6 +55,20 @@ export default function FilterBar({
     { label: "Pre-2000", value: [1950, 1999] },
   ];
   const platforms = ["Netflix", "Amazon Prime", "Disney+", "Apple TV", "HBO Max", "Hotstar", "Peacock"];
+  
+  const languages = [
+    { label: "All Languages", value: "All" },
+    { label: "English", value: "en" },
+    { label: "Hindi", value: "hi" },
+    { label: "Telugu", value: "te" },
+    { label: "Tamil", value: "ta" },
+    { label: "Malayalam", value: "ml" },
+    { label: "Kannada", value: "kn" },
+    { label: "Korean", value: "ko" },
+    { label: "Japanese", value: "ja" },
+    { label: "Spanish", value: "es" },
+    { label: "French", value: "fr" }
+  ];
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -103,6 +121,37 @@ export default function FilterBar({
                   className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${activeGenre === g ? 'bg-brand/20 text-brand' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}
                 >
                   {g} {activeGenre === g && <Check className="w-3 h-3" />}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Language Dropdown */}
+      <div className="relative">
+        <button 
+          onClick={() => setActiveDropdown(activeDropdown === 'language' ? null : 'language')}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${activeLanguage !== 'All' ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+        >
+          {activeLanguage === 'All' ? 'Language' : languages.find(l => l.value === activeLanguage)?.label || 'Language'} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+        </button>
+        <AnimatePresence>
+          {activeDropdown === 'language' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl max-h-60 overflow-y-auto p-2 z-[9999] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              data-lenis-prevent
+            >
+              {languages.map(l => (
+                <button
+                  key={l.value}
+                  onClick={() => { onLanguageChange(l.value); setActiveDropdown(null); }}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${activeLanguage === l.value ? 'bg-brand/20 text-brand' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}
+                >
+                  {l.label} {activeLanguage === l.value && <Check className="w-3 h-3" />}
                 </button>
               ))}
             </motion.div>

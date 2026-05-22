@@ -56,9 +56,12 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     }
 
     // User is logged in: Merge local items to Firebase
+    let isMounted = true;
     let unsubscribe = () => {};
 
     import('firebase/firestore').then(({ collection, doc, setDoc, onSnapshot, query, serverTimestamp }) => {
+      if (!isMounted) return;
+      
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         try {
@@ -94,7 +97,10 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [user]);
 
   const addToWatchlist = async (movie: Movie) => {
