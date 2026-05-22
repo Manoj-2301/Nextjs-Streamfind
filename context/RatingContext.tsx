@@ -44,9 +44,11 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let isMounted = true;
     let unsubscribe = () => {};
 
     import('firebase/firestore').then(({ collection, query, onSnapshot }) => {
+      if (!isMounted) return;
       const path = `users/${user.uid}/ratings`;
       const q = query(collection(getFirestore(app), path));
       
@@ -76,7 +78,10 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [user]);
 
   const setUserRating = async (

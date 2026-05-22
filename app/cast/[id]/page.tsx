@@ -12,19 +12,23 @@ export default async function CastDetailPage({
 
   let initialCast = undefined;
   let initialMovies = undefined;
+  let initialTotalPages = 0;
+  let initialCurrentPage = 1;
 
   try {
     if (!isNaN(personId)) {
       const [castData, moviesData] = await Promise.all([
         getCastDetails(personId),
-        getCastMovies(personId),
+        getCastMovies(personId, 1),
       ]);
       initialCast = castData;
-      initialMovies = moviesData;
+      initialMovies = moviesData.items;
+      initialTotalPages = moviesData.totalPages;
+      initialCurrentPage = moviesData.currentPage;
     }
   } catch (error) {
     console.error('Error pre-fetching cast details on server:', error);
   }
 
-  return <CastDetails initialCast={initialCast} initialMovies={initialMovies} />;
+  return <CastDetails initialCast={initialCast} initialMovies={initialMovies} initialTotalPages={initialTotalPages} initialCurrentPage={initialCurrentPage} />;
 }

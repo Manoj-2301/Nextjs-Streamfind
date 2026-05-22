@@ -30,7 +30,9 @@ export interface Movie {
   backdropUrl: string;
   platforms: Platform[];
   cast: CastMember[];
+  crew?: CastMember[];
   trailerYoutubeId?: string;
   trailerSite?: string;
   type?: 'movie' | 'tv';
+  originalLanguage?: string;
 }

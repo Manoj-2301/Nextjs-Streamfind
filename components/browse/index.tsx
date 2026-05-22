@@ -94,6 +94,19 @@ export default function Browse() {
   }, [profile, platforms]);
 
   useEffect(() => {
+    // If a year is at the end of the search, sync it to the year filter
+    let extractedYear: number | undefined;
+    if (search) {
+      const match = search.match(/(.*)\s+(\d{4})$/);
+      if (match) {
+        extractedYear = parseInt(match[2]);
+        // Update year range dynamically if it's not already set to this year
+        if (!yearRange || yearRange[0] !== extractedYear || yearRange[1] !== extractedYear) {
+           setYearRange([extractedYear, extractedYear]);
+        }
+      }
+    }
+
     const loadMovies = async () => {
       setIsLoading(true);
       setError(false);
@@ -102,8 +115,8 @@ export default function Browse() {
         let pages = 1;
 
         if (search) {
-          // TMDB search API doesn't support advanced filtering, so we only use the query and page
-          const data = await browseSearchMovies(search, currentPage);
+          // TMDB search API doesn't support advanced filtering natively, but we now pass yearRange
+          const data = await browseSearchMovies(search, currentPage, yearRange);
           results = data.movies;
           pages = data.totalPages;
         } else {
