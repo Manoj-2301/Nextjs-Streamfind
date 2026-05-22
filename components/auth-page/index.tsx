@@ -28,8 +28,15 @@ export default function AuthPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
+  const { user, loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
+
+  // Redirect if already logged in (especially for mobile redirect logins)
+  useEffect(() => {
+    if (user) {
+      router.push('/');
+    }
+  }, [user, router]);
 
   // Auto-focus the active field on step change
   useEffect(() => {
