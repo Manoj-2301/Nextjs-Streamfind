@@ -132,6 +132,24 @@ export default function ProfileComponent() {
   const [modalSuccess, setModalSuccess] = useState('');
   const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
   const [showActivityPopup, setShowActivityPopup] = useState(false);
+  const [isShareEnabled, setIsShareEnabled] = useState(true);
+  const [systemAchievements, setSystemAchievements] = useState<{ id: string; label: string; val: string; icon: string }[]>([]);
+
+  useEffect(() => {
+    const db = getFirestore(app);
+    const unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.flags && data.flags.share !== undefined) {
+          setIsShareEnabled(data.flags.share);
+        }
+        if (data.achievements) {
+          setSystemAchievements(data.achievements);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Dynamic Director & Critic insights from TMDB for Rated Movies
   const [additionalDetails, setAdditionalDetails] = useState<Record<number, MovieAdditionalDetails>>({});
@@ -782,12 +800,51 @@ export default function ProfileComponent() {
   const topTen = profile.top10.slice(0, 5);
   const currentFrame = frames.find(f => f.id === profile.avatarFrame) || frames[0];
 
-  const badges = [
-    { icon: Coffee, title: "Early Bird", desc: "Watched 5+ movies before 8 AM", unlocked: true, color: "text-orange-400" },
-    { icon: Trophy, title: "Genre Master", desc: "Full Genre Radar coverage", unlocked: watchCount > 5, color: "text-brand" },
-    { icon: Clock, title: "Night Owl", desc: "Watched 3 movies after midnight", unlocked: true, color: "text-purple-400" },
-    { icon: Zap, title: "Speed Demon", desc: "Rated 10 movies in one hour", unlocked: ratingCount > 3, color: "text-cyan-400" }
-  ];
+  const badges = systemAchievements.map(ach => {
+    let unlocked = false;
+    const numMatch = ach.val.match(/\d+(\.\d+)?/);
+    const num = numMatch ? parseFloat(numMatch[0]) : 0;
+    
+    const valLower = ach.val.toLowerCase();
+    const labelLower = ach.label.toLowerCase();
+    const combinedStr = `${valLower} ${labelLower}`;
+
+    if (combinedStr.includes('lvl') || combinedStr.includes('level')) {
+       unlocked = level >= num;
+    } else if (combinedStr.includes('mov') || combinedStr.includes('watch')) {
+       unlocked = watchCount >= num;
+    } else if (combinedStr.includes('x') || combinedStr.includes('streak') || combinedStr.includes('rate')) {
+       unlocked = ratingCount >= num;
+    } else {
+       unlocked = totalScore >= num;
+    }
+
+    let IconComp: any = Award;
+    let color = "text-white/40";
+    let isCustomIcon = ach.icon.startsWith('http');
+    
+    if (unlocked && !isCustomIcon) {
+      if (ach.icon === 'Trophy') color = "text-brand";
+      else if (ach.icon === 'Zap') color = "text-cyan-400";
+      else if (ach.icon === 'Award') color = "text-purple-400";
+      else color = "text-orange-400";
+    }
+
+    if (ach.icon === 'Trophy') IconComp = Trophy;
+    else if (ach.icon === 'Zap') IconComp = Zap;
+    else if (ach.icon === 'Award') IconComp = Award;
+    else if (ach.icon === 'Coffee') IconComp = Coffee;
+    else if (ach.icon === 'Clock') IconComp = Clock;
+
+    return {
+      icon: isCustomIcon ? ach.icon : IconComp,
+      isCustomIcon,
+      title: ach.label,
+      desc: ach.val,
+      unlocked: unlocked,
+      color: color
+    };
+  });
 
   // Wait for Firebase auth to finish initializing before deciding if user is logged in.
   // Without this guard, navigating back from a shared link (/profile?uid=XYZ) to /profile
@@ -959,20 +1016,24 @@ export default function ProfileComponent() {
                     Edit Profile
                   </button>
                   <div className="flex gap-2 w-full lg:w-auto">
-                    <button
-                      onClick={() => handleTogglePref('isPublic')}
-                      className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
-                    >
-                      {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                      <span className="text-[10px] font-black uppercase tracking-wider">{profile.isPublic ? 'Public' : 'Private'}</span>
-                    </button>
-                    <button
-                      onClick={handleShareProfile}
-                      className="p-4 bg-surface/20 border border-white/5 rounded-2xl text-white/40 hover:text-brand hover:border-brand/20 transition-all animate-pulse"
-                      title="Share Profile"
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </button>
+                    {isShareEnabled && (
+                      <>
+                        <button
+                          onClick={() => handleTogglePref('isPublic')}
+                          className={`flex-1 p-4 rounded-2xl border transition-all flex items-center justify-center gap-2 ${profile.isPublic ? 'bg-brand/10 border-brand/20 text-brand' : 'bg-surface/20 border-white/5 text-white/40'}`}
+                        >
+                          {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                          <span className="text-[10px] font-black uppercase tracking-wider">{profile.isPublic ? 'Public' : 'Private'}</span>
+                        </button>
+                        <button
+                          onClick={handleShareProfile}
+                          className="p-4 bg-surface/20 border border-white/5 rounded-2xl text-white/40 hover:text-brand hover:border-brand/20 transition-all animate-pulse"
+                          title="Share Profile"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -1351,15 +1412,19 @@ export default function ProfileComponent() {
             <div className="p-8 bg-surface/30 border border-white/5 rounded-[40px] shadow-2xl">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black uppercase tracking-widest">Binge Badges</h3>
-                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / 4 Unlocked</span>
+                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / {badges.length} Unlocked</span>
               </div>
               <div className="max-h-[257px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
                 <div className="space-y-4">
                   {badges.map((badge) => (
                     <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
                       <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform ${badge.color}`}>
-                          <badge.icon className="w-5 h-5" />
+                        <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform flex items-center justify-center w-11 h-11 ${badge.color}`}>
+                          {badge.isCustomIcon ? (
+                            <img src={badge.icon as string} alt={badge.title} className="w-5 h-5 object-contain" />
+                          ) : (
+                            <badge.icon className="w-5 h-5" />
+                          )}
                         </div>
                         <div>
                           <p className="text-xs font-black text-white uppercase">{badge.title}</p>

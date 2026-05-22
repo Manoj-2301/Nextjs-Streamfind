@@ -88,7 +88,7 @@ export default function MovieCard({ movie, priority = false }: MovieCardProps) {
           
           <div className="flex items-center gap-2 mb-1.5">
             <span className="bg-white/10 backdrop-blur-sm border border-white/10 text-white/90 text-[8px] md:text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded-sm shadow-sm">
-              {movie.releaseDate ? new Date(movie.releaseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : movie.year}
+              {movie.releaseDate ? new Date(movie.releaseDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : movie.year ? `'${String(movie.year).slice(-2)}` : ''}
             </span>
             <div className="flex items-center gap-1">
               <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" />

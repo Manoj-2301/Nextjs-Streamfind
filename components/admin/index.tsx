@@ -363,14 +363,32 @@ export default function AdminComponent() {
       // 2. Delete main user profile document
       await deleteDoc(doc(getFirestore(app), 'users', userId));
 
-      // 3. Update local state
+      // 3. Delete from Firebase Authentication via our secure API
+      try {
+        const { getAuth } = await import('firebase/auth');
+        const auth = getAuth(app);
+        const res = await fetch('/api/admin/delete-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: userId, adminEmail: auth.currentUser?.email })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+           console.error("Auth deletion failed:", data.error);
+           toast.error("Data deleted, but failed to erase Auth record: " + data.error, { duration: 2000 });
+        }
+      } catch (e) {
+        console.error("Failed to call delete-user API:", e);
+      }
+
+      // 4. Update local state
       setUsers(prev => prev.filter(u => u.id !== userId));
       setRatings(prev => prev.filter(r => r.userId !== userId));
       setIsDataLoading(false);
-      toast.success("User and all associated database records have been deleted successfully.");
+      toast.success("User and all associated database records have been deleted successfully.", { duration: 2000 });
     } catch (err) {
       console.error("Error deleting user document recursively:", err);
-      toast.error("Failed to delete user: " + (err instanceof Error ? err.message : String(err)));
+      toast.error("Failed to delete user: " + (err instanceof Error ? err.message : String(err)), { duration: 2000 });
       setIsDataLoading(false);
     }
   };
@@ -553,7 +571,7 @@ export default function AdminComponent() {
             </div>
           </div>
 
-          <div className="flex gap-2 w-full md:w-auto justify-center overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+          <div className="flex gap-2 w-full md:w-auto justify-start md:justify-center overflow-x-auto pb-2 md:pb-0 scrollbar-none">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
