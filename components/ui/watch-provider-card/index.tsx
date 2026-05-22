@@ -138,18 +138,21 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
             : 'glass border-white/5 hover:border-brand/40'
       }`}
     >
-      {/* Badge: prioritize India flag, else show user country flag */}
-      {isAvailableInIndia ? (
-        <span className="absolute top-3 right-3 bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
-          <span className="text-[10px] leading-none">🇮🇳</span>
-          Available in India
-        </span>
-      ) : userCountryAvailable ? (
-        <span className="absolute top-3 right-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
-          <span className="text-[10px] leading-none">{getCountryFlagEmoji(userCountryCode)}</span>
-          Available in {COUNTRY_NAMES[userCountryCode] || userCountryCode}
-        </span>
-      ) : null}
+      {/* Beautiful Region Badges */}
+      <div className="absolute top-2.5 right-2.5 flex flex-row flex-wrap justify-end gap-1.5 w-[70%] z-10">
+        {platform.countries?.map(code => (
+          <div 
+            key={code}
+            title={`Available in ${COUNTRY_NAMES[code] || code}`}
+            className="group/badge relative flex items-center justify-center bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-2 py-1 shadow-lg hover:bg-white/10 hover:border-white/30 transition-all duration-300 cursor-help"
+          >
+            <span className="text-xs leading-none drop-shadow-md">{getCountryFlagEmoji(code)}</span>
+            <span className="max-w-0 overflow-hidden group-hover/badge:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover/badge:opacity-100 text-[9px] font-black tracking-wider text-white ml-0 group-hover/badge:ml-1.5">
+              {code}
+            </span>
+          </div>
+        ))}
+      </div>
 
       {isPartner && (
         <span className="absolute top-3 left-3 bg-brand text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md shadow-brand/20 animate-pulse">

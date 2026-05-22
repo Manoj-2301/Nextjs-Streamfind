@@ -46,6 +46,7 @@ export default function Browse() {
   const [rating, setRating] = useState<number | null>(null);
   const [yearRange, setYearRange] = useState<[number, number] | null>(null);
   const [platforms, setPlatforms] = useState<string[]>([]);
+  const [language, setLanguage] = useState<string>("All");
   const [sortBy, setSortBy] = useState("popularity");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isLoading, setIsLoading] = useState(true);
@@ -132,7 +133,8 @@ export default function Browse() {
             minRating,
             minYear,
             maxYear,
-            sortBy
+            sortBy,
+            language
           );
 
           results = data.movies;
@@ -163,7 +165,7 @@ export default function Browse() {
 
     const timer = setTimeout(loadMovies, 500);
     return () => clearTimeout(timer);
-  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage]);
+  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language]);
 
   const totalPages = apiTotalPages;
   const currentMovies = movies;
@@ -242,8 +244,13 @@ export default function Browse() {
                 });
               }
             }}
+            onLanguageChange={(l) => {
+              setLanguage(l);
+              setCurrentPage(1);
+            }}
             onSortChange={(s, o) => { setSortBy(s); setSortOrder(o); setCurrentPage(1); }}
             activeGenre={genre}
+            activeLanguage={language}
             activeRating={rating}
             activeYearRange={yearRange}
             selectedPlatforms={platforms}

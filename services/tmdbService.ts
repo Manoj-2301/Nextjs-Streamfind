@@ -599,7 +599,8 @@ export const browseDiscoverMovies = async (
   minRating?: number,
   minYear?: number,
   maxYear?: number,
-  sortBy: string = 'popularity.desc'
+  sortBy: string = 'popularity.desc',
+  language: string = 'All'
 ): Promise<{ movies: Movie[], totalPages: number }> => {
   await fetchGenres();
 
@@ -642,6 +643,11 @@ export const browseDiscoverMovies = async (
 
     if (genreId) movieParams.set('with_genres', genreId.toString());
     if (tvGenreId) tvParams.set('with_genres', tvGenreId.toString());
+
+    if (language && language !== 'All') {
+      movieParams.set('with_original_language', language);
+      tvParams.set('with_original_language', language);
+    }
 
     const shouldFetchTv = genreId !== 10770; // 10770 is TV Movie (movie only)
 
