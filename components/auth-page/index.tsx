@@ -6,6 +6,7 @@ import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, ArrowLeft, Eye, EyeO
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import AuthPosterBg from './poster-bg';
+import { toast } from 'react-hot-toast';
 
 type SignInStep = 'email' | 'password';
 
@@ -103,6 +104,7 @@ export default function AuthPage() {
         setVerificationSent(true);
       } else {
         await loginWithEmail(email, password);
+        toast.success('Logged in successfully!');
         router.push('/');
       }
     } catch (err: any) {
@@ -114,6 +116,7 @@ export default function AuthPage() {
       else if (err.code === 'auth/weak-password') errorMsg = 'Password should be at least 6 characters.';
       else if (err.code === 'auth/operation-not-allowed') errorMsg = 'This sign-in method is not enabled.';
       setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -123,9 +126,13 @@ export default function AuthPage() {
     setError('');
     try {
       await loginWithGoogle();
+      toast.success('Logged in successfully!');
       router.push('/');
-    } catch {
-      setError('Failed to sign in with Google.');
+    } catch (err: any) {
+      if (err?.code === 'auth/popup-closed-by-user') return;
+      const errorMsg = err.message || 'Failed to sign in with Google.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
   

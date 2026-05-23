@@ -44,10 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
   } catch (error: any) {
-    if (error?.code === 'auth/popup-closed-by-user') return;
+    if (error?.code === 'auth/popup-closed-by-user') throw error;
     console.error("Login failed:", error);
-    const { toast } = await import('react-hot-toast');
-    toast.error(error.message || "Failed to login with Google");
+    throw error;
   }
 };
 
