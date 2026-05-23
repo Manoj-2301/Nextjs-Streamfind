@@ -118,20 +118,16 @@ export default function AuthPage() {
       setIsSubmitting(false);
     }
   };
-const handleGoogleLogin = async () => {
-  setError('');
-  try {
-    await loginWithGoogle();
-    router.push('/');
-  } catch (err: any) {
-    console.error('Google login error:', err);
-    // Show real error on screen
-    setError(`${err.code} — ${err.message}`);
-    alert(`ERROR: ${err.code}\n\n${err.message}`);
-  }
-};
-  
 
+  const handleGoogleLogin = async () => {
+    setError('');
+    try {
+      await loginWithGoogle();
+      router.push('/');
+    } catch {
+      setError('Failed to sign in with Google.');
+    }
+  };
   
 
   return (
