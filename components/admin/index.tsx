@@ -66,6 +66,17 @@ export default function AdminComponent() {
         const { app } = await import('@/lib/firebase');
         const db = getFirestore(app);
 
+        // Sync users with Firebase Auth to purge deleted users
+        try {
+          await fetch('/api/admin/sync-users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminEmail: user.email })
+          });
+        } catch (e) {
+          console.warn('Failed to sync users with auth:', e);
+        }
+
         // Setup real-time listeners
         const unsubQueries = onSnapshot(collection(db, 'contact_queries'), (snap) => {
           if (!active) return;
