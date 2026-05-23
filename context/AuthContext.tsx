@@ -31,30 +31,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginWithGoogle = async () => {
-    try {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      let result;
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      } else {
-        result = await signInWithPopup(auth, googleProvider);
-      }
-      // Write lastActive on login
-      if (result?.user) {
-        const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-        await setDoc(doc(getFirestore(app), 'users', result.user.uid), { lastActive: serverTimestamp() }, { merge: true });
-      }
-    } catch (error: any) {
-      if (error?.code === 'auth/popup-closed-by-user') {
-        // User closed the popup, no need to show an error
-        return;
-      }
-      console.error("Login failed:", error);
-      const { toast } = await import('react-hot-toast');
-      toast.error(error.message || "Failed to login with Google");
+  try {
+    // Use popup on ALL devices — works on mobile too
+    const result = await signInWithPopup(auth, googleProvider);
+
+    if (result?.user) {
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      await setDoc(
+        doc(getFirestore(app), 'users', result.user.uid),
+        { lastActive: serverTimestamp() },
+        { merge: true }
+      );
     }
-  };
+  } catch (error: any) {
+    if (error?.code === 'auth/popup-closed-by-user') return;
+    console.error("Login failed:", error);
+    const { toast } = await import('react-hot-toast');
+    toast.error(error.message || "Failed to login with Google");
+  }
+};
 
   const loginWithEmail = async (email: string, pass: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, pass);
