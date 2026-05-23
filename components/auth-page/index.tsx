@@ -93,6 +93,7 @@ export default function AuthPage() {
         if (!name.trim()) { toast.error('Please enter your name.'); setIsSubmitting(false); return; }
         if (password !== confirmPassword) { toast.error('Passwords do not match.'); setIsSubmitting(false); return; }
         await signupWithEmail(email, password, name);
+        toast.success('Verification email sent to your inbox.');
         setVerificationSent(true);
       } else {
         await loginWithEmail(email, password);

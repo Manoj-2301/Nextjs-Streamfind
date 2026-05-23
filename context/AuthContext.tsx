@@ -67,11 +67,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Sign out immediately — email must be verified before login
     await signOut(auth);
     // Send our custom-themed verification email via our API
-    await fetch('/api/auth/send-email', {
+    const res = await fetch('/api/auth/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'verify', email, displayName: name }),
     });
+    if (!res.ok) {
+      let data;
+      try { data = await res.json(); } catch(e) {}
+      throw new Error(data?.error || 'Failed to send verification email.');
+    }
   };
 
   const sendPasswordReset = async (email: string) => {
