@@ -21,10 +21,8 @@ export default function AuthPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -52,8 +50,6 @@ export default function AuthPage() {
   const handleToggleMode = () => {
     setIsSignUp(!isSignUp);
     setSignInStep('email');
-    setError('');
-    setSuccessMessage('');
     setName('');
     setPassword('');
     setConfirmPassword('');
@@ -61,31 +57,28 @@ export default function AuthPage() {
 
   const handleEmailContinue = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email address.');
+      toast.error('Please enter a valid email address.');
       return;
     }
     setSignInStep('password');
   };
 
   const handleForgotPassword = async () => {
-    setError('');
-    setSuccessMessage('');
     if (!email) {
-      setError('Please enter your email address to reset your password.');
+      toast.error('Please enter your email address to reset your password.');
       return;
     }
     setIsSubmitting(true);
     try {
       await sendPasswordReset(email);
-      setSuccessMessage('Password reset email sent! Please check your inbox.');
+      toast.success('Password reset email sent! Please check your inbox.');
     } catch (err: any) {
       console.error('Password reset error:', err);
       let errorMsg = 'Failed to send password reset email.';
       if (err.code === 'auth/invalid-email') errorMsg = 'Invalid email address.';
       else if (err.code === 'auth/user-not-found') errorMsg = 'No user found with this email.';
-      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -93,13 +86,12 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsSubmitting(true);
 
     try {
       if (isSignUp) {
-        if (!name.trim()) { setError('Please enter your name.'); setIsSubmitting(false); return; }
-        if (password !== confirmPassword) { setError('Passwords do not match.'); setIsSubmitting(false); return; }
+        if (!name.trim()) { toast.error('Please enter your name.'); setIsSubmitting(false); return; }
+        if (password !== confirmPassword) { toast.error('Passwords do not match.'); setIsSubmitting(false); return; }
         await signupWithEmail(email, password, name);
         setVerificationSent(true);
       } else {
@@ -115,7 +107,6 @@ export default function AuthPage() {
       else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') errorMsg = 'Invalid email or password.';
       else if (err.code === 'auth/weak-password') errorMsg = 'Password should be at least 6 characters.';
       else if (err.code === 'auth/operation-not-allowed') errorMsg = 'This sign-in method is not enabled.';
-      setError(errorMsg);
       toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
@@ -123,7 +114,6 @@ export default function AuthPage() {
   };
 
   const handleGoogleLogin = async () => {
-    setError('');
     try {
       await loginWithGoogle();
       toast.success('Logged in successfully!');
@@ -131,7 +121,6 @@ export default function AuthPage() {
     } catch (err: any) {
       if (err?.code === 'auth/popup-closed-by-user') return;
       const errorMsg = err.message || 'Failed to sign in with Google.';
-      setError(errorMsg);
       toast.error(errorMsg);
     }
   };
@@ -202,23 +191,7 @@ export default function AuthPage() {
                 </p>
               </div>
 
-              {/* ── Alerts ── */}
-              {successMessage && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-green-500/10 border border-green-500/20 text-green-400 p-3 rounded-lg mb-6 flex items-center gap-2 text-sm"
-                >
-                  <AlertCircle className="w-4 h-4 shrink-0 text-green-400" />
-                  <p>{successMessage}</p>
-                </motion.div>
-              )}
-              {error && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-6 flex items-center gap-2 text-sm"
-                >
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <p>{error}</p>
-                </motion.div>
-              )}
+
 
               {/* ── Sign Up Form (all fields at once) ── */}
               {isSignUp ? (
@@ -332,7 +305,7 @@ export default function AuthPage() {
                       {/* Back to email step */}
                       <button
                         type="button"
-                        onClick={() => { setSignInStep('email'); setError(''); setPassword(''); }}
+                        onClick={() => { setSignInStep('email'); setPassword(''); }}
                         className="flex items-center justify-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors mb-2"
                       >
                         <ArrowLeft className="w-4 h-4" />
