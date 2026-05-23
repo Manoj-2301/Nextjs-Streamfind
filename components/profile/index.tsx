@@ -103,7 +103,7 @@ export default function ProfileComponent() {
   // Profile data syncing with Firestore
   const [profile, setProfile] = useState<ProfileSettings>({
     bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
-    favoriteGenres: ['Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'],
+    favoriteGenres: [],
     subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
     notifyNewRelease: true,
     notifyFavGenres: true,
@@ -111,7 +111,7 @@ export default function ProfileComponent() {
     isPublic: true,
     avatarFrame: 'none',
     top10: [],
-    autoFilter: true,
+    autoFilter: false,
     photoURL: '',
   });
 
@@ -474,7 +474,7 @@ export default function ProfileComponent() {
         if (isOwner && user) {
           setDoc(docRef, {
             bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
-            favoriteGenres: ['Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'],
+            favoriteGenres: [],
             subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
             notifyNewRelease: true,
             notifyFavGenres: true,
@@ -482,7 +482,7 @@ export default function ProfileComponent() {
             isPublic: true,
             avatarFrame: 'none',
             top10: [],
-            autoFilter: true,
+            autoFilter: false,
             photoURL: user.photoURL || '',
             email: user.email || '',
             displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'

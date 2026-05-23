@@ -132,7 +132,7 @@ export function computeRadarData(watchlist: Movie[]): { genre: string; A: number
     const watchlistCount = watchlistCounts[genre] || 0;
     const viewCount = metrics.viewed[genre] || 0;
     const searchCount = metrics.searched[genre] || 0;
-    const baseScore = 15; // Small initial shape for aesthetic appeal
+    const baseScore = 0; // Small initial shape for aesthetic appeal
     return baseScore + (watchlistCount * 30) + (viewCount * 12) + (searchCount * 6);
   });
 
