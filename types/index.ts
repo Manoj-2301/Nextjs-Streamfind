@@ -1,6 +1,7 @@
 export interface Platform {
   name: string;
   logo: string;
+  logoUrl?: string;
   watchUrl: string;
   isSponsored?: boolean;
   countries?: string[];
@@ -36,4 +37,5 @@ export interface Movie {
   trailerSite?: string;
   type?: 'movie' | 'tv';
   originalLanguage?: string;
+  language?: string;
 }

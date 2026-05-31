@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -21,16 +19,35 @@ export async function GET(
       return NextResponse.json({ error: 'TMDB API key not configured' }, { status: 500 });
     }
 
-    // Build target URL
-    const query = new URLSearchParams(searchParams);
-    query.delete('path');
+    // Build target URL without duplicate params or Next.js route segments
+    const query = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+      // Exclude framework-injected dynamic route segment keys like 'path'
+      if (key !== 'path') {
+        if (key === 'page') {
+          // Keep page parameter within TMDB's strict integer bounds [1, 500]
+          const pageVal = Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
+          query.set(key, pageVal.toString());
+        } else {
+          query.set(key, value); // use .set() instead of .append() to de-duplicate
+        }
+      }
+    });
     query.set('api_key', apiKey);
     const targetUrl = `https://api.themoviedb.org/3/${path}?${query.toString()}`;
 
-    const response = await fetch(targetUrl);
+    console.log('[API ROUTE DEBUG] path:', path, 'targetUrl:', targetUrl);
+    const response = await fetch(targetUrl, { cache: 'no-store' });
     if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
+      console.log('[API ROUTE DEBUG] error response:', response.status, response.statusText, responseText);
       return NextResponse.json(
-        { error: `TMDB API error: ${response.statusText}` },
+        { 
+          error: `TMDB API error: ${response.statusText}`,
+          targetUrl,
+          responseText,
+          status: response.status
+        },
         { status: response.status }
       );
     }

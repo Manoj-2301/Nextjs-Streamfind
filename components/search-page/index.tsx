@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, Search as SearchIcon, RotateCcw } from 'lucide-react';
 import { searchMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
+import { toast } from 'react-hot-toast';
 
 export default function SearchPage() {
   const [search, setSearch] = useState("");
@@ -24,6 +25,9 @@ export default function SearchPage() {
       try {
         const data = await searchMovies(search);
         setResults(data);
+        if (data.length === 0) {
+          toast.error("search correct movie name or show");
+        }
         import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
           trackGenreSearch(search);
           logUserActivity("Search", `Searched for "${search}"`);

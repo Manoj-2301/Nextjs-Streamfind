@@ -4,6 +4,8 @@ import { Filter, ChevronDown, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useRef, useEffect } from 'react';
 
+import { WatchProvider } from '@/services/tmdbService';
+
 interface FilterBarProps {
   onGenreChange: (genre: string) => void;
   onRatingChange: (rating: number | null) => void;
@@ -19,6 +21,7 @@ interface FilterBarProps {
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   totalResults: number;
+  availablePlatforms?: WatchProvider[];
 }
 
 export default function FilterBar({
@@ -35,10 +38,18 @@ export default function FilterBar({
   selectedPlatforms,
   sortBy,
   sortOrder,
-  totalResults
+  totalResults,
+  availablePlatforms
 }: FilterBarProps) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [platformSearch, setPlatformSearch] = useState("");
+
+  useEffect(() => {
+    if (activeDropdown !== 'platform') {
+      setPlatformSearch("");
+    }
+  }, [activeDropdown]);
 
   const genres = ["All", "Action", "Sci-Fi", "Drama", "Adventure", "Animation", "Crime", "Biography"];
   const ratings = [7, 8, 9];
@@ -239,29 +250,51 @@ export default function FilterBar({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="absolute top-full left-0 mt-2 w-56 glass-dark border border-white/10 rounded-xl p-2 z-[9999]"
+              className="absolute top-full left-0 mt-2 w-64 glass-dark border border-white/10 rounded-xl p-3 z-[9999]"
             >
-              <div className="px-4 py-2 border-b border-white/5 mb-2">
-                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Select Platforms</span>
+              <div className="px-2 pb-2 border-b border-white/5 mb-2">
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-2">Select Platforms</span>
+                <input
+                  type="text"
+                  placeholder="Search platforms..."
+                  value={platformSearch}
+                  onChange={(e) => setPlatformSearch(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-white/30 focus:outline-none focus:border-brand/40 transition-colors"
+                />
               </div>
               <div className="max-h-60 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" data-lenis-prevent>
-                {platforms.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => togglePlatform(p)}
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${selectedPlatforms.includes(p) ? 'text-brand bg-brand/5' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}
-                  >
-                    {p}
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedPlatforms.includes(p) ? 'bg-brand border-brand' : 'border-white/20'}`}>
-                      {selectedPlatforms.includes(p) && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                  </button>
-                ))}
+                {(() => {
+                  const listToRender = availablePlatforms && availablePlatforms.length > 0 
+                    ? availablePlatforms.map(ap => ap.name) 
+                    : platforms;
+                  const filteredList = listToRender.filter(p => p.toLowerCase().includes(platformSearch.toLowerCase()));
+                  
+                  if (filteredList.length === 0) {
+                    return (
+                      <div className="text-center py-4 text-xs text-white/40 uppercase tracking-wider font-bold">
+                        No matching platforms
+                      </div>
+                    );
+                  }
+                  
+                  return filteredList.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => togglePlatform(p)}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs md:text-sm transition-colors flex items-center justify-between ${selectedPlatforms.includes(p) ? 'text-brand bg-brand/5' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}
+                    >
+                      <span className="truncate mr-2">{p}</span>
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${selectedPlatforms.includes(p) ? 'bg-brand border-brand' : 'border-white/20'}`}>
+                        {selectedPlatforms.includes(p) && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                    </button>
+                  ));
+                })()}
               </div>
               {selectedPlatforms.length > 0 && (
                 <button 
                   onClick={() => onPlatformChange([])}
-                  className="w-full text-center py-2 text-[10px] font-black text-white/40 hover:text-brand transition-colors mt-2 uppercase tracking-widest"
+                  className="w-full text-center py-2 text-[10px] font-black text-white/40 hover:text-brand transition-colors mt-2 uppercase tracking-widest border-t border-white/5 pt-2"
                 >
                   Clear Selection
                 </button>

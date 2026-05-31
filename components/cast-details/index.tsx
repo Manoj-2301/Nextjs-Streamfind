@@ -33,6 +33,7 @@ export default function CastDetails({
   const [isLoading, setIsLoading] = useState(!initialCast);
   const [isMoviesLoading, setIsMoviesLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -177,9 +178,17 @@ export default function CastDetails({
                    <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-4 flex items-center gap-2">
                     <span className="w-1 h-3 bg-brand"></span> BIOGRAPHY
                   </h3>
-                  <p className="text-base md:text-lg text-white/70 leading-relaxed font-light">
+                  <p className={`text-base md:text-lg text-white/70 leading-relaxed font-light ${!isExpanded && cast.biography.length > 350 ? 'line-clamp-6' : ''}`}>
                     {cast.biography}
                   </p>
+                  {cast.biography.length > 350 && (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="mt-3 text-brand font-black text-[10px] md:text-xs uppercase tracking-widest hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      {isExpanded ? 'Show Less' : 'Read More'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p className="text-white/40 italic mb-12 uppercase text-xs tracking-widest">No biography available for this artist.</p>

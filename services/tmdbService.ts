@@ -250,7 +250,8 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
     trailerYoutubeId: trailerInfo.key,
     trailerSite: trailerInfo.site,
     type: 'movie',
-    originalLanguage: fullLanguage
+    originalLanguage: fullLanguage,
+    language: tmdbMovie.original_language?.toUpperCase()
   };
 };
 
@@ -292,7 +293,8 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
     trailerYoutubeId: trailerInfo.key,
     trailerSite: trailerInfo.site,
     type: 'tv',
-    originalLanguage: fullLanguage
+    originalLanguage: fullLanguage,
+    language: tmdbTv.original_language?.toUpperCase()
   };
 };
 
@@ -333,9 +335,27 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
   await fetchGenres();
   const tvData = await fetchFromTmdb(`tv/${id}?append_to_response=videos,credits,watch/providers,images`);
 
-  const basicCast = tvData.credits?.cast?.slice(0, 10) || [];
+  let basicCast = tvData.credits?.cast || [];
+
+  // For anthology/aggregate cast shows (like Charmsukh) where top-level credits are empty,
+  // fall back to fetching the aggregate_credits endpoint (matching TMDB website behavior)
+  if (basicCast.length === 0) {
+    try {
+      const aggCredits = await fetchFromTmdb(`tv/${id}/aggregate_credits`);
+      if (aggCredits && aggCredits.cast) {
+        basicCast = aggCredits.cast.map((c: any) => ({
+          ...c,
+          character: c.roles && c.roles.length > 0 ? c.roles[0].character : c.character
+        }));
+      }
+    } catch (e) {
+      console.error(`Error fetching aggregate credits for TV show ${id}:`, e);
+    }
+  }
+
+  const sliceCast = basicCast.slice(0, 10);
   const cast: CastMember[] = await Promise.all(
-    basicCast.map(async (c: any) => {
+    sliceCast.map(async (c: any) => {
       let birthday, placeOfBirth;
       try {
         const personData = await fetchFromTmdb(`person/${c.id}`);
@@ -462,9 +482,63 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
   try {
     const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(query)}`);
 
+    const person = data.results?.find((item: any) => item.media_type === 'person');
+    let personCredits: any[] = [];
+    if (person) {
+      try {
+        const creditsData = await fetchFromTmdb(`person/${person.id}/combined_credits`);
+        const castCredits = creditsData.cast || [];
+        const crewCredits = creditsData.crew || [];
+        personCredits = [...castCredits, ...crewCredits].map((c: any) => ({
+          ...c,
+          media_type: c.media_type || (c.title || c.original_title ? 'movie' : 'tv')
+        }));
+      } catch (err) {
+        console.error('Error fetching person credits in searchMovies:', err);
+      }
+    }
+
+    // Extract movies/shows from results and/or personCredits
+    let processedResults: any[] = [];
+    if (personCredits.length > 0) {
+      processedResults.push(...personCredits);
+    }
+
+    data.results?.forEach((item: any) => {
+      if (item.media_type === 'movie' || item.media_type === 'tv') {
+        processedResults.push(item);
+      } else if (item.media_type === 'person') {
+        // If it's not the primary person we fetched credits for, or if credits fetch failed, add its known_for
+        if (item.id !== person?.id && item.known_for) {
+          item.known_for.forEach((kf: any) => {
+            if (kf.media_type === 'movie' || kf.media_type === 'tv') {
+              processedResults.push(kf);
+            }
+          });
+        }
+      }
+    });
+
+    // De-duplicate items by id + media_type
+    const seenKeys = new Set<string>();
+    const uniqueResults: any[] = [];
+    processedResults.forEach((item) => {
+      const mediaType = item.media_type || (item.title || item.original_title ? 'movie' : 'tv');
+      const key = `${mediaType}-${item.id}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueResults.push({
+          ...item,
+          media_type: mediaType
+        });
+      }
+    });
+
+    // Sort by popularity descending
+    uniqueResults.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+
     const moviesWithDetails = await Promise.all(
-      data.results
-        .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      uniqueResults
         .slice(0, 10)
         .map(async (item: any) => {
           try {
@@ -524,16 +598,25 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
 
 export const browseSearchMovies = async (query: string, page: number = 1, yearRange?: [number, number] | null): Promise<{ movies: Movie[], totalPages: number }> => {
   if (!query) return { movies: [], totalPages: 0 };
+  const sanitizedPage = Math.max(1, Math.min(500, Math.floor(Number(page) || 1)));
   await fetchGenres();
   try {
     let actualQuery = query.trim();
     let exactYear: number | undefined;
     
-    // Check if query ends with a 4 digit year
-    const yearMatch = actualQuery.match(/(.*)\s+(\d{4})$/);
+    // Check if a 4 digit year is present in the query
+    const yearMatch = actualQuery.match(/\b(187[4-9]|18[8-9]\d|19\d{2}|20\d{2})\b/);
     if (yearMatch) {
-      actualQuery = yearMatch[1].trim();
-      exactYear = parseInt(yearMatch[2]);
+      const parsedYear = parseInt(yearMatch[1]);
+      const currentYear = new Date().getFullYear();
+      if (parsedYear >= 1874 && parsedYear <= currentYear + 10) {
+        const cleanQuery = actualQuery.replace(yearMatch[0], '').replace(/\s+/g, ' ').trim();
+        // Only extract the year if there is still a query title left
+        if (cleanQuery) {
+          actualQuery = cleanQuery;
+          exactYear = parsedYear;
+        }
+      }
     }
 
     let dataResults: any[] = [];
@@ -542,8 +625,8 @@ export const browseSearchMovies = async (query: string, page: number = 1, yearRa
     if (exactYear) {
       // Use specific movie/tv search with year
       const [movieData, tvData] = await Promise.all([
-        fetchFromTmdb(`search/movie?query=${encodeURIComponent(actualQuery)}&primary_release_year=${exactYear}&page=${page}`),
-        fetchFromTmdb(`search/tv?query=${encodeURIComponent(actualQuery)}&first_air_date_year=${exactYear}&page=${page}`)
+        fetchFromTmdb(`search/movie?query=${encodeURIComponent(actualQuery)}&primary_release_year=${exactYear}&page=${sanitizedPage}`),
+        fetchFromTmdb(`search/tv?query=${encodeURIComponent(actualQuery)}&first_air_date_year=${exactYear}&page=${sanitizedPage}`)
       ]);
       dataResults = [
         ...movieData.results.map((r: any) => ({ ...r, media_type: 'movie' })),
@@ -552,20 +635,128 @@ export const browseSearchMovies = async (query: string, page: number = 1, yearRa
       dataResults.sort((a, b) => b.popularity - a.popularity);
       totalPages = Math.max(movieData.total_pages || 0, tvData.total_pages || 0);
     } else {
-      // Normal multi search
-      const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(actualQuery)}&page=${page}`);
-      dataResults = data.results;
-      totalPages = data.total_pages;
+      // Normal multi search, check page 1 first to detect if it's a person search
+      const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(actualQuery)}&page=1`);
+      const person = data.results?.find((item: any) => item.media_type === 'person');
 
-      // Apply yearRange filter locally if provided and no exactYear was in query
-      if (yearRange) {
-        const [min, max] = yearRange;
-        dataResults = dataResults.filter((item: any) => {
-          const dateStr = item.release_date || item.first_air_date;
-          if (!dateStr) return false;
-          const y = parseInt(dateStr.split('-')[0]);
-          return y >= min && y <= max;
+      if (person) {
+        let personCredits: any[] = [];
+        try {
+          const creditsData = await fetchFromTmdb(`person/${person.id}/combined_credits`);
+          const castCredits = creditsData.cast || [];
+          const crewCredits = creditsData.crew || [];
+          personCredits = [...castCredits, ...crewCredits].map((c: any) => ({
+            ...c,
+            media_type: c.media_type || (c.title || c.original_title ? 'movie' : 'tv')
+          }));
+        } catch (err) {
+          console.error('Error fetching person credits in browseSearchMovies:', err);
+        }
+
+        // Merge credits with other search results from page 1
+        let processedResults: any[] = [];
+        if (personCredits.length > 0) {
+          processedResults.push(...personCredits);
+        }
+
+        data.results?.forEach((item: any) => {
+          if (item.media_type === 'movie' || item.media_type === 'tv') {
+            processedResults.push(item);
+          } else if (item.media_type === 'person') {
+            if (item.id !== person.id && item.known_for) {
+              item.known_for.forEach((kf: any) => {
+                if (kf.media_type === 'movie' || kf.media_type === 'tv') {
+                  processedResults.push(kf);
+                }
+              });
+            }
+          }
         });
+
+        // De-duplicate items by id + media_type
+        const seenKeys = new Set<string>();
+        let uniqueResults: any[] = [];
+        processedResults.forEach((item) => {
+          const mediaType = item.media_type || (item.title || item.original_title ? 'movie' : 'tv');
+          const key = `${mediaType}-${item.id}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            uniqueResults.push({
+              ...item,
+              media_type: mediaType
+            });
+          }
+        });
+
+        // Sort by popularity descending
+        uniqueResults.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+
+        // Apply yearRange filter locally if provided
+        if (yearRange) {
+          const [min, max] = yearRange;
+          uniqueResults = uniqueResults.filter((item: any) => {
+            const dateStr = item.release_date || item.first_air_date;
+            if (!dateStr) return false;
+            const y = parseInt(dateStr.split('-')[0]);
+            return y >= min && y <= max;
+          });
+        }
+
+        // Local pagination
+        const total = uniqueResults.length;
+        totalPages = Math.ceil(total / 20);
+        
+        dataResults = uniqueResults.slice((sanitizedPage - 1) * 20, sanitizedPage * 20);
+      } else {
+        // Standard flow when no person is matched
+        // If sanitizedPage is 1, reuse the 'data' we already fetched
+        let pageData = data;
+        if (sanitizedPage !== 1) {
+          pageData = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(actualQuery)}&page=${sanitizedPage}`);
+        }
+
+        // Extract movie/tv shows from results
+        let processedResults: any[] = [];
+        pageData.results?.forEach((item: any) => {
+          if (item.media_type === 'movie' || item.media_type === 'tv') {
+            processedResults.push(item);
+          } else if (item.media_type === 'person' && item.known_for) {
+            item.known_for.forEach((kf: any) => {
+              if (kf.media_type === 'movie' || kf.media_type === 'tv') {
+                processedResults.push(kf);
+              }
+            });
+          }
+        });
+
+        // De-duplicate items by id + media_type
+        const seenKeys = new Set<string>();
+        let uniqueResults: any[] = [];
+        processedResults.forEach((item) => {
+          const mediaType = item.media_type || (item.title || item.original_title ? 'movie' : 'tv');
+          const key = `${mediaType}-${item.id}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            uniqueResults.push({
+              ...item,
+              media_type: mediaType
+            });
+          }
+        });
+
+        dataResults = uniqueResults;
+        totalPages = pageData.total_pages || 0;
+
+        // Apply yearRange filter locally if provided
+        if (yearRange) {
+          const [min, max] = yearRange;
+          dataResults = dataResults.filter((item: any) => {
+            const dateStr = item.release_date || item.first_air_date;
+            if (!dateStr) return false;
+            const y = parseInt(dateStr.split('-')[0]);
+            return y >= min && y <= max;
+          });
+        }
       }
     }
 
@@ -600,16 +791,26 @@ export const browseDiscoverMovies = async (
   minYear?: number,
   maxYear?: number,
   sortBy: string = 'popularity.desc',
-  language: string = 'All'
+  language: string = 'All',
+  watchProviderIds?: number[],
+  watchRegion?: string
 ): Promise<{ movies: Movie[], totalPages: number }> => {
+  const sanitizedPage = Math.max(1, Math.min(500, Math.floor(Number(page) || 1)));
   await fetchGenres();
 
   try {
     const movieParams = new URLSearchParams();
     const tvParams = new URLSearchParams();
 
-    movieParams.set('page', page.toString());
-    tvParams.set('page', page.toString());
+    movieParams.set('page', sanitizedPage.toString());
+    tvParams.set('page', sanitizedPage.toString());
+
+    if (watchProviderIds && watchProviderIds.length > 0 && watchRegion) {
+      movieParams.set('with_watch_providers', watchProviderIds.join('|'));
+      movieParams.set('watch_region', watchRegion);
+      tvParams.set('with_watch_providers', watchProviderIds.join('|'));
+      tvParams.set('watch_region', watchRegion);
+    }
 
     if (minRating) {
       movieParams.set('vote_average.gte', minRating.toString());
@@ -807,10 +1008,18 @@ export const getCastMovies = async (id: number, page: number = 1): Promise<{ ite
       .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
       .sort((a: any, b: any) => b.popularity - a.popularity);
 
+    // De-duplicate items by id to prevent duplicate keys in React (common for anthology show roles)
+    const seenIds = new Set<number>();
+    const uniqueCastItems = castItems.filter((item: any) => {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    });
+
     const ITEMS_PER_PAGE = 12;
-    const totalItems = castItems.length;
+    const totalItems = uniqueCastItems.length;
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-    const paginatedItems = castItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedItems = uniqueCastItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
     const itemsWithDetails = await Promise.all(
       paginatedItems.map(async (item: any) => {
@@ -893,5 +1102,47 @@ export const getMovieReviews = async (movieId: number, type?: 'movie' | 'tv'): P
     }
     console.error('Error fetching movie reviews from TMDB:', error);
     return [];
+  }
+};
+
+export interface WatchProvider {
+  id: number;
+  name: string;
+}
+
+export const getWatchProviders = async (region?: string): Promise<WatchProvider[]> => {
+  try {
+    const regionParam = region ? `?watch_region=${region}` : '';
+    const [movieData, tvData] = await Promise.all([
+      fetchFromTmdb(`watch/providers/movie${regionParam}`),
+      fetchFromTmdb(`watch/providers/tv${regionParam}`)
+    ]);
+    const providersMap = new Map<number, string>();
+    movieData.results?.forEach((p: any) => {
+      if (p.provider_id && p.provider_name) {
+        providersMap.set(p.provider_id, p.provider_name);
+      }
+    });
+    tvData.results?.forEach((p: any) => {
+      if (p.provider_id && p.provider_name) {
+        providersMap.set(p.provider_id, p.provider_name);
+      }
+    });
+    
+    // De-duplicate by normalized lowercase/trimmed provider name to prevent duplicate keys in UI
+    const uniqueByName = new Map<string, WatchProvider>();
+    Array.from(providersMap.entries()).forEach(([id, name]) => {
+      const cleanName = name.trim();
+      const normKey = cleanName.toLowerCase();
+      if (!uniqueByName.has(normKey)) {
+        uniqueByName.set(normKey, { id, name: cleanName });
+      }
+    });
+
+    return Array.from(uniqueByName.values()).sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error('Error fetching watch providers:', error);
+    const fallbackNames = ["Netflix", "Amazon Prime", "Disney+", "Apple TV", "HBO Max", "Hotstar", "Peacock"];
+    return fallbackNames.map((name, idx) => ({ id: idx, name }));
   }
 };

@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     title: 'StreamFind - Find Where to Stream Movies & Shows',
     description: 'Find exactly where your favorite movies are streaming. Compare Netflix, Hotstar, Prime Video and more in one place.',
     type: 'website',
-    url: 'https://streamfind.app',
+    url: 'https://streamfinds.vercel.app',
   },
   twitter: {
     card: 'summary_large_image',
@@ -61,7 +61,7 @@ export default function RootLayout({
           <MaintenanceGuard>
             <SmoothScroll />
             <Navbar />
-            <Toaster 
+            <Toaster
               position="top-center"
               containerStyle={{ zIndex: 999999 }}
               toastOptions={{

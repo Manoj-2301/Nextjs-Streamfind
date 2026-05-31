@@ -13,7 +13,8 @@ import MovieCardSkeleton from '@/components/ui/movie-card-skeleton';
 import { Movie } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
-import { searchMovies, getTrendingMovies, getMoviesByGenre, browseSearchMovies, browseDiscoverMovies } from '@/services/tmdbService';
+import { searchMovies, getTrendingMovies, getMoviesByGenre, browseSearchMovies, browseDiscoverMovies, getWatchProviders, WatchProvider } from '@/services/tmdbService';
+import { toast } from 'react-hot-toast';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -39,6 +40,35 @@ const GENRE_MAP: Record<string, number> = {
   "Western": 37
 };
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: "English",
+  hi: "Hindi",
+  te: "Telugu",
+  ta: "Tamil",
+  ml: "Malayalam",
+  kn: "Kannada",
+  ko: "Korean",
+  ja: "Japanese",
+  es: "Spanish",
+  fr: "French"
+};
+
+const matchGenre = (selectedGenre: string, movieGenres: string[]) => {
+  if (selectedGenre === 'All') return true;
+  if (!movieGenres || movieGenres.length === 0) return false;
+  
+  const normSelected = selectedGenre.toLowerCase().trim();
+  
+  return movieGenres.some(g => {
+    const normG = g.toLowerCase().trim();
+    if (normG === normSelected) return true;
+    if (normSelected === 'sci-fi' && (normG.includes('science fiction') || normG.includes('sci-fi'))) {
+      return true;
+    }
+    return normG.includes(normSelected);
+  });
+};
+
 export default function Browse() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,6 +84,7 @@ export default function Browse() {
   const [movies, setMovies] = useState<Movie[]>([]);
 
   const [apiTotalPages, setApiTotalPages] = useState(1);
+  const [allAvailablePlatforms, setAllAvailablePlatforms] = useState<WatchProvider[]>([]);
 
   const { user } = useAuth();
   const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
@@ -82,9 +113,31 @@ export default function Browse() {
     return () => unsubscribe();
   }, [user]);
 
+  useEffect(() => {
+    const loadPlatforms = async () => {
+      try {
+        let watchRegion = 'IN';
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (!tz.includes('India') && !tz.includes('Kolkata') && !tz.includes('Calcutta') && !tz.includes('Asia/Kolkata')) {
+            watchRegion = 'US';
+          }
+        } catch (e) {}
+
+        const list = await getWatchProviders(watchRegion);
+        setAllAvailablePlatforms(list);
+      } catch (err) {
+        console.error('Failed to load platforms:', err);
+      }
+    };
+    loadPlatforms();
+  }, []);
+
   const matchPlatform = (userSub: string, moviePlatform: string) => {
-    const norm = (s: string) => s.toLowerCase().replace(/amazon/g, '').replace(/video/g, '').replace(/prime/g, 'prime').trim();
-    return norm(userSub) === norm(moviePlatform);
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const u = norm(userSub);
+    const m = norm(moviePlatform);
+    return u.includes(m) || m.includes(u);
   };
 
   const activePlatforms = useMemo(() => {
@@ -115,11 +168,48 @@ export default function Browse() {
         let results: Movie[] = [];
         let pages = 1;
 
+        let providerIds: number[] | undefined;
+        let watchRegion: string | undefined;
+
+        if (activePlatforms.length > 0 && allAvailablePlatforms.length > 0) {
+          providerIds = activePlatforms
+            .map(pName => {
+              const found = allAvailablePlatforms.find(
+                ap => ap.name.toLowerCase() === pName.toLowerCase() ||
+                      ap.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(pName.toLowerCase().replace(/[^a-z0-9]/g, ''))
+              );
+              return found?.id;
+            })
+            .filter((id): id is number => id !== undefined);
+
+          if (providerIds.length > 0) {
+            try {
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              if (tz.includes('India') || tz.includes('Kolkata') || tz.includes('Calcutta') || tz.includes('Asia/Kolkata')) {
+                watchRegion = 'IN';
+              } else {
+                watchRegion = 'US';
+              }
+            } catch (e) {
+              watchRegion = 'IN';
+            }
+          }
+        }
+
         if (search) {
           // TMDB search API doesn't support advanced filtering natively, but we now pass yearRange
           const data = await browseSearchMovies(search, currentPage, yearRange);
           results = data.movies;
           pages = data.totalPages;
+          
+          // Apply active genre filter locally to search results
+          if (genre !== "All") {
+            results = results.filter(m => matchGenre(genre, m.genre));
+          }
+
+          if (results.length === 0) {
+            toast.error("search correct movie name or show");
+          }
         } else {
           // Use discover API for advanced filtering
           const genreId = genre !== "All" ? GENRE_MAP[genre] : undefined;
@@ -134,22 +224,17 @@ export default function Browse() {
             minYear,
             maxYear,
             sortBy,
-            language
+            language,
+            providerIds,
+            watchRegion
           );
 
           results = data.movies;
           pages = data.totalPages;
-
-          // Note: Platforms filter is still client-side because TMDB requires Watch Providers API
-          // which requires a region parameter. To keep it simple, we filter the returned page if needed.
-          // Filter by active platforms
-          if (activePlatforms.length > 0) {
-            // Inline platforms filter disabled
-          }
         }
 
-        // Apply activePlatforms filter at the top level for both Search and Discover
-        if (activePlatforms.length > 0) {
+        // Apply activePlatforms filter locally for Search mode ONLY, or if server-side provider mapping failed
+        if (activePlatforms.length > 0 && (search || !providerIds || providerIds.length === 0)) {
           results = results.filter(m => m.platforms?.some(p => activePlatforms.some(sub => matchPlatform(sub, p.name))));
         }
 
@@ -165,7 +250,7 @@ export default function Browse() {
 
     const timer = setTimeout(loadMovies, 500);
     return () => clearTimeout(timer);
-  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language]);
+  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language, allAvailablePlatforms]);
 
   const totalPages = apiTotalPages;
   const currentMovies = movies;
@@ -186,13 +271,13 @@ export default function Browse() {
   return (
     <div className="container mx-auto px-4 md:px-6 lg:px-12 max-w-7xl py-6 md:py-6 overflow-hidden">
       
-      <div className="flex flex-col gap-6 md:gap-12 mb-8 md:mb-16">
+      <div className="flex flex-col gap-4 md:gap-6 mb-4 md:mb-6">
         <div>
-          <h1 className="text-4xl md:text-7xl font-black text-white mb-4 uppercase tracking-tighter">Browse Library</h1>
+          <h1 className="text-4xl md:text-7xl font-black text-white mb-2 uppercase tracking-tighter">Browse Library</h1>
           <p className="text-white/40 max-w-xl text-base md:text-lg">Discover your next obsession. Filter through our curated collection of cinematic masterpieces.</p>
         </div>
 
-        <div className="flex flex-col gap-4 md:gap-8 bg-surface/30 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-white/5 backdrop-blur-sm relative z-40">
+        <div className="flex flex-col gap-4 md:gap-8 bg-surface/30 p-4 md:p-8 rounded-2xl md:rounded-3xl border border-brand/20 backdrop-blur-sm shadow-2xl shadow-brand/10 transition-all duration-300 hover:border-brand/40 hover:shadow-brand/20 relative z-40">
           <SearchBar
             value={search}
             onChange={(val) => { 
@@ -257,9 +342,85 @@ export default function Browse() {
             sortBy={sortBy}
             sortOrder={sortOrder}
             totalResults={movies.length}
+            availablePlatforms={allAvailablePlatforms}
           />
         </div>
       </div>
+
+      {/* Active Filters Pills */}
+      {(genre !== "All" || language !== "All" || rating !== null || yearRange !== null || platforms.length > 0) && (
+        <div className="flex flex-wrap gap-2 mb-6 items-center bg-white/[0.02] border border-white/5 p-3 rounded-xl backdrop-blur-sm z-30 relative">
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mr-2">Active Filters:</span>
+          
+          {genre !== "All" && (
+            <button
+              onClick={() => { setGenre("All"); setCurrentPage(1); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
+            >
+              Genre: {genre}
+              <span className="text-[10px] opacity-60">×</span>
+            </button>
+          )}
+
+          {language !== "All" && (
+            <button
+              onClick={() => { setLanguage("All"); setCurrentPage(1); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
+            >
+              Language: {LANGUAGE_LABELS[language] || language}
+              <span className="text-[10px] opacity-60">×</span>
+            </button>
+          )}
+
+          {rating !== null && (
+            <button
+              onClick={() => { setRating(null); setCurrentPage(1); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
+            >
+              Rating: {rating}+ Stars
+              <span className="text-[10px] opacity-60">×</span>
+            </button>
+          )}
+
+          {yearRange !== null && (
+            <button
+              onClick={() => { setYearRange(null); setCurrentPage(1); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
+            >
+              Year: {yearRange[0] === yearRange[1] ? yearRange[0] : `${yearRange[0]}-${yearRange[1]}`}
+              <span className="text-[10px] opacity-60">×</span>
+            </button>
+          )}
+
+          {platforms.map(p => (
+            <button
+              key={p}
+              onClick={() => {
+                setPlatforms(prev => prev.filter(x => x !== p));
+                setCurrentPage(1);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
+            >
+              {p}
+              <span className="text-[10px] opacity-60">×</span>
+            </button>
+          ))}
+
+          <button
+            onClick={() => {
+              setGenre("All");
+              setLanguage("All");
+              setRating(null);
+              setYearRange(null);
+              setPlatforms([]);
+              setCurrentPage(1);
+            }}
+            className="text-[10px] font-black text-white/40 hover:text-brand uppercase tracking-widest ml-auto transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
@@ -271,7 +432,7 @@ export default function Browse() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
           <AnimatePresence>
             {currentMovies.map(movie => (
-              <MovieCard key={movie.id} movie={movie} />
+              <MovieCard key={movie.id} movie={movie} activeGenre={genre} />
             ))}
           </AnimatePresence>
 
