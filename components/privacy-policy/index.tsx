@@ -29,17 +29,22 @@ export default function PrivacyPolicy() {
             {
               icon: Eye,
               title: "Information Collection",
-              content: "We collect minimal data to provide our service. This includes your email (if signed in), your movie preferences to improve recommendations, and basic usage logs to ensure platform stability. We Never sell your personal data."
+              content: "We collect minimal data to provide our service. This includes your email (if signed in), your movie preferences (Watchlists and Ratings) to improve recommendations, and basic usage logs to ensure platform stability. We Never sell your personal data."
             },
             {
               icon: Lock,
-              title: "Security Measures",
-              content: "All data is encrypted in transit and at rest using industry-standard protocols. We utilize secure OAuth providers like Google to ensure your credentials never even touch our servers."
+              title: "Security & Data Sharing",
+              content: "All data is encrypted in transit and at rest using industry-standard protocols. We utilize secure OAuth providers like Google to ensure your credentials never touch our servers. We use the TMDB API to fetch movie metadata, but we do not share your personally identifiable information (PII) with TMDB."
+            },
+            {
+              icon: ShieldCheck,
+              title: "Your Data Rights (GDPR/CCPA)",
+              content: "You have the absolute right to access, rectify, or erase your personal data (Article 17 GDPR). You can delete your account and all associated records (reviews, watchlists, profile data) instantly from your Profile Settings. If you need a raw export of your data, contact our support."
             },
             {
               icon: RefreshCcw,
               title: "Dynamic Updates",
-              content: "Our policy evolves as our features do. We will notify users of major changes. By continuing to use StreamFind, you agree to the latest version of this policy."
+              content: "Our policy evolves as our features do. We will notify users of major changes via email or an announcement. By continuing to use StreamFind, you agree to the latest version of this policy."
             }
           ].map((section, idx) => (
             <motion.section 

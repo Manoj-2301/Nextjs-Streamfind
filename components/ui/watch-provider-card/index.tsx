@@ -5,6 +5,7 @@ import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { Platform } from '@/types';
 import React, { useState, useEffect } from 'react';
 import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
+import Image from 'next/image';
 
 interface WatchProviderCardProps {
   platform: Platform;
@@ -161,9 +162,11 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
       )}
 
       <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center overflow-hidden shadow-inner group-hover:scale-110 transition-transform p-4 mt-2">
-        <img 
+        <Image 
           src={platform.logo} 
           alt={platform.name} 
+          width={80}
+          height={80}
           className="w-full h-full object-contain"
           referrerPolicy="no-referrer"
         />

@@ -1,12 +1,7 @@
 import type { Metadata } from 'next';
-import { Inter, Space_Grotesk, Bebas_Neue } from 'next/font/google';
+import { Space_Grotesk, Bebas_Neue } from 'next/font/google';
 import './globals.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-sans',
-});
+import 'react-lite-youtube-embed/dist/LiteYouTubeEmbed.css';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -23,9 +18,9 @@ const bebasNeue = Bebas_Neue({
 import Providers from './providers';
 import Navbar from '@/components/ui/navbar';
 import Footer from './footer';
-import SmoothScroll from '@/components/ui/smooth-scroll';
-import NewsletterPopup from '@/components/ui/newsletter-popup';
+import NewsletterPopupLoader from '@/components/ui/newsletter-popup-loader';
 import MaintenanceGuard from '@/components/ui/maintenance-guard';
+import CookieConsent from '@/components/ui/cookie-consent';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -52,14 +47,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${bebasNeue.variable}`}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${bebasNeue.variable}`}>
       <head>
-        <link rel="preconnect" href="https://image.tmdb.org" />
+        {/* Preconnect to speed up critical resource domains */}
+        <link rel="preconnect" href="https://image.tmdb.org" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://image.tmdb.org" />
+        <link rel="preconnect" href="https://api.themoviedb.org" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://api.themoviedb.org" />
+        <link rel="preconnect" href="https://firestore.googleapis.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
       </head>
       <body className="min-h-screen bg-background selection:bg-brand/30 selection:text-brand font-sans">
         <Providers>
           <MaintenanceGuard>
-            <SmoothScroll />
             <Navbar />
             <Toaster
               position="top-center"
@@ -94,7 +94,8 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
-            <NewsletterPopup />
+            <NewsletterPopupLoader />
+            <CookieConsent />
           </MaintenanceGuard>
         </Providers>
       </body>

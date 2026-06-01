@@ -5,7 +5,7 @@ import { Play, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
+import { resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
@@ -21,9 +21,10 @@ const localizeTmdbUrl = (url: string, countryCode: string): string => {
 
 interface HeroSectionProps {
   movies: Movie[];
+  affiliateLinks?: AffiliateLinks;
 }
 
-export default function HeroSection({ movies }: HeroSectionProps) {
+export default function HeroSection({ movies, affiliateLinks = {} }: HeroSectionProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
@@ -32,14 +33,8 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
-  const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
   useEffect(() => {
-    getAffiliateLinks()
-      .then(links => {
-        setAffiliateLinks(links);
-      })
-      .catch(err => console.error('Error fetching affiliate links in HeroSection:', err));
 
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -86,11 +81,19 @@ export default function HeroSection({ movies }: HeroSectionProps) {
       console.error('Error detecting country locally:', e);
     }
 
+    const cached = sessionStorage.getItem('sf_country');
+    if (cached) {
+      setUserCountryCode(cached);
+      return;
+    }
+
     fetch('/api/country')
       .then(res => res.json())
       .then(data => {
         if (data && data.country) {
-          setUserCountryCode(data.country.toUpperCase());
+          const code = data.country.toUpperCase();
+          sessionStorage.setItem('sf_country', code);
+          setUserCountryCode(code);
         }
       })
       .catch(err => console.error('Error fetching country from API:', err));

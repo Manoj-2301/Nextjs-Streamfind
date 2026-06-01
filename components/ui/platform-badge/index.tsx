@@ -1,6 +1,7 @@
 'use client';
 
 import { Platform } from '@/types';
+import Image from 'next/image';
 
 interface PlatformBadgeProps {
   platform: Platform;
@@ -52,7 +53,7 @@ export default function PlatformBadge({ platform, showLabel = true, size = 'sm',
         style={{ backgroundColor: bgColor }}
       >
         {platform.logoUrl || (platform as any).logo ? (
-          <img src={platform.logoUrl || (platform as any).logo} alt={name} className="w-full h-full object-cover" />
+          <Image src={platform.logoUrl || (platform as any).logo} alt={name} width={32} height={32} className="w-full h-full object-cover" />
         ) : (
           <span>{letter}</span>
         )}

@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  compress: true,
+  poweredByHeader: false,
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   images: {
     remotePatterns: [
       { hostname: 'image.tmdb.org' },
@@ -13,9 +19,36 @@ const nextConfig: NextConfig = {
       { hostname: 'res.cloudinary.com' },
       { hostname: 'firebasestorage.googleapis.com' },
     ],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 604800,
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', 'motion/react'],
+    optimizePackageImports: ['lucide-react', 'motion/react', 'firebase/app', 'firebase/auth', 'firebase/firestore'],
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.youtube.com https://s.ytimg.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src 'self' https://www.youtube.com https://firebase.google.com; connect-src 'self' https://api.themoviedb.org https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com;",
+          }
+        ],
+      },
+    ];
   },
 };
 

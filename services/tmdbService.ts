@@ -142,7 +142,7 @@ const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
     url = `/api/tmdb/${finalPathAndParams}`;
   }
 
-  const response = await fetch(url);
+  const response = await fetch(url, isServer ? { next: { revalidate: 3600 } } : undefined);
   if (!response.ok) {
     let errorMsg = `Failed to fetch from TMDB: ${response.statusText}`;
     try {
@@ -440,25 +440,26 @@ export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movi
 
     const itemsToProcess = combined.slice(0, 10);
       
-    const moviesWithTrailers = [];
-    for (const item of itemsToProcess) {
-      try {
-        const isTv = item.media_type === 'tv';
-        const detailData = await fetchFromTmdb(`${isTv ? 'tv' : 'movie'}/${item.id}?append_to_response=videos,watch/providers,images`);
-        const mapped = isTv ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
+    const moviesWithTrailers = await Promise.all(
+      itemsToProcess.map(async (item) => {
+        try {
+          const isTv = item.media_type === 'tv';
+          const detailData = await fetchFromTmdb(`${isTv ? 'tv' : 'movie'}/${item.id}?append_to_response=videos,watch/providers,images`);
+          const mapped = isTv ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
 
-        moviesWithTrailers.push({
-          ...mapped,
-          runtime: isTv
-            ? (detailData.episode_run_time && detailData.episode_run_time.length > 0 ? `${detailData.episode_run_time[0]} Min` : 'N/A')
-            : (detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A'),
-        });
-      } catch (error) {
-        console.error(`Error fetching details for trending item ${item.id}:`, error);
-        const isTv = item.media_type === 'tv' || (!item.media_type && !!(item.name || item.first_air_date));
-        moviesWithTrailers.push(isTv ? mapTmdbTvShow(item) : mapTmdbMovie(item));
-      }
-    }
+          return {
+            ...mapped,
+            runtime: isTv
+              ? (detailData.episode_run_time && detailData.episode_run_time.length > 0 ? `${detailData.episode_run_time[0]} Min` : 'N/A')
+              : (detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A'),
+          };
+        } catch (error) {
+          console.error(`Error fetching details for trending item ${item.id}:`, error);
+          const isTv = item.media_type === 'tv' || (!item.media_type && !!(item.name || item.first_air_date));
+          return isTv ? mapTmdbTvShow(item) : mapTmdbMovie(item);
+        }
+      })
+    );
     return moviesWithTrailers;
   } catch (error) {
     console.error('Error fetching trending movies:', error);
@@ -489,26 +490,12 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
   }
 
   const sliceCast = basicCast.slice(0, 10);
-  const cast: CastMember[] = await Promise.all(
-    sliceCast.map(async (c: any) => {
-      let birthday, placeOfBirth;
-      try {
-        const personData = await fetchFromTmdb(`person/${c.id}`);
-        birthday = personData.birthday;
-        placeOfBirth = personData.place_of_birth;
-      } catch (err) {
-        // Ignore error and just return what we have
-      }
-      return {
-        id: c.id,
-        name: c.name,
-        role: c.character,
-        imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image',
-        birthday,
-        placeOfBirth
-      };
-    })
-  );
+  const cast: CastMember[] = sliceCast.map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    role: c.character,
+    imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image',
+  }));
 
   const uniqueCrew = Array.from(new Map(
     (tvData.credits?.crew || [])
@@ -551,26 +538,12 @@ export const getMovieDetails = async (id: number, type?: 'movie' | 'tv'): Promis
     const movieData = await fetchFromTmdb(`movie/${id}?append_to_response=videos,credits,watch/providers,images`);
 
     const basicCast = movieData.credits?.cast?.slice(0, 10) || [];
-    const cast: CastMember[] = await Promise.all(
-      basicCast.map(async (c: any) => {
-        let birthday, placeOfBirth;
-        try {
-          const personData = await fetchFromTmdb(`person/${c.id}`);
-          birthday = personData.birthday;
-          placeOfBirth = personData.place_of_birth;
-        } catch (err) {
-          // Ignore error and just return what we have
-        }
-        return {
-          id: c.id,
-          name: c.name,
-          role: c.character,
-          imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image',
-          birthday,
-          placeOfBirth
-        };
-      })
-    );
+    const cast: CastMember[] = basicCast.map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      role: c.character,
+      imageUrl: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : 'https://placehold.co/200x300?text=No+Image',
+    }));
 
     const uniqueCrew = Array.from(new Map(
       (movieData.credits?.crew || [])

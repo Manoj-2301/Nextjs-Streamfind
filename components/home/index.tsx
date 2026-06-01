@@ -3,7 +3,7 @@ import { getFirestore } from 'firebase/firestore';
 import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
@@ -48,6 +48,7 @@ export default function Home({
     offerText?: string;
     affiliateUrl: string;
   } | null>(null);
+  const [affiliateLinks, setAffiliateLinks] = useState<any>({});
   // Track whether the profile has been fetched at least once to avoid flicker
   const [profileReady, setProfileReady] = useState(!user); // true immediately if no user
 
@@ -83,6 +84,17 @@ export default function Home({
 
     return () => unsubscribe();
   }, [user]);
+
+  const filterKey = useMemo(() => JSON.stringify({
+    autoFilter: profile?.autoFilter,
+    dnaMoods: profile?.dnaMoods,
+    subscriptions: profile?.subscriptions,
+    prefLanguage: profile?.prefLanguage,
+    watchRegion: profile?.watchRegion,
+    dnaRuntime: profile?.dnaRuntime,
+    dnaMinRating: profile?.dnaMinRating,
+    prefContentType: profile?.prefContentType,
+  }), [profile]);
 
   useEffect(() => {
     // Wait until the authenticated user's profile has been fetched from Firestore
@@ -151,6 +163,7 @@ export default function Home({
         // Fetch Featured Partner
         const { getAffiliateLinks } = await import('@/services/affiliateService');
         const links = await getAffiliateLinks();
+        setAffiliateLinks(links);
         const featuredKey = Object.keys(links).find(key => {
           const linkData = links[key];
           return typeof linkData === 'object' && linkData?.isFeatured;
@@ -186,13 +199,10 @@ export default function Home({
       }
     };
     loadData();
-  }, [watchlist.length, profileReady, profile?.autoFilter, profile?.dnaMoods, profile?.subscriptions, profile?.prefLanguage, profile?.watchRegion, profile?.dnaRuntime, profile?.dnaMinRating, profile?.prefContentType]);
+  }, [watchlist.length, profileReady, filterKey]);
   if (isLoading && trending.length === 0 && heroFallback.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-12 h-12 text-brand animate-spin" />
-        <p className="text-white/40 font-black tracking-widest uppercase text-xs">Syncing with Cinema...</p>
-      </div>
+      <div className="w-full h-[75vh] md:h-[90vh] bg-surface animate-pulse rounded-none" />
     );
   }
 
@@ -215,7 +225,7 @@ export default function Home({
           <div className="h-full bg-brand animate-[slide-right_1.2s_ease-in-out_infinite]" style={{ width: '40%', animation: 'slideRight 1.2s ease-in-out infinite' }} />
         </div>
       )}
-      <HeroSection movies={featuredMovies} />
+      <HeroSection movies={featuredMovies} affiliateLinks={affiliateLinks} />
 
       <div className="relative z-20 space-y-4 md:space-y-8 pb-14 -mt-10 md:-mt-20">
         {filteredRecs.length > 0 && (

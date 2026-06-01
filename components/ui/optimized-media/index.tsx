@@ -1,6 +1,7 @@
 'use client';
 
 import Image, { ImageProps } from 'next/image';
+import LiteYouTubeEmbed from 'react-lite-youtube-embed';
 
 interface OptimizedImageProps extends ImageProps {
   alt: string;
@@ -31,6 +32,24 @@ export function OptimizedImage({
 }
 
 export function OptimizedIframe({ src, title, className, ...props }: React.IframeHTMLAttributes<HTMLIFrameElement>) {
+  if (src && typeof src === 'string' && src.includes('youtube') && src.includes('embed/')) {
+    const match = src.match(/embed\/([^?]+)/);
+    if (match && match[1]) {
+      const videoId = match[1];
+      const params = src.split('?')[1] || '';
+      return (
+        <div className={`w-full h-full [&>article]:w-full [&>article]:h-full ${className || ''}`}>
+          <LiteYouTubeEmbed
+            id={videoId}
+            title={title || 'YouTube Video'}
+            params={params}
+            noCookie={src.includes('-nocookie')}
+          />
+        </div>
+      );
+    }
+  }
+
   return (
     <iframe
       src={src}

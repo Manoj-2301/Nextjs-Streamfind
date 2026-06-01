@@ -2,7 +2,7 @@ import Home from '@/components/home';
 import { Movie } from '@/types';
 import { getTrendingMovies, getMoviesByGenre, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // ISR: cache the page for 1 hour, revalidate in background
 
 export default async function HomePage() {
   let initialTrending: Movie[] = [];

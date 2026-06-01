@@ -10,7 +10,34 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
+    // Security: Validate CORS Origin
+    // Ensures other domains cannot hit this backend route if exposed
+    const origin = request.headers.get('origin');
+    const allowedOrigin = process.env.NODE_ENV === 'production' 
+      ? 'https://streamfinds.vercel.app' 
+      : 'http://localhost:3000';
+      
+    if (origin && origin !== allowedOrigin) {
+      return NextResponse.json({ error: 'Forbidden: Invalid CORS origin' }, { status: 403 });
+    }
+
     const path = resolvedParams.path.join('/');
+
+    // Security: Only allow specific TMDB endpoint prefixes to prevent proxy abuse
+    const allowedPaths = [
+      /^movie\//,
+      /^tv\//,
+      /^search\//,
+      /^discover\//,
+      /^trending\//,
+      /^person\//
+    ];
+
+    const isAllowed = allowedPaths.some(regex => regex.test(path));
+    if (!isAllowed) {
+      return NextResponse.json({ error: 'Forbidden: Endpoint not allowed by proxy' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
     // Append private API key (always fetch from server envs)
@@ -36,11 +63,9 @@ export async function GET(
     query.set('api_key', apiKey);
     const targetUrl = `https://api.themoviedb.org/3/${path}?${query.toString()}`;
 
-    console.log('[API ROUTE DEBUG] path:', path, 'targetUrl:', targetUrl);
-    const response = await fetch(targetUrl, { cache: 'no-store' });
+    const response = await fetch(targetUrl, { next: { revalidate: 3600 } });
     if (!response.ok) {
       const responseText = await response.text().catch(() => '');
-      console.log('[API ROUTE DEBUG] error response:', response.status, response.statusText, responseText);
       return NextResponse.json(
         { 
           error: `TMDB API error: ${response.statusText}`,

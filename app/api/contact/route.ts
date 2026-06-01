@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { escapeHtml } from '@/lib/utils';
 
 // ─── Nodemailer transporter ───────────────────────────────
 function createTransporter() {
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
               Name
             </p>
             <p style="margin:0;font-size:14px;color:#ffffff;">
-              ${firstName} ${lastName || ''}
+              ${escapeHtml(firstName)} ${escapeHtml(lastName || '')}
             </p>
           </td>
         </tr>
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
               Email Address
             </p>
             <p style="margin:0;font-size:14px;color:#ffffff;">
-              ${email}
+              ${escapeHtml(email)}
             </p>
           </td>
         </tr>
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
               Message
             </p>
             <div style="background-color:#111111;border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:16px 20px;">
-              <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;white-space:pre-wrap;">${message}</p>
+              <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;white-space:pre-wrap;">${escapeHtml(message)}</p>
             </div>
           </td>
         </tr>
