@@ -310,3 +310,276 @@ export const generateUserDataPdf = (data: PdfDataPayload): { blob: Blob; base64:
 
   return { blob, base64 };
 };
+
+// ── Invoice PDF Generator ──────────────────────────────────────────────────────
+
+export interface InvoiceData {
+  id: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  date: any; // Firestore timestamp or Date or string
+  status: string;
+  plan: string;
+}
+
+export interface InvoiceUserInfo {
+  displayName?: string | null;
+  email?: string | null;
+}
+
+export const generateInvoicePdf = (invoice: InvoiceData, user: InvoiceUserInfo): Blob => {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const DARK_BG: [number, number, number] = [12, 12, 12];
+  const CARD_BG: [number, number, number] = [22, 22, 22];
+  const BRAND:   [number, number, number] = [255, 40, 78];
+  const WHITE:   [number, number, number] = [255, 255, 255];
+  const MUTED:   [number, number, number] = [120, 120, 120];
+  const GREEN:   [number, number, number] = [34, 197, 94];
+  const BORDER:  [number, number, number] = [40, 40, 40];
+
+  const PAGE_W = doc.internal.pageSize.width;
+  const PAGE_H = doc.internal.pageSize.height;
+
+  // Full dark background
+  doc.setFillColor(...DARK_BG);
+  doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
+
+  // Top brand accent bar
+  doc.setFillColor(...BRAND);
+  doc.rect(0, 0, PAGE_W, 3, 'F');
+
+  // ── Header ────────────────────────────────────────────────────────────────────
+  let y = 20;
+
+  // Brand name
+  doc.setTextColor(...BRAND);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('STREAMFIND', 20, y);
+
+  // Invoice label on the right
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PAYMENT RECEIPT', PAGE_W - 20, y, { align: 'right' });
+
+  y += 10;
+
+  // Subtitle
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text('Premium Subscription Invoice', 20, y);
+
+  // Invoice status badge on the right
+  const statusText = (invoice.status || 'paid').toUpperCase();
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  if (statusText === 'PAID') {
+    doc.setTextColor(...GREEN);
+  } else {
+    doc.setTextColor(...BRAND);
+  }
+  doc.text(statusText, PAGE_W - 20, y, { align: 'right' });
+
+  y += 8;
+
+  // Divider line
+  doc.setDrawColor(...BRAND);
+  doc.setLineWidth(0.5);
+  doc.line(20, y, PAGE_W - 20, y);
+
+  y += 12;
+
+  // ── Invoice Details (left) + Bill To (right) ──────────────────────────────────
+  const leftCol = 20;
+  const rightCol = PAGE_W / 2 + 10;
+
+  // Left: Invoice Details
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND);
+  doc.text('INVOICE DETAILS', leftCol, y);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('BILL TO', rightCol, y);
+
+  y += 7;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text('Invoice ID:', leftCol, y);
+  doc.setTextColor(...WHITE);
+  doc.text(invoice.id || '—', leftCol + 30, y);
+
+  doc.setTextColor(...MUTED);
+  doc.text('Name:', rightCol, y);
+  doc.setTextColor(...WHITE);
+  doc.text(user.displayName || 'StreamFind User', rightCol + 20, y);
+
+  y += 6;
+
+  doc.setTextColor(...MUTED);
+  doc.text('Order ID:', leftCol, y);
+  doc.setTextColor(...WHITE);
+  const displayOrderId = invoice.orderId
+    ? (invoice.orderId.length > 25 ? invoice.orderId.substring(0, 25) + '…' : invoice.orderId)
+    : '—';
+  doc.text(displayOrderId, leftCol + 30, y);
+
+  doc.setTextColor(...MUTED);
+  doc.text('Email:', rightCol, y);
+  doc.setTextColor(...WHITE);
+  doc.text(user.email || '—', rightCol + 20, y);
+
+  y += 6;
+
+  // Format date
+  let dateStr = '—';
+  if (invoice.date) {
+    if (invoice.date.toDate) {
+      dateStr = invoice.date.toDate().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+    } else if (invoice.date.seconds) {
+      dateStr = new Date(invoice.date.seconds * 1000).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+    } else if (typeof invoice.date === 'string') {
+      dateStr = invoice.date;
+    } else if (invoice.date instanceof Date) {
+      dateStr = invoice.date.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+  }
+
+  doc.setTextColor(...MUTED);
+  doc.text('Date:', leftCol, y);
+  doc.setTextColor(...WHITE);
+  doc.text(dateStr, leftCol + 30, y);
+
+  y += 18;
+
+  // ── Items Table ───────────────────────────────────────────────────────────────
+  const currencySymbol = (invoice.currency || 'INR') === 'INR' ? 'Rs.' : invoice.currency + ' ';
+  const amountValue = typeof invoice.amount === 'number' ? invoice.amount : 0;
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: 20, right: 20 },
+    theme: 'grid',
+    styles: {
+      fillColor: CARD_BG,
+      textColor: WHITE,
+      lineColor: BORDER,
+      lineWidth: 0.2,
+      fontSize: 10,
+      cellPadding: 5,
+    },
+    headStyles: {
+      fillColor: [35, 8, 14] as [number, number, number],
+      textColor: BRAND,
+      fontStyle: 'bold',
+      fontSize: 9,
+    },
+    head: [['Description', 'Plan', 'Qty', 'Amount']],
+    body: [
+      [
+        'StreamFind Premium Subscription',
+        (invoice.plan || 'premium').charAt(0).toUpperCase() + (invoice.plan || 'premium').slice(1),
+        '1',
+        `${currencySymbol}${amountValue.toFixed(2)}`
+      ],
+    ],
+    columnStyles: {
+      0: { cellWidth: 75 },
+      1: { cellWidth: 35, halign: 'center' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 40, halign: 'right' },
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // ── Totals Section ────────────────────────────────────────────────────────────
+  const totalsX = PAGE_W - 20;
+  const labelsX = PAGE_W - 80;
+
+  // Amount Paid
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text('Amount Paid:', labelsX, y + 7);
+  doc.setTextColor(...WHITE);
+  doc.text(`${currencySymbol}${amountValue.toFixed(2)}`, totalsX, y + 7, { align: 'right' });
+
+  // Divider
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.3);
+  doc.line(labelsX, y + 11, totalsX, y + 11);
+
+  // Total
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(...BRAND);
+  doc.text('TOTAL:', labelsX, y + 26);
+  doc.setTextColor(...WHITE);
+  doc.text(`${currencySymbol}${amountValue.toFixed(2)}`, totalsX, y + 26, { align: 'right' });
+
+  y = y + 40;
+
+  // ── Payment Info Card ─────────────────────────────────────────────────────────
+  doc.setFillColor(...CARD_BG);
+  doc.roundedRect(20, y, PAGE_W - 40, 28, 3, 3, 'F');
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(20, y, PAGE_W - 40, 28, 3, 3, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND);
+  doc.text('PAYMENT INFORMATION', 28, y + 8);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED);
+  doc.text('Payment Method:', 28, y + 16);
+  doc.setTextColor(...WHITE);
+  doc.text('Razorpay (Online Payment)', 62, y + 16);
+
+  doc.setTextColor(...MUTED);
+  doc.text('Transaction ID:', 28, y + 23);
+  doc.setTextColor(...WHITE);
+  doc.text(invoice.id || '—', 62, y + 23);
+
+  y += 42;
+
+  // ── Thank You Note ────────────────────────────────────────────────────────────
+  doc.setFillColor(35, 8, 14);
+  doc.roundedRect(20, y, PAGE_W - 40, 18, 3, 3, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...BRAND);
+  doc.text('Thank you for subscribing to StreamFind Premium!', PAGE_W / 2, y + 7, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...MUTED);
+  doc.text('Enjoy unlimited access to all premium features.', PAGE_W / 2, y + 13, { align: 'center' });
+
+  // ── Footer ────────────────────────────────────────────────────────────────────
+  doc.setFontSize(7);
+  doc.setTextColor(...MUTED);
+  doc.text(
+    '© 2026 StreamFind. This is a computer-generated invoice and does not require a signature.',
+    PAGE_W / 2,
+    PAGE_H - 10,
+    { align: 'center' },
+  );
+  doc.text(
+    'For support, contact support@streamfind.com',
+    PAGE_W / 2,
+    PAGE_H - 6,
+    { align: 'center' },
+  );
+
+  return doc.output('blob');
+};

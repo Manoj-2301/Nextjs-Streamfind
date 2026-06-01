@@ -82,18 +82,50 @@ export default function ProfileSettingsPanel({
   const [isMounted, setIsMounted] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
 
+  // Billing states
+  const [billingPlan, setBillingPlan] = useState<string>('free');
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [renewalDate, setRenewalDate] = useState<string>('N/A');
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
   useEffect(() => {
     if (!user?.uid) return;
     const db = getFirestore(app);
     const auditRef = collection(db, `users/${user.uid}/audit_logs`);
     const q = query(auditRef, orderBy('timestamp', 'desc'), limit(5));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeAudit = onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditEvent));
       setAuditLogs(logs);
+    }, (error) => {
+      // Silently handle permission errors for new users without data yet
+      if (error.code !== 'permission-denied') {
+        console.error('Audit logs listener error:', error);
+      }
     });
 
-    return () => unsubscribe();
+    const userDocRef = doc(db, `users/${user.uid}`);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setBillingPlan(data.plan || 'free');
+        setInvoices(data.invoices || []);
+        if (data.subscriptionUpdatedAt) {
+          const date = data.subscriptionUpdatedAt.toDate();
+          date.setFullYear(date.getFullYear() + 1); // Mock 1 year validity
+          setRenewalDate(date.toLocaleDateString());
+        }
+      }
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        console.error('User doc listener error:', error);
+      }
+    });
+
+    return () => {
+      unsubscribeAudit();
+      unsubscribeUser();
+    };
   }, [user?.uid]);
 
   useEffect(() => {
@@ -158,6 +190,100 @@ export default function ProfileSettingsPanel({
     };
     fetchTmdbConfig();
   }, []);
+
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleUpgrade = async () => {
+    if (!user) return toast.error('You must be logged in to upgrade');
+    setIsUpgrading(true);
+
+    try {
+      const res = await loadRazorpay();
+      if (!res) {
+        toast.error('Failed to load payment gateway. Please check your connection.');
+        setIsUpgrading(false);
+        return;
+      }
+
+      // Create order
+      const token = await user.getIdToken();
+      const orderRes = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.error || 'Failed to create order');
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '', 
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'StreamFinds Premium',
+        description: 'Upgrade to StreamFinds Premium',
+        order_id: orderData.id,
+        handler: async function (response: any) {
+          try {
+            toast.loading('Verifying payment...', { id: 'verify-payment' });
+            const verifyRes = await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                amount: orderData.amount,
+                currency: orderData.currency,
+              })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok) {
+              toast.success('Successfully upgraded to Premium!', { id: 'verify-payment' });
+            } else {
+              throw new Error(verifyData.error || 'Payment verification failed');
+            }
+          } catch (err: any) {
+            toast.error(err.message, { id: 'verify-payment' });
+          }
+        },
+        prefill: {
+          name: user.displayName || '',
+          email: user.email || '',
+        },
+        theme: {
+          color: '#ff284e'
+        }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.on('payment.failed', function (response: any) {
+        toast.error(`Payment failed: ${response.error.description}`);
+      });
+      paymentObject.open();
+
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
 
   // Carousel gesture drag settings for Director's Notes
   const carouselRef = React.useRef<HTMLDivElement>(null);
@@ -1198,29 +1324,23 @@ export default function ProfileSettingsPanel({
                   <p className="text-white/40 text-xs mt-1">Manage your billing, saved methods, and premium subscriptions.</p>
                 </div>
 
-                {/* Saved Methods */}
+                {/* Payment Security Info */}
                 <div className="space-y-4">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Saved Methods</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-white/50" />
-                      <div>
-                        <p className="text-xs font-black text-white">Credit Cards</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">Add or remove cards</p>
-                      </div>
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Payment Security</h5>
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-start gap-4">
+                    <div className="p-2.5 rounded-xl bg-green-500/10 border border-green-500/20 flex-shrink-0">
+                      <ShieldCheck className="w-5 h-5 text-green-400" />
                     </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-white/50" />
-                      <div>
-                        <p className="text-xs font-black text-white">Debit Cards</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">Add or remove cards</p>
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
-                      <Smartphone className="w-5 h-5 text-white/50" />
-                      <div>
-                        <p className="text-xs font-black text-white">UPI IDs</p>
-                        <p className="text-[9px] text-white/40 mt-0.5">Manage UPI methods</p>
+                    <div>
+                      <p className="text-xs font-black text-white">Payments secured by Razorpay</p>
+                      <p className="text-[10px] text-white/50 mt-1 leading-relaxed">
+                        Your card numbers, UPI IDs, and bank details are <span className="text-green-400 font-bold">never stored</span> on our servers or in your browser. 
+                        All payment data is handled exclusively by Razorpay, which is PCI-DSS Level 1 compliant — the highest level of payment security certification.
+                      </p>
+                      <div className="flex items-center gap-3 mt-3">
+                        <span className="text-[8px] uppercase tracking-wider font-black text-white/30 px-2 py-1 rounded bg-white/5 border border-white/10">PCI-DSS</span>
+                        <span className="text-[8px] uppercase tracking-wider font-black text-white/30 px-2 py-1 rounded bg-white/5 border border-white/10">256-BIT SSL</span>
+                        <span className="text-[8px] uppercase tracking-wider font-black text-white/30 px-2 py-1 rounded bg-white/5 border border-white/10">RBI COMPLIANT</span>
                       </div>
                     </div>
                   </div>
@@ -1232,25 +1352,72 @@ export default function ProfileSettingsPanel({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-5 rounded-2xl bg-brand/10 border border-brand/20">
                       <p className="text-[9px] text-brand uppercase tracking-widest font-black">Current Plan</p>
-                      <p className="text-xl font-display font-black text-white mt-1 uppercase italic tracking-tight">Free Tier</p>
-                      <p className="text-[10px] text-white/50 mt-1">Upgrade to Premium for full features.</p>
-                      <button className="mt-4 px-6 py-2 bg-brand text-black font-black uppercase tracking-widest text-[9px] rounded-lg hover:bg-white transition-colors">
-                        Upgrade Now
-                      </button>
+                      <p className="text-xl font-display font-black text-white mt-1 uppercase italic tracking-tight">
+                        {billingPlan === 'premium' ? 'Premium' : 'Free Tier'}
+                      </p>
+                      {billingPlan === 'premium' ? (
+                        <p className="text-[10px] text-white/50 mt-1">You have access to all premium features.</p>
+                      ) : (
+                        <p className="text-[10px] text-white/50 mt-1">Upgrade to Premium for full features.</p>
+                      )}
+                      
+                      {billingPlan !== 'premium' && (
+                        <button 
+                          onClick={handleUpgrade}
+                          disabled={isUpgrading}
+                          className="mt-4 px-6 py-2 bg-brand text-black font-black uppercase tracking-widest text-[9px] rounded-lg hover:bg-white transition-colors disabled:opacity-50"
+                        >
+                          {isUpgrading ? 'Loading...' : 'Upgrade Now'}
+                        </button>
+                      )}
                     </div>
                     <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40 uppercase font-black">Renewal Date</span>
-                        <span className="text-xs text-white font-medium">N/A</span>
+                        <span className="text-xs text-white font-medium">{billingPlan === 'premium' ? renewalDate : 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40 uppercase font-black">Billing History</span>
                         <button className="text-[9px] text-brand hover:underline font-black uppercase">View All</button>
                       </div>
-                      <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                        <span className="text-[10px] text-white/40 uppercase font-black">Invoices</span>
-                        <button className="text-[9px] bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded uppercase font-black">Download</button>
-                      </div>
+                      {invoices.length > 0 ? (
+                        invoices.slice(0, 1).map((inv, idx) => (
+                          <div key={idx} className="flex justify-between items-center pt-2 border-t border-white/5">
+                            <span className="text-[10px] text-white/40 font-mono">#{inv.id?.substring(0, 8)}</span>
+                            <span className="text-[9px] text-white/70">₹{inv.amount}</span>
+                            <button 
+                              onClick={async () => {
+                                try {
+                                  toast.loading('Generating invoice…', { id: 'invoice-dl' });
+                                  const { generateInvoicePdf } = await import('@/lib/pdfGenerator');
+                                  const blob = generateInvoicePdf(inv, {
+                                    displayName: user?.displayName,
+                                    email: user?.email,
+                                  });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `StreamFind_Invoice_${inv.id?.substring(0, 12) || 'unknown'}.pdf`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  URL.revokeObjectURL(url);
+                                  toast.success('Invoice downloaded!', { id: 'invoice-dl' });
+                                } catch (err) {
+                                  console.error('Invoice download error:', err);
+                                  toast.error('Failed to generate invoice.', { id: 'invoice-dl' });
+                                }
+                              }}
+                              className="text-[9px] bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded uppercase font-black"
+                            >Download</button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                          <span className="text-[10px] text-white/40 uppercase font-black">Invoices</span>
+                          <span className="text-[9px] text-white/40 uppercase">No invoices yet</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
