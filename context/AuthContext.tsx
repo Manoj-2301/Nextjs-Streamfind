@@ -1,7 +1,9 @@
 'use client';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
+import { parseUserAgent } from '@/lib/deviceParser';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithPopup, signInWithRedirect, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, app } from '@/lib/firebase';
 
@@ -17,18 +19,94 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_KEY = 'moviefind_session_id';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const db = getFirestore(app);
+  
+  // Keep track of listener to unsubscribe if needed
+  const sessionListenerRef = useRef<() => void>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
+      if (currentUser) {
+        // Register or refresh session
+        let sessionId = localStorage.getItem(SESSION_KEY);
+        let isNewSession = false;
+        if (!sessionId) {
+          sessionId = uuidv4();
+          localStorage.setItem(SESSION_KEY, sessionId);
+          isNewSession = true;
+        }
+
+        const deviceInfo = parseUserAgent(navigator.userAgent);
+        const sessionRef = doc(db, `users/${currentUser.uid}/sessions/${sessionId}`);
+
+        // Fetch approximate location via IP (free, no key required)
+        let locationStr = 'Location unavailable';
+        if (isNewSession) {
+          try {
+            const geo = await fetch('https://ipapi.co/json/');
+            if (geo.ok) {
+              const geoData = await geo.json();
+              const city = geoData.city || '';
+              const region = geoData.region || '';
+              const country = geoData.country_name || '';
+              locationStr = [city, region, country].filter(Boolean).join(', ') || 'Unknown';
+            }
+          } catch {
+            locationStr = 'Location unavailable';
+          }
+        }
+
+        try {
+          // Update session document
+          await setDoc(sessionRef, {
+            sessionId,
+            deviceInfo,
+            lastActive: serverTimestamp(),
+            ...(isNewSession ? { createdAt: serverTimestamp(), location: locationStr } : {})
+          }, { merge: true });
+
+          // Start listening for remote invalidation
+          if (sessionListenerRef.current) {
+            sessionListenerRef.current(); // Unsubscribe old listener
+          }
+          
+          sessionListenerRef.current = onSnapshot(sessionRef, (snapshot) => {
+            // If the document is deleted remotely, we forcefully sign out the client
+            if (!snapshot.exists() && snapshot.metadata.fromCache === false) {
+              console.warn("Session invalidated remotely. Logging out.");
+              // Don't call our custom logout() because that tries to delete the doc again
+              localStorage.removeItem(SESSION_KEY);
+              signOut(auth);
+            }
+          });
+        } catch (error) {
+          console.error("Failed to register session:", error);
+        }
+      } else {
+        // Logged out
+        if (sessionListenerRef.current) {
+          sessionListenerRef.current();
+          sessionListenerRef.current = null;
+        }
+      }
+      
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribeAuth();
+      if (sessionListenerRef.current) {
+        sessionListenerRef.current();
+      }
+    };
+  }, [db]);
 
   const loginWithGoogle = async () => {
   try {
@@ -36,9 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await signInWithPopup(auth, googleProvider);
 
     if (result?.user) {
-      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
       await setDoc(
-        doc(getFirestore(app), 'users', result.user.uid),
+        doc(db, 'users', result.user.uid),
         { lastActive: serverTimestamp() },
         { merge: true }
       );
@@ -57,8 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Please verify your email before logging in. Check your inbox.");
     }
     // Write lastActive on login
-    const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-    await setDoc(doc(getFirestore(app), 'users', userCredential.user.uid), { lastActive: serverTimestamp() }, { merge: true });
+    await setDoc(doc(db, 'users', userCredential.user.uid), { lastActive: serverTimestamp() }, { merge: true });
   };
 
   const signupWithEmail = async (email: string, pass: string, name: string) => {
@@ -94,6 +170,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      if (user) {
+        const sessionId = localStorage.getItem(SESSION_KEY);
+        if (sessionId) {
+          // Delete our session from Firestore cleanly
+          await deleteDoc(doc(db, `users/${user.uid}/sessions/${sessionId}`));
+        }
+      }
+      localStorage.removeItem(SESSION_KEY);
       await signOut(auth);
     } catch (error) {
       console.error("Logout failed:", error);

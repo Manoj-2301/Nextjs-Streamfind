@@ -70,7 +70,6 @@ export interface ProfileSettings {
   prefContentType?: 'movies' | 'tv' | 'both';
   dnaMoods?: string[];
   dnaRuntime?: '90m' | '120m' | 'none';
-  dnaMinRating?: number;
   securityAlertNewDevice?: boolean;
   securityAlertSuspicious?: boolean;
   securityAlertProfileChange?: boolean;

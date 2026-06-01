@@ -73,7 +73,7 @@ export default function Home({
             watchRegion: data.watchRegion || 'IN',
             dnaMoods: data.dnaMoods || [],
             dnaRuntime: data.dnaRuntime,
-            dnaMinRating: data.dnaMinRating,
+
             prefContentType: data.prefContentType || 'both'
           });
         }
@@ -92,7 +92,7 @@ export default function Home({
     prefLanguage: profile?.prefLanguage,
     watchRegion: profile?.watchRegion,
     dnaRuntime: profile?.dnaRuntime,
-    dnaMinRating: profile?.dnaMinRating,
+
     prefContentType: profile?.prefContentType,
   }), [profile]);
 
@@ -119,6 +119,12 @@ export default function Home({
         setTrending(trendingData);
         setUpcoming(upcomingData);
         setSciFi(sciFiData);
+        
+        console.log("CLIENT FETCH RESULTS:", {
+          trendingCount: trendingData.length,
+          upcomingCount: upcomingData.length,
+          sciFiCount: sciFiData.length
+        });
 
         // If filters narrowed results to 0, fetch unfiltered popular content for the hero
         if (trendingData.length === 0) {
