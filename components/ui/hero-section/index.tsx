@@ -133,46 +133,38 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     return () => clearInterval(interval);
   }, [currentIndex, isPlayingTrailer, paginate]);
 
-  const [userHasInteracted, setUserHasInteracted] = useState(false);
-
   useEffect(() => {
-    const handleInteraction = () => {
-      setUserHasInteracted(true);
-      ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
-        window.removeEventListener(e, handleInteraction)
-      );
+    const handleVisibilityChange = () => {
+      // If the user comes back to the tab and the trailer was supposed to be playing,
+      // briefly reset it to force YouTube to autoplay again (since YouTube pauses background tabs)
+      if (!document.hidden && isPlayingTrailer) {
+        setIsPlayingTrailer(false);
+      }
     };
 
-    ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
-      window.addEventListener(e, handleInteraction, { once: true, passive: true })
-    );
-
-    return () => {
-      ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
-        window.removeEventListener(e, handleInteraction)
-      );
-    };
-  }, []);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isPlayingTrailer]);
 
   // Trailer countdown logic
   useEffect(() => {
-    if (isPlayingTrailer || !userHasInteracted) return;
+    if (isPlayingTrailer) return;
 
     // Clear existing timer
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    // Only start timer if in view
-    if (isInView) {
+    // Only start timer if in view and movie has a trailer
+    if (isInView && movies[currentIndex]?.trailerYoutubeId) {
       timerRef.current = setTimeout(() => {
         setIsPlayingTrailer(true);
         setHasStartedTrailerOnce(true);
-      }, 5000); // 5 seconds AFTER interaction
+      }, 3000); // 3 seconds delay like Netflix
     }
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, isInView, isPlayingTrailer]);
+  }, [currentIndex, isInView, isPlayingTrailer, movies]);
 
   // Specific user request: Pause when scroll IN, Resume when scroll OUT after it has started
   const shouldActuallyPlay = isPlayingTrailer && (!isInView || !hasStartedTrailerOnce);
@@ -215,7 +207,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   const getPartnerStyles = (platform: Platform) => {
     const isPartner = platform.isSponsored || (platform as any).isPartner;
     const platformName = platform.name.toLowerCase();
-    
+
     if (platformName.includes('netflix')) {
       return `bg-[#E50914] text-white hover:bg-[#B80710] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(229,9,20,0.4)] animate-pulse' : ''}`;
     }
@@ -305,10 +297,10 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                   transition={{ duration: 1 }}
                   className="absolute inset-0"
                 >
-                  <OptimizedIframe
+                  <iframe
                     className="w-full h-full scale-110 md:scale-125 pointer-events-none"
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
+                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=0&background=1`
                       : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                     }
                     title={movie.title}
@@ -344,7 +336,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                 {movie.description}
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 flex-wrap">
                 {primaryPlatform && (
                   <a
                     href={resolveWatchUrl(
@@ -365,6 +357,9 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                     </motion.button>
                   </a>
                 )}
+
+
+
                 <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -389,6 +384,8 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
             onClick={() => {
               setDirection(i > currentIndex ? 1 : -1);
               setCurrentIndex(i);
+              setIsPlayingTrailer(false);
+              setHasStartedTrailerOnce(false);
             }}
             className="p-3"
           >

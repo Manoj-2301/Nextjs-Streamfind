@@ -11,14 +11,20 @@ export async function GET(
     }
 
     // Security: Validate CORS Origin
-    // Ensures other domains cannot hit this backend route if exposed
     const origin = request.headers.get('origin');
-    const allowedOrigin = process.env.NODE_ENV === 'production' 
-      ? 'https://streamfinds.vercel.app' 
-      : 'http://localhost:3000';
+    if (origin) {
+      const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+      const isProductionOrigin = origin === 'https://streamfinds.vercel.app';
       
-    if (origin && origin !== allowedOrigin) {
-      return NextResponse.json({ error: 'Forbidden: Invalid CORS origin' }, { status: 403 });
+      if (process.env.NODE_ENV === 'production' && !isProductionOrigin) {
+        return NextResponse.json({ error: 'Forbidden: Invalid CORS origin' }, { status: 403 });
+      } else if (process.env.NODE_ENV !== 'production') {
+        const isLan = origin.startsWith('http://192.168.') || origin.startsWith('http://10.');
+        if (!isLocalhost && !isProductionOrigin && !isLan) {
+          // Allow LAN access for testing on mobile devices
+          return NextResponse.json({ error: 'Forbidden: Invalid CORS origin' }, { status: 403 });
+        }
+      }
     }
 
     const path = resolvedParams.path.join('/');
@@ -30,7 +36,10 @@ export async function GET(
       /^search\//,
       /^discover\//,
       /^trending\//,
-      /^person\//
+      /^person\//,
+      /^genre\//,
+      /^watch\//,
+      /^watch\/providers\//
     ];
 
     const isAllowed = allowedPaths.some(regex => regex.test(path));

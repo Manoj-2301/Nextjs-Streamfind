@@ -26,8 +26,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing uid' }, { status: 400 });
     }
 
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
+    }
+    const token = authHeader.split('Bearer ')[1];
+
     const adminApp = getAdminApp();
     const adminAuth = getAdminAuth(adminApp);
+
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (e) {
+      return NextResponse.json({ error: 'Unauthorized: Token verification failed' }, { status: 401 });
+    }
+
+    if (decodedToken.uid !== uid) {
+      return NextResponse.json({ error: 'Forbidden: Cannot revoke another user sessions' }, { status: 403 });
+    }
 
     // Revoke all refresh tokens — this invalidates all sessions across all devices.
     // Existing ID tokens remain valid for up to 1 hour (Firebase default),

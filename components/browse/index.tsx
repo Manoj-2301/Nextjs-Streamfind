@@ -92,7 +92,7 @@ export default function Browse() {
     subscriptions: string[];
     autoFilter: boolean;
     prefLanguage?: string;
-    dnaMinRating?: number | null;
+
     prefContentType?: 'movies' | 'tv' | 'both';
   } | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
@@ -113,7 +113,7 @@ export default function Browse() {
             subscriptions: data.subscriptions || [],
             autoFilter: data.autoFilter ?? false,
             prefLanguage: data.prefLanguage || 'All',
-            dnaMinRating: data.dnaMinRating || null,
+
             prefContentType: data.prefContentType || 'both'
           });
         }
@@ -124,27 +124,31 @@ export default function Browse() {
   }, [user]);
 
   // Always sync Firestore preferences → local filter state whenever profile changes
-  // This ensures navigating back from Profile Settings reflects latest preferences
+  // This ensures navigating back from Profile Settings reflects latest preferences ONLY if autoFilter is on
   useEffect(() => {
     if (!profile) return;
-    if (profile.prefLanguage && profile.prefLanguage !== 'All') {
-      setLanguage(profile.prefLanguage);
+    
+    if (profile.autoFilter) {
+      if (profile.prefLanguage && profile.prefLanguage !== 'All') {
+        setLanguage(profile.prefLanguage);
+      } else {
+        setLanguage('All');
+      }
+      setRating(null);
+      if (profile.subscriptions && profile.subscriptions.length > 0) {
+        setPlatforms(profile.subscriptions);
+      } else {
+        setPlatforms([]);
+      }
+      if (profile.prefContentType) {
+        setContentType(profile.prefContentType);
+      } else {
+        setContentType('both');
+      }
     } else {
       setLanguage('All');
-    }
-    if (profile.dnaMinRating) {
-      setRating(profile.dnaMinRating);
-    } else {
       setRating(null);
-    }
-    if (profile.subscriptions && profile.subscriptions.length > 0) {
-      setPlatforms(profile.subscriptions);
-    } else {
       setPlatforms([]);
-    }
-    if (profile.prefContentType) {
-      setContentType(profile.prefContentType);
-    } else {
       setContentType('both');
     }
     setCurrentPage(1);
@@ -242,6 +246,11 @@ export default function Browse() {
           // Apply active genre filter locally to search results
           if (genre !== "All") {
             results = results.filter(m => matchGenre(genre, m.genre));
+          }
+
+          // Apply active language filter locally to search results
+          if (language !== "All") {
+            results = results.filter(m => m.language?.toLowerCase() === language.toLowerCase());
           }
 
           if (results.length === 0) {

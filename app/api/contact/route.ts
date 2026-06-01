@@ -63,9 +63,28 @@ function emailShell(content: string, footerText: string) {
 </html>`;
 }
 
+// ─── Rate Limiting State ──────────────────────────────────
+const rateLimitCache = new Map<string, number[]>();
+const MAX_REQUESTS = 3;
+const WINDOW_MS = 60 * 1000; // 1 minute
+
 // ─── POST /api/contact ────────────────────────────────────
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const now = Date.now();
+    
+    if (ip !== 'unknown') {
+      const timestamps = rateLimitCache.get(ip) || [];
+      const windowTimestamps = timestamps.filter(t => now - t < WINDOW_MS);
+      
+      if (windowTimestamps.length >= MAX_REQUESTS) {
+        return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+      }
+      
+      windowTimestamps.push(now);
+      rateLimitCache.set(ip, windowTimestamps);
+    }
     const { firstName, lastName, email, message } = await request.json();
 
     if (!firstName || !email || !message) {

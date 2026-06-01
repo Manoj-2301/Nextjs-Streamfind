@@ -192,17 +192,7 @@ const extractTrailer = (videosObj: any, originalLanguage?: string): { key?: stri
     }
   }
 
-  // 1. Look for type === 'Teaser' (YouTube first, then Vimeo, then others)
-  const teaserYoutube = results.find((v: any) => v.type === 'Teaser' && v.site === 'YouTube');
-  if (teaserYoutube) return { key: teaserYoutube.key, site: 'YouTube' };
-
-  const teaserVimeo = results.find((v: any) => v.type === 'Teaser' && v.site === 'Vimeo');
-  if (teaserVimeo) return { key: teaserVimeo.key, site: 'Vimeo' };
-
-  const teaserAny = results.find((v: any) => v.type === 'Teaser');
-  if (teaserAny) return { key: teaserAny.key, site: teaserAny.site };
-
-  // 2. Look for type === 'Trailer' (YouTube first, then Vimeo, then others)
+  // 1. Look for type === 'Trailer' (YouTube first, then Vimeo, then others)
   const trailerYoutube = results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube');
   if (trailerYoutube) return { key: trailerYoutube.key, site: 'YouTube' };
 
@@ -211,6 +201,16 @@ const extractTrailer = (videosObj: any, originalLanguage?: string): { key?: stri
 
   const trailerAny = results.find((v: any) => v.type === 'Trailer');
   if (trailerAny) return { key: trailerAny.key, site: trailerAny.site };
+
+  // 2. Look for type === 'Teaser' (YouTube first, then Vimeo, then others)
+  const teaserYoutube = results.find((v: any) => v.type === 'Teaser' && v.site === 'YouTube');
+  if (teaserYoutube) return { key: teaserYoutube.key, site: 'YouTube' };
+
+  const teaserVimeo = results.find((v: any) => v.type === 'Teaser' && v.site === 'Vimeo');
+  if (teaserVimeo) return { key: teaserVimeo.key, site: 'Vimeo' };
+
+  const teaserAny = results.find((v: any) => v.type === 'Teaser');
+  if (teaserAny) return { key: teaserAny.key, site: teaserAny.site };
 
   // 3. Look for type === 'Clip' or 'Featurette' (YouTube first, then Vimeo, then others)
   const clipYoutube = results.find((v: any) => (v.type === 'Clip' || v.type === 'Featurette') && v.site === 'YouTube');
@@ -310,12 +310,11 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
 
 
 const MOOD_TO_GENRE: Record<string, number[]> = {
-  'Dark': [53, 27, 80],
-  'Feel Good': [35, 10751],
-  'Epic': [28, 12, 14],
-  'Mind-Bending': [9648, 878],
-  'Chill': [10749, 10402],
-  'Sci-Fi': [878]
+  'Dark': [53, 27, 80], // Thriller, Horror, Crime
+  'Feel Good': [35, 10751], // Comedy, Family
+  'Emotional': [18, 10749], // Drama, Romance
+  'Family': [10751, 16], // Family, Animation
+  'Inspirational': [99, 36, 18], // Documentary, History, Drama
 };
 
 const PROVIDER_MAP: Record<string, number> = {
@@ -345,7 +344,13 @@ const PROVIDER_MAP: Record<string, number> = {
 };
 
 export const applyProfileFilters = (profile?: ProfileSettings) => {
-  if (!profile) return '';
+  if (!profile || profile.autoFilter === false) {
+    // Only apply region if filter is disabled
+    if (profile?.watchRegion) {
+      return `&watch_region=${profile.watchRegion}`;
+    }
+    return '';
+  }
   const params = new URLSearchParams();
 
   // ── Language filter: always apply when set to something other than English ──
@@ -388,10 +393,6 @@ export const applyProfileFilters = (profile?: ProfileSettings) => {
     if (!isNaN(mins)) params.set('with_runtime.lte', mins.toString());
   }
 
-  // ── Min rating: always apply when set ─────────────────────────────────────
-  if (profile.dnaMinRating && profile.dnaMinRating > 0) {
-    params.set('vote_average.gte', profile.dnaMinRating.toString());
-  }
 
   const queryStr = params.toString();
   return queryStr ? `&${queryStr}` : '';
@@ -463,7 +464,7 @@ export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movi
     return moviesWithTrailers;
   } catch (error) {
     console.error('Error fetching trending movies:', error);
-    throw error;
+    return [];
   }
 };
 
@@ -1047,8 +1048,8 @@ export const getPopularMovies = async (profile?: ProfileSettings): Promise<Movie
     const shouldFetchTv = contentType !== 'movies';
 
     const [movieData, tvData] = await Promise.all([
-      shouldFetchMovie ? fetchFromTmdb(`movie/popular?page=1${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] }),
-      shouldFetchTv ? fetchFromTmdb(`tv/popular?page=1${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] })
+      shouldFetchMovie ? fetchFromTmdb(`discover/movie?sort_by=popularity.desc${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] }),
+      shouldFetchTv ? fetchFromTmdb(`discover/tv?sort_by=popularity.desc${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] })
     ]);
 
     const combined = [
@@ -1079,7 +1080,9 @@ export const getUpcomingMovies = async (profile?: ProfileSettings): Promise<Movi
   if (contentType === 'tv') return [];
   await fetchGenres();
   try {
-    const data = await fetchFromTmdb(`movie/upcoming?region=IN|US${applyProfileFilters(profile)}`);
+    const today = new Date().toISOString().split('T')[0];
+    const futureDate = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const data = await fetchFromTmdb(`discover/movie?primary_release_date.gte=${today}&primary_release_date.lte=${futureDate}&sort_by=popularity.desc${applyProfileFilters(profile)}`);
 
     // We only have movies in upcoming, no TV shows
     const itemsToProcess = data.results.slice(0, 20);

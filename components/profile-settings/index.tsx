@@ -15,7 +15,7 @@ import { getUserActivities, clearUserActivities } from '@/lib/genreTracker';
 import { searchMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { app } from '@/lib/firebase';
-import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc } from 'firebase/firestore';
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
@@ -339,11 +339,38 @@ export default function ProfileSettingsPanel({
     { id: '2', name: 'Late Night Thrillers', count: 8 },
     { id: '3', name: 'Family Weekend Critiques', count: 15 }
   ]);
-  const [activeSessions, setActiveSessions] = useState([
-    { id: '1', device: 'MacBook Pro 16"', browser: 'Chrome', location: 'Mumbai, India', lastActive: 'Active now', current: true },
-    { id: '2', device: 'iPhone 15 Pro', browser: 'Safari', location: 'Mumbai, India', lastActive: '2 hours ago', current: false },
-    { id: '3', device: 'Windows Desktop', browser: 'Edge', location: 'New Delhi, India', lastActive: 'May 28, 2026', current: false }
-  ]);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const db = getFirestore(app);
+    const q = query(collection(db, 'users', user.uid, 'sessions'), orderBy('lastActive', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const currentSessionId = localStorage.getItem('moviefind_session_id');
+      const sessions = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let lastActiveStr = 'Unknown';
+        if (data.lastActive) {
+          const date = data.lastActive.toDate();
+          const diffMs = Date.now() - date.getTime();
+          if (diffMs < 5 * 60 * 1000) lastActiveStr = 'Active now';
+          else if (diffMs < 60 * 60 * 1000) lastActiveStr = `${Math.floor(diffMs / 60000)} mins ago`;
+          else if (diffMs < 24 * 60 * 60 * 1000) lastActiveStr = `${Math.floor(diffMs / 3600000)} hours ago`;
+          else lastActiveStr = date.toLocaleDateString();
+        }
+        return {
+          id: doc.id,
+          device: data.deviceInfo?.fullString || 'Unknown Device',
+          browser: data.deviceInfo?.browser || 'Unknown',
+          location: data.location || 'Location unavailable',
+          lastActive: lastActiveStr,
+          current: doc.id === currentSessionId
+        };
+      });
+      setActiveSessions(sessions);
+    });
+    return () => unsubscribe();
+  }, [user]);
   const handleLocalToggle = async (field: keyof ProfileSettings) => {
     const newValue = !profile[field];
     setProfile(prev => ({ ...prev, [field]: newValue }));
@@ -685,6 +712,21 @@ export default function ProfileSettingsPanel({
                   <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Curation Preferences</h4>
                   <p className="text-white/40 text-xs mt-1">Configure language, region, content filters, and build your content DNA profile.</p>
                 </div>
+                <div className="flex gap-4 items-center justify-between py-4 border-b border-white/5">
+                  <div>
+                    <p className="text-xs font-black text-white uppercase">Auto Filter (DNA Match)</p>
+                    <p className="text-[10px] text-white/40 mt-1">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
+                  </div>
+                  <button
+                    onClick={() => handleLocalToggle('autoFilter')}
+                    className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${(profile.autoFilter ?? false)
+                      ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                      : 'bg-white/5 border-white/10 hover:border-white/20'
+                      }`}
+                  >
+                    <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${(profile.autoFilter ?? false) ? 'left-[23px]' : 'left-[3px]'}`} />
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-white/40 px-1 tracking-widest">Prevalent Language</label>
@@ -773,24 +815,7 @@ export default function ProfileSettingsPanel({
                       })}
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Min IMDb Rating</p>
-                    <div className="flex gap-2">
-                      {[7, 8, 9].map((rating) => {
-                        const isActive = (profile.dnaMinRating || 7) === rating;
-                        return (
-                          <button
-                            key={rating}
-                            onClick={() => handleLocalSelect('dnaMinRating', rating)}
-                            className={`flex-1 py-2 px-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/15 border-brand text-brand' : 'bg-black/30 border-white/5 text-white/30 hover:text-white'
-                              }`}
-                          >
-                            IMDb {rating}+
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+
                   <div className="space-y-3 pt-4 border-t border-white/5">
                     <div className="flex items-center justify-between">
                       <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">📡 My Streaming Platforms</p>
@@ -852,21 +877,22 @@ export default function ProfileSettingsPanel({
                     <button
                       onClick={async () => {
                         if (!user?.uid) return;
-                        const t = toast.loading('Revoking all sessions…');
+                        const t = toast.loading('Logging out all devices…');
                         try {
-                          const res = await fetch('/api/user/revoke-sessions', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ uid: user.uid }),
-                          });
-                          if (!res.ok) throw new Error();
-                          logSecurityEvent(user?.uid, 'All Sessions Revoked', 'All refresh tokens invalidated via Firebase Admin.', 'bg-red-500');
+                          const db = getFirestore(app);
+                          const sessionsSnap = await getDocs(collection(db, 'users', user.uid, 'sessions'));
+                          const batch = writeBatch(db);
+                          sessionsSnap.docs.forEach(doc => batch.delete(doc.ref));
+                          await batch.commit();
+                          
+                          logSecurityEvent(user?.uid, 'All Sessions Revoked', 'All device sessions were logged out.', 'bg-red-500');
                           toast.dismiss(t);
                           toast.success('All sessions revoked. Signing you out…');
                           setTimeout(() => onSignOut?.(), 1500);
-                        } catch {
+                        } catch (error) {
                           toast.dismiss(t);
                           toast.error('Failed to revoke sessions.');
+                          console.error(error);
                         }
                       }}
                       className="text-[9px] font-black text-brand uppercase tracking-widest hover:underline"
@@ -893,9 +919,13 @@ export default function ProfileSettingsPanel({
                           <span className="text-[10px] font-black text-white/40 uppercase tracking-tight">{session.lastActive}</span>
                           {!session.current && (
                             <button
-                              onClick={() => {
-                                setActiveSessions(prev => prev.filter(s => s.id !== session.id));
-                                toast.success(`Logged session on ${session.device} out.`);
+                              onClick={async () => {
+                                try {
+                                  await deleteDoc(doc(getFirestore(app), `users/${user.uid}/sessions/${session.id}`));
+                                  toast.success(`Logged out of ${session.device}.`);
+                                } catch (e) {
+                                  toast.error('Failed to logout device.');
+                                }
                               }}
                               className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest"
                             >
@@ -916,16 +946,71 @@ export default function ProfileSettingsPanel({
                           if (!user?.uid || !user?.email) { toast.error('No account found.'); return; }
                           const loadingToast = toast.loading('Compiling your data archive…');
                           try {
+                            // 1. Fetch audit logs from Firestore (not in component state)
+                            const db = getFirestore(app);
+                            const auditSnap = await getDocs(
+                              collection(db, 'users', user.uid, 'audit_logs')
+                            );
+                            const auditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                            // Also fetch search history
+                            const searchSnap = await getDocs(
+                              collection(db, 'users', user.uid, 'search_history')
+                            );
+                            const searchHistory = searchSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                            // 2. Generate PDF locally with ALL data
+                            const { generateUserDataPdf } = await import('@/lib/pdfGenerator');
+                            const pdfData = {
+                              user: {
+                                uid: user.uid,
+                                displayName: user.displayName,
+                                email: user.email,
+                                photoURL: user.photoURL,
+                                emailVerified: user.emailVerified,
+                                creationTime: user.metadata?.creationTime,
+                                lastSignInTime: user.metadata?.lastSignInTime,
+                              },
+                              profile,
+                              watchlist,
+                              userReviews,
+                              activeSessions,
+                              auditLogs,
+                              searchHistory,
+                            };
+                            const { blob, base64 } = generateUserDataPdf(pdfData);
+
+                            // 3. Trigger direct download
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `StreamFind_Data_${new Date().toISOString().split('T')[0]}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+
+                            // 4. Send base64 PDF to backend for emailing
                             const res = await fetch('/api/user/export-data', {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ uid: user.uid, email: user.email, displayName: user.displayName }),
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${await user.getIdToken()}`
+                              },
+                              body: JSON.stringify({
+                                uid: user.uid,
+                                email: user.email,
+                                displayName: user.displayName,
+                                pdfBase64: base64
+                              }),
                             });
+
                             if (!res.ok) throw new Error('Server error');
                             toast.dismiss(loadingToast);
-                            logSecurityEvent(user?.uid, 'Data Export Requested', `Full archive emailed to ${user.email}`, 'bg-blue-400');
-                            toast.success(`Data archive sent to ${user.email}!`);
-                          } catch {
+                            logSecurityEvent(user?.uid, 'Data Export Requested', `Full PDF archive downloaded & emailed to ${user.email}`, 'bg-blue-400');
+                            toast.success(`Complete data archive downloaded and sent to ${user.email}!`);
+                          } catch (err) {
+                            console.error('Data Export Error:', err);
                             toast.dismiss(loadingToast);
                             toast.error('Failed to compile data. Please try again.');
                           }
@@ -1006,7 +1091,7 @@ export default function ProfileSettingsPanel({
                             await updateDoc(doc(db, `users/${user.uid}`), {
                               dnaMoods: deleteField(),
                               dnaRuntime: deleteField(),
-                              dnaMinRating: deleteField(),
+
                               top10: deleteField(),
                             });
                             // Reset local profile state
@@ -1014,7 +1099,7 @@ export default function ProfileSettingsPanel({
                               ...prev,
                               dnaMoods: [],
                               dnaRuntime: 'none',
-                              dnaMinRating: 7,
+
                               top10: undefined,
                             }));
                             logSecurityEvent(user?.uid, 'Curation Data Deleted', 'DNA filters and top picks wiped from Firebase and local state.', 'bg-red-500');
