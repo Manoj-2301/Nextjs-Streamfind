@@ -15,9 +15,10 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function CustomSelect({ options, value, onChange, placeholder = 'Select...', className = '' }: CustomSelectProps) {
+export function CustomSelect({ options, value, onChange, placeholder = 'Select...', className = '', disabled = false }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,13 +41,15 @@ export function CustomSelect({ options, value, onChange, placeholder = 'Select..
       {/* Select Trigger */}
       <button
         type="button"
+        disabled={disabled}
         onClick={() => {
+          if (disabled) return;
           setIsOpen(!isOpen);
           if (!isOpen) setSearchQuery('');
         }}
         className={`w-full flex items-center justify-between text-left focus:outline-none transition-all duration-200 border rounded-2xl p-4 ${
           isOpen ? 'bg-white/10 border-brand/50 shadow-lg' : 'bg-black/30 border-white/5 hover:border-white/15 hover:bg-white/5'
-        } ${className}`}
+        } ${disabled ? 'opacity-50 cursor-not-allowed grayscale' : ''} ${className}`}
       >
         <span className="block truncate">{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown

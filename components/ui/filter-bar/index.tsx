@@ -1,8 +1,9 @@
 'use client';
 
-import { Filter, ChevronDown, Check } from 'lucide-react';
+import { Filter, ChevronDown, Check, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { WatchProvider } from '@/services/tmdbService';
 
@@ -24,6 +25,7 @@ interface FilterBarProps {
   sortOrder: 'asc' | 'desc';
   totalResults: number;
   availablePlatforms?: WatchProvider[];
+  isPremium?: boolean;
 }
 
 export default function FilterBar({
@@ -43,8 +45,10 @@ export default function FilterBar({
   sortBy,
   sortOrder,
   totalResults,
-  availablePlatforms
+  availablePlatforms,
+  isPremium = true
 }: FilterBarProps) {
+  const router = useRouter();
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [platformSearch, setPlatformSearch] = useState("");
@@ -149,14 +153,37 @@ export default function FilterBar({
         </AnimatePresence>
       </div>
 
-      {/* Content Type / Format Dropdown */}
-      {onContentTypeChange && (
+      {/* Premium Only Filters */}
+      {!isPremium ? (
+        <button
+          onClick={() => {
+            import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+          }}
+          className="px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all opacity-50 cursor-not-allowed text-white/40"
+        >
+          Advanced Filters <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" />
+        </button>
+      ) : (
+        <>
+          {/* Content Type / Format Dropdown */}
+          {onContentTypeChange && (
         <div className="relative">
           <button 
-            onClick={() => setActiveDropdown(activeDropdown === 'format' ? null : 'format')}
-            className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${activeContentType !== 'both' ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+            onClick={() => {
+              if (!isPremium) {
+                import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+                return;
+              }
+              setActiveDropdown(activeDropdown === 'format' ? null : 'format')
+            }}
+            className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${
+              !isPremium 
+                ? 'opacity-50 cursor-not-allowed text-white/40 grayscale' 
+                : activeContentType !== 'both' ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'
+            }`}
           >
-            {activeContentType === 'both' ? 'Format' : contentTypes.find(t => t.value === activeContentType)?.label} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+            {activeContentType === 'both' ? 'Format' : contentTypes.find(t => t.value === activeContentType)?.label} 
+            {!isPremium ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />}
           </button>
           <AnimatePresence>
             {activeDropdown === 'format' && (
@@ -184,10 +211,21 @@ export default function FilterBar({
       {/* Language Dropdown */}
       <div className="relative">
         <button 
-          onClick={() => setActiveDropdown(activeDropdown === 'language' ? null : 'language')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${activeLanguage !== 'All' ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+          onClick={() => {
+            if (!isPremium) {
+              import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+              return;
+            }
+            setActiveDropdown(activeDropdown === 'language' ? null : 'language')
+          }}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${
+            !isPremium 
+              ? 'opacity-50 cursor-not-allowed text-white/40 grayscale' 
+              : activeLanguage !== 'All' ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'
+          }`}
         >
-          {activeLanguage === 'All' ? 'Language' : languages.find(l => l.value === activeLanguage)?.label || 'Language'} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+          {activeLanguage === 'All' ? 'Language' : languages.find(l => l.value === activeLanguage)?.label || 'Language'} 
+          {!isPremium ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />}
         </button>
         <AnimatePresence>
           {activeDropdown === 'language' && (
@@ -215,10 +253,21 @@ export default function FilterBar({
       {/* Rating Dropdown */}
       <div className="relative">
         <button 
-          onClick={() => setActiveDropdown(activeDropdown === 'rating' ? null : 'rating')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${activeRating ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+          onClick={() => {
+            if (!isPremium) {
+              import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+              return;
+            }
+            setActiveDropdown(activeDropdown === 'rating' ? null : 'rating')
+          }}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${
+            !isPremium 
+              ? 'opacity-50 cursor-not-allowed text-white/40 grayscale' 
+              : activeRating ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'
+          }`}
         >
-          {activeRating ? `${activeRating}+` : 'Rating'} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+          {activeRating ? `${activeRating}+` : 'Rating'} 
+          {!isPremium ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />}
         </button>
         <AnimatePresence>
           {activeDropdown === 'rating' && (
@@ -251,10 +300,21 @@ export default function FilterBar({
       {/* Year Dropdown */}
       <div className="relative">
         <button 
-          onClick={() => setActiveDropdown(activeDropdown === 'year' ? null : 'year')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${activeYearRange ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+          onClick={() => {
+            if (!isPremium) {
+              import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+              return;
+            }
+            setActiveDropdown(activeDropdown === 'year' ? null : 'year')
+          }}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${
+            !isPremium 
+              ? 'opacity-50 cursor-not-allowed text-white/40 grayscale' 
+              : activeYearRange ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'
+          }`}
         >
-          {activeYearRange ? `${activeYearRange[0]}-${activeYearRange[1]}` : 'Year'} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+          {activeYearRange ? `${activeYearRange[0]}-${activeYearRange[1]}` : 'Year'} 
+          {!isPremium ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />}
         </button>
         <AnimatePresence>
           {activeDropdown === 'year' && (
@@ -281,10 +341,21 @@ export default function FilterBar({
       {/* Platform Dropdown */}
       <div className="relative">
         <button 
-          onClick={() => setActiveDropdown(activeDropdown === 'platform' ? null : 'platform')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${selectedPlatforms.length > 0 ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+          onClick={() => {
+            if (!isPremium) {
+              import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+              return;
+            }
+            setActiveDropdown(activeDropdown === 'platform' ? null : 'platform')
+          }}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${
+            !isPremium 
+              ? 'opacity-50 cursor-not-allowed text-white/40 grayscale' 
+              : selectedPlatforms.length > 0 ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'
+          }`}
         >
-          {selectedPlatforms.length > 0 ? `${selectedPlatforms.length} Sel.` : 'Platform'} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+          {selectedPlatforms.length > 0 ? `${selectedPlatforms.length} Sel.` : 'Platform'} 
+          {!isPremium ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />}
         </button>
         <AnimatePresence>
           {activeDropdown === 'platform' && (
@@ -349,12 +420,22 @@ export default function FilterBar({
       {/* Sort Dropdown */}
       <div className="relative">
         <button 
-          onClick={() => setActiveDropdown(activeDropdown === 'sort' ? null : 'sort')}
-          className="px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all text-white/60 hover:text-white"
+          onClick={() => {
+            if (!isPremium) {
+              import('react-hot-toast').then(({ toast }) => { toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment'); });
+              return;
+            }
+            setActiveDropdown(activeDropdown === 'sort' ? null : 'sort')
+          }}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${
+            !isPremium 
+              ? 'opacity-50 cursor-not-allowed text-white/40 grayscale' 
+              : 'text-white/60 hover:text-white'
+          }`}
         >
           <span className="hidden sm:inline">Sort By: {sortOptions.find(o => o.value === sortBy)?.label} ({sortOrder === 'desc' ? 'Desc' : 'Asc'})</span>
           <span className="sm:hidden">Sort</span>
-          <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+          {!isPremium ? <Lock className="w-3 h-3 md:w-4 md:h-4 text-brand" /> : <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />}
         </button>
         <AnimatePresence>
           {activeDropdown === 'sort' && (
@@ -385,6 +466,8 @@ export default function FilterBar({
           )}
         </AnimatePresence>
       </div>
+      </>
+      )}
 
       <div className="ml-auto text-[10px] md:text-xs text-white/40 uppercase tracking-widest font-bold">
         {totalResults} results

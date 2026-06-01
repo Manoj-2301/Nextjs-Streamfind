@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext';
 import { app } from '@/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 import { logUserActivity } from '@/lib/genreTracker';
+import { toast } from 'react-hot-toast';
 
 export interface UserReview {
   movieId: number;
@@ -94,12 +95,29 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
     const path = `users/${user.uid}/ratings/${movieId}`;
     const globalPath = `movies/${movieId}/reviews/${user.uid}`;
     try {
+      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      
+      // Check review limits before adding a NEW review text
+      if (reviewText && reviewText.trim() !== '') {
+        const existingReview = userReviews.find(r => r.movieId === movieId);
+        if (!existingReview || !existingReview.reviewText || existingReview.reviewText.trim() === '') {
+          // This is a NEW review (not an edit of an existing review)
+          const totalReviews = userReviews.filter(r => r.reviewText && r.reviewText.trim() !== '').length;
+          if (totalReviews >= 5) {
+            const userDoc = await getDoc(doc(getFirestore(app), `users/${user.uid}`));
+            if (userDoc.data()?.plan !== 'premium') {
+              toast.error("Upgrade to Premium to write more than 5 reviews!");
+              return;
+            }
+          }
+        }
+      }
+
       if (reviewText) {
         logUserActivity("Review", `Reviewed "${movieDetails?.title || 'Movie'}" (Rated ${rating}/5)`);
       } else {
         logUserActivity("Rating", `Rated "${movieDetails?.title || 'Movie'}" ${rating}/5 stars`);
       }
-      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
       const dataToSet: any = {
         movieId,
         rating,

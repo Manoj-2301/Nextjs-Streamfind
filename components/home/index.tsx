@@ -1,5 +1,6 @@
 'use client';
 import { getFirestore } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
@@ -10,6 +11,7 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
 
 const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), { 
   ssr: true,
@@ -30,6 +32,7 @@ export default function Home({
   initialSciFi = [],
   initialPopular = []
 }: HomeProps) {
+  const router = useRouter();
   const [trending, setTrending] = useState<Movie[]>(initialTrending);
   const [upcoming, setUpcoming] = useState<Movie[]>(initialUpcoming);
   const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
@@ -367,6 +370,10 @@ export default function Home({
                 whileTap={{ scale: 0.95 }}
                 onClick={async (e) => {
                   e.stopPropagation();
+                  if (profile.plan !== 'premium') {
+                    toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment');
+                    return;
+                  }
                   try {
                     const { doc, updateDoc } = await import('firebase/firestore');
                     await updateDoc(doc(getFirestore(app), `users/${user!.uid}`), { autoFilter: true });
@@ -375,10 +382,15 @@ export default function Home({
                     console.error(e);
                   }
                 }}
-                className="bg-black/95 hover:bg-black/100 border border-white/10 hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest text-white/80 hover:text-brand cursor-pointer transition-all duration-300 backdrop-blur-md animate-bounce-subtle"
+                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 backdrop-blur-md animate-bounce-subtle ${
+                  profile.plan !== 'premium'
+                    ? 'border-white/5 text-white/40 cursor-not-allowed opacity-80'
+                    : 'border-white/10 text-white/80 hover:text-brand hover:bg-black/100 cursor-pointer'
+                }`}
               >
                 <span>🍿</span>
                 <span>Enable Subs DNA Filter</span>
+                {profile.plan !== 'premium' && <span className="ml-1 opacity-50">🔒</span>}
               </motion.button>
             )}
           </motion.div>

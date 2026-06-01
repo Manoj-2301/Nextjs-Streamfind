@@ -1006,15 +1006,32 @@ export default function ProfileComponent() {
                     <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Avatar Frame</label>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {frames.map((f) => (
-                          <button
-                            key={f.id}
-                            onClick={() => setEditFrameId(f.id as any)}
-                            className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all ${editFrameId === f.id ? 'bg-brand border-brand text-white shadow-lg shadow-brand/20' : 'bg-black/20 border-white/5 text-white/40 hover:border-white/20'}`}
-                          >
-                            {f.name}
-                          </button>
-                        ))}
+                        {frames.map((f) => {
+                          const isPremiumFrame = f.id !== 'none';
+                          const isLocked = isPremiumFrame && profile.plan !== 'premium';
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => {
+                                if (isLocked) {
+                                  toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment');
+                                  return;
+                                }
+                                setEditFrameId(f.id as any);
+                              }}
+                              className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all relative ${
+                                editFrameId === f.id 
+                                  ? 'bg-brand border-brand text-white shadow-lg shadow-brand/20' 
+                                  : 'bg-black/20 border-white/5 text-white/40 hover:border-white/20'
+                              } ${isLocked ? 'opacity-60 cursor-not-allowed grayscale' : ''}`}
+                            >
+                              {f.name}
+                              {isLocked && (
+                                <Lock className="w-3 h-3 absolute top-2 right-2 text-white/40" />
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

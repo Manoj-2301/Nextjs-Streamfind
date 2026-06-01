@@ -19,7 +19,7 @@ import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapsho
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { revalidatePage } from '@/app/actions/revalidate';
 import { ProfileSettings } from '@/types';
 
@@ -74,7 +74,15 @@ export default function ProfileSettingsPanel({
   const [activeSettingTab, setActiveSettingTab] = useState<
     'notifications' | 'preferences' | 'privacy' | 'payment' | 'help' | 'tracking' | 'activity' | 'notes'
   >('notifications');
+  const searchParams = useSearchParams();
   const router = useRouter();
+
+  useEffect(() => {
+    const tab = searchParams?.get('tab');
+    if (tab) {
+      setActiveSettingTab(tab as any);
+    }
+  }, [searchParams]);
 
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
@@ -833,106 +841,80 @@ export default function ProfileSettingsPanel({
               </div>
             )}
             {activeSettingTab === 'preferences' && (
-              <div className="space-y-8 animate-fadeIn">
+              <div className="space-y-8 animate-fadeIn relative">
                 <div className="border-b border-white/5 pb-4">
                   <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Curation Preferences</h4>
                   <p className="text-white/40 text-xs mt-1">Configure language, region, content filters, and build your content DNA profile.</p>
                 </div>
-                <div className="flex gap-4 items-center justify-between py-4 border-b border-white/5">
-                  <div>
-                    <p className="text-xs font-black text-white uppercase">Auto Filter (DNA Match)</p>
-                    <p className="text-[10px] text-white/40 mt-1">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
-                  </div>
-                  <button
-                    onClick={() => handleLocalToggle('autoFilter')}
-                    className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${(profile.autoFilter ?? false)
-                      ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
-                      : 'bg-white/5 border-white/10 hover:border-white/20'
-                      }`}
-                  >
-                    <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${(profile.autoFilter ?? false) ? 'left-[23px]' : 'left-[3px]'}`} />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-white/40 px-1 tracking-widest">Prevalent Language</label>
-                    <CustomSelect
-                      value={profile.prefLanguage || 'en'}
-                      onChange={(val) => handleLocalSelect('prefLanguage', val)}
-                      options={tmdbLanguages.length > 0 ? tmdbLanguages : [{ value: 'en', label: 'English' }]}
-                      className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-white/40 px-1 tracking-widest">Active Watch Region</label>
-                    <CustomSelect
-                      value={profile.watchRegion || 'IN'}
-                      onChange={(val) => handleRegionChange(val)}
-                      options={tmdbRegions.length > 0 ? tmdbRegions : [{ value: 'IN', label: 'India' }]}
-                      className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-3 pt-4 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Content Format Preference</h5>
-                  <div className="flex gap-3">
-                    {[
-                      { id: 'movies', label: '🎬 Movies Only' },
-                      { id: 'tv', label: '📺 TV Shows Only' },
-                      { id: 'both', label: '✨ Both' }
-                    ].map((item) => {
-                      const isActive = (profile.prefContentType || 'both') === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => handleLocalSelect('prefContentType', item.id)}
-                          className={`flex-1 py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/10 border-brand/30 text-brand' : 'bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/10'
-                            }`}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="space-y-6 pt-6 border-t border-white/5 bg-white/[0.01] p-6 rounded-3xl border border-white/5">
-                  <div>
-                    <h5 className="text-xs font-black uppercase text-brand tracking-widest mb-1">🧬 DNA Filter (Your Unique Feature)</h5>
-                    <p className="text-[10px] text-white/40">Fine-tune your aggregator parameters. We build your personalized lists matching this template.</p>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Select Moods</p>
-                    <div className="flex flex-wrap gap-2">
-                      {['Feel Good', 'Dark', 'Emotional', 'Family', 'Inspirational'].map((mood) => {
-                        const activeMoods = profile.dnaMoods || [];
-                        const isActive = activeMoods.includes(mood);
-                        return (
-                          <button
-                            key={mood}
-                            onClick={() => handleToggleDnaMood(mood)}
-                            className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/20 border-brand text-brand' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'
-                              }`}
-                          >
-                            {mood}
-                          </button>
-                        );
-                      })}
+
+                {profile.plan !== 'premium' && (
+                  <div className="absolute inset-0 z-50 rounded-2xl bg-black/60 backdrop-blur-sm flex items-center justify-center mt-20">
+                    <div className="bg-black/80 border border-brand/30 p-8 rounded-3xl max-w-sm text-center shadow-[0_0_40px_rgba(240,171,252,0.15)] flex flex-col items-center transform transition-all hover:scale-105">
+                      <div className="w-14 h-14 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-5 shadow-inner">
+                        <Lock className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">Upgrade to Premium</h3>
+                      <p className="text-xs text-white/50 mb-8 leading-relaxed">Unlock full access to the DNA Filter, custom region and language settings, and personalized streaming catalogs.</p>
+                      <button 
+                        onClick={() => setActiveSettingTab('payment' as any)} 
+                        className="w-full py-4 px-6 rounded-2xl bg-brand text-black text-xs font-black uppercase tracking-widest hover:bg-white hover:scale-105 transition-all shadow-[0_0_20px_rgba(240,171,252,0.3)]"
+                      >
+                        Unlock Preferences
+                      </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Maximum Runtime</p>
-                    <div className="flex gap-2">
+                )}
+
+                <div className={profile.plan !== 'premium' ? 'opacity-30 pointer-events-none select-none blur-sm transition-all duration-500' : ''}>
+                  <div className="flex gap-4 items-center justify-between py-4 border-b border-white/5">
+                    <div>
+                      <p className="text-xs font-black text-white uppercase">Auto Filter (DNA Match)</p>
+                      <p className="text-[10px] text-white/40 mt-1">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
+                    </div>
+                    <button
+                      onClick={() => handleLocalToggle('autoFilter')}
+                      className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${(profile.autoFilter ?? false)
+                        ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                        : 'bg-white/5 border-white/10 hover:border-white/20'
+                        }`}
+                    >
+                      <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${(profile.autoFilter ?? false) ? 'left-[23px]' : 'left-[3px]'}`} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Prevalent Language</label>
+                      <CustomSelect
+                        value={profile.prefLanguage || 'en'}
+                        onChange={(val) => handleLocalSelect('prefLanguage', val)}
+                        options={tmdbLanguages.length > 0 ? tmdbLanguages : [{ value: 'en', label: 'English' }]}
+                        className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Active Watch Region</label>
+                      <CustomSelect
+                        value={profile.watchRegion || 'IN'}
+                        onChange={(val) => handleRegionChange(val)}
+                        options={tmdbRegions.length > 0 ? tmdbRegions : [{ value: 'IN', label: 'India' }]}
+                        className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-6 border-t border-white/5 mt-6">
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Content Format Preference</h5>
+                    <div className="flex gap-3">
                       {[
-                        { id: '90m', label: 'Under 90 mins' },
-                        { id: '120m', label: 'Under 2 hours' },
-                        { id: 'none', label: 'No preference' }
+                        { id: 'movies', label: '🎬 Movies Only' },
+                        { id: 'tv', label: '📺 TV Shows Only' },
+                        { id: 'both', label: '✨ Both' }
                       ].map((item) => {
-                        const isActive = (profile.dnaRuntime || 'none') === item.id;
+                        const isActive = (profile.prefContentType || 'both') === item.id;
                         return (
                           <button
                             key={item.id}
-                            onClick={() => handleLocalSelect('dnaRuntime', item.id)}
-                            className={`flex-1 py-2 px-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/10 border-brand/35 text-brand' : 'bg-black/30 border-white/5 text-white/30 hover:text-white'
+                            onClick={() => handleLocalSelect('prefContentType', item.id)}
+                            className={`flex-1 py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/10 border-brand/30 text-brand' : 'bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/10'
                               }`}
                           >
                             {item.label}
@@ -941,38 +923,85 @@ export default function ProfileSettingsPanel({
                       })}
                     </div>
                   </div>
-
-                  <div className="space-y-3 pt-4 border-t border-white/5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">📡 My Streaming Platforms</p>
-                      <span className="text-[8px] text-brand font-black uppercase tracking-widest bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-lg">
-                        {profile.subscriptions?.length || 0} Active
-                      </span>
+                  <div className="space-y-6 pt-6 border-t border-white/5 bg-white/[0.01] p-6 rounded-3xl border border-white/5 mt-6">
+                    <div>
+                      <h5 className="text-xs font-black uppercase text-brand tracking-widest mb-1">🧬 DNA Filter (Your Unique Feature)</h5>
+                      <p className="text-[10px] text-white/40">Fine-tune your aggregator parameters. We build your personalized lists matching this template.</p>
                     </div>
-                    <p className="text-[9px] text-white/30 font-medium -mt-1">Select platforms you subscribe to. We'll prioritize results from these services.</p>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {STREAMING_PLATFORMS.map((platform) => {
-                        const isActive = profile.subscriptions?.includes(platform.name) || false;
-                        return (
-                          <button
-                            key={platform.id}
-                            onClick={() => handleToggleSub(platform.name)}
-                            title={platform.name}
-                            className={`relative group flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all duration-200 ${isActive ? `bg-white/10 border-white/20 shadow-lg ${platform.glow}` : 'bg-black/30 border-white/5 hover:border-white/15 hover:bg-white/5'
-                              }`}
-                          >
-                            <div className={`w-9 h-9 rounded-xl ${platform.color} flex items-center justify-center text-white font-black text-sm shadow-md transition-transform group-hover:scale-110 ${isActive ? 'ring-2 ring-white/30' : ''}`}>
-                              {platform.logo}
-                            </div>
-                            <span className={`text-[8px] font-black uppercase tracking-wide leading-tight text-center line-clamp-2 ${isActive ? 'text-white' : 'text-white/40'}`}>{platform.name}</span>
-                            {isActive && (
-                              <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-brand rounded-full flex items-center justify-center">
-                                <svg width="7" height="7" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="black" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Select Moods</p>
+                      <div className="flex flex-wrap gap-2">
+                        {['Feel Good', 'Dark', 'Emotional', 'Family', 'Inspirational'].map((mood) => {
+                          const activeMoods = profile.dnaMoods || [];
+                          const isActive = activeMoods.includes(mood);
+                          return (
+                            <button
+                              key={mood}
+                              onClick={() => handleToggleDnaMood(mood)}
+                              className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/20 border-brand text-brand' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'
+                                }`}
+                            >
+                              {mood}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Maximum Runtime</p>
+                      <div className="flex gap-2">
+                        {[
+                          { id: '90m', label: 'Under 90 mins' },
+                          { id: '120m', label: 'Under 2 hours' },
+                          { id: 'none', label: 'No preference' }
+                        ].map((item) => {
+                          const isActive = (profile.dnaRuntime || 'none') === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => handleLocalSelect('dnaRuntime', item.id)}
+                              className={`flex-1 py-2 px-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/10 border-brand/35 text-brand' : 'bg-black/30 border-white/5 text-white/30 hover:text-white'
+                                }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-white/5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">📡 My Streaming Platforms</p>
+                        <span className="text-[8px] text-brand font-black uppercase tracking-widest bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-lg">
+                          {profile.subscriptions?.length || 0} Active
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-white/30 font-medium -mt-1">Select platforms you subscribe to. We'll prioritize results from these services.</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {STREAMING_PLATFORMS.map((platform) => {
+                          const isActive = profile.subscriptions?.includes(platform.name) || false;
+                          return (
+                            <button
+                              key={platform.id}
+                              onClick={() => handleToggleSub(platform.name)}
+                              title={platform.name}
+                              className={`relative group flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all duration-200 ${isActive ? `bg-white/10 border-white/20 shadow-lg ${platform.glow}` : 'bg-black/30 border-white/5 hover:border-white/15 hover:bg-white/5'
+                                }`}
+                            >
+                              <div className={`w-9 h-9 rounded-xl ${platform.color} flex items-center justify-center text-white font-black text-sm shadow-md transition-transform group-hover:scale-110 ${isActive ? 'ring-2 ring-white/30' : ''}`}>
+                                {platform.logo}
                               </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                              <span className={`text-[8px] font-black uppercase tracking-wide leading-tight text-center line-clamp-2 ${isActive ? 'text-white' : 'text-white/40'}`}>{platform.name}</span>
+                              {isActive && (
+                                <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-brand rounded-full flex items-center justify-center">
+                                  <svg width="7" height="7" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="black" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1068,7 +1097,7 @@ export default function ProfileSettingsPanel({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       {
-                        label: 'Download My Data', action: async () => {
+                        label: 'Download My Data', isPremiumOnly: true, action: async () => {
                           if (!user?.uid || !user?.email) { toast.error('No account found.'); return; }
                           const loadingToast = toast.loading('Compiling your data archive…');
                           try {
@@ -1237,16 +1266,34 @@ export default function ProfileSettingsPanel({
                           }
                         }, icon: AlertCircle
                       }
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={item.action}
-                        className="bg-white/5 border border-white/5 hover:border-white/20 text-white/80 p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 hover:bg-white/10 transition-all cursor-pointer"
-                      >
-                        <item.icon className="w-4 h-4 text-white/30" />
-                        <span className="text-[8px] font-black uppercase tracking-widest leading-relaxed">{item.label}</span>
-                      </button>
-                    ))}
+                    ].map((item, idx) => {
+                      const isLocked = (item as any).isPremiumOnly && profile.plan !== 'premium';
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            if (isLocked) {
+                              toast.error('Upgrade to Premium to unlock!');
+                              router.push('/profile?tab=payment');
+                              return;
+                            }
+                            item.action();
+                          }}
+                          className={`p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all relative ${
+                            isLocked 
+                              ? 'bg-black/40 border border-white/5 text-white/30 cursor-not-allowed' 
+                              : 'bg-white/5 border border-white/5 hover:border-white/20 text-white/80 hover:bg-white/10 cursor-pointer'
+                          }`}
+                        >
+                          {isLocked ? (
+                            <Lock className="w-4 h-4 text-brand/50" />
+                          ) : (
+                            <item.icon className="w-4 h-4 text-white/30" />
+                          )}
+                          <span className="text-[8px] font-black uppercase tracking-widest leading-relaxed">{item.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="space-y-3 border-t border-white/5 pt-6">
