@@ -188,7 +188,13 @@ export default function HeroSection({ movies }: HeroSectionProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [paginate]);
 
-  if (!movies || movies.length === 0) {
+  useEffect(() => {
+    if (movies.length > 0 && currentIndex >= movies.length) {
+      setCurrentIndex(0);
+    }
+  }, [movies.length, currentIndex]);
+
+  if (!movies || movies.length === 0 || !movies[currentIndex]) {
     return (
       <div className="w-full h-[75vh] md:h-[90vh] bg-black flex items-center justify-center">
         <Loader2 className="w-12 h-12 text-brand animate-spin" />
@@ -199,7 +205,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const movie = movies[currentIndex];
 
   // Select the primary watch platform for the CTA button
-  const primaryPlatform = movie.platforms?.[0];
+  const primaryPlatform = movie?.platforms?.[0];
 
   // Fallback handled safely below by conditionally rendering the button.
 

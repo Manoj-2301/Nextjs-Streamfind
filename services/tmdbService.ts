@@ -1,4 +1,4 @@
-import { Movie, Platform, CastMember } from '@/types';
+import { Movie, Platform, CastMember, ProfileSettings } from '@/types';
 
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
@@ -63,10 +63,20 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
       name = 'Netflix';
     } else if (lowerName.includes('prime') || lowerName.includes('amazon')) {
       name = 'Amazon Prime';
-    } else if (lowerName.includes('disney') || lowerName.includes('hotstar')) {
+    } else if (lowerName.includes('hotstar')) {
+      name = 'Hotstar';
+    } else if (lowerName.includes('disney')) {
       name = 'Disney+';
     } else if (lowerName.includes('apple') || lowerName.includes('itunes')) {
       name = 'Apple TV';
+    } else if (lowerName.includes('jiocinema') || lowerName.includes('jiohotstar')) {
+      name = 'JioCinema';
+    } else if (lowerName.includes('sonyliv')) {
+      name = 'SonyLIV';
+    } else if (lowerName.includes('zee5')) {
+      name = 'Zee5';
+    } else if (lowerName.includes('aha')) {
+      name = 'Aha';
     } else if (lowerName.includes('viki')) {
       name = 'Viki';
     } else if (lowerName.includes('viu')) {
@@ -298,30 +308,155 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
   };
 };
 
-export const getTrendingMovies = async (): Promise<Movie[]> => {
+
+const MOOD_TO_GENRE: Record<string, number[]> = {
+  'Dark': [53, 27, 80],
+  'Feel Good': [35, 10751],
+  'Epic': [28, 12, 14],
+  'Mind-Bending': [9648, 878],
+  'Chill': [10749, 10402],
+  'Sci-Fi': [878]
+};
+
+const PROVIDER_MAP: Record<string, number> = {
+  // Global
+  'Netflix': 8,
+  'Prime Video': 119,
+  'Amazon Prime': 119,
+  'Disney+': 337,
+  'Apple TV': 350,
+  'Apple TV+': 350,
+  'Hulu': 15,
+  'Max': 1899,
+  'HBO Max': 1899,
+  'Peacock': 384,
+  'Paramount+': 531,
+  // Indian OTT — cover all name variants saved from settings panel
+  'Hotstar': 122,
+  'Disney+ Hotstar': 122,
+  'JioCinema': 220,
+  'JioHotstar': 220,
+  'SonyLIV': 237,
+  'Zee5': 232,
+  'ZEE5': 232,
+  'Aha': 532,
+  'MX Player': 505,
+  'Voot': 121,
+};
+
+export const applyProfileFilters = (profile?: ProfileSettings) => {
+  if (!profile) return '';
+  const params = new URLSearchParams();
+
+  // ── Language filter: always apply when set to something other than English ──
+  if (profile.prefLanguage && profile.prefLanguage !== 'en' && profile.prefLanguage !== 'All') {
+    params.set('with_original_language', profile.prefLanguage);
+  }
+
+  // ── Region: always set so watch provider data is relevant ──────────────────
+  if (profile.watchRegion) {
+    params.set('watch_region', profile.watchRegion);
+  }
+
+  // ── Subscriptions/Platforms: always filter when user has selected any ──────
+  if (profile.subscriptions && profile.subscriptions.length > 0) {
+    const providerIds = profile.subscriptions
+      .map(sub => PROVIDER_MAP[sub])
+      .filter((id): id is number => !!id);
+    if (providerIds.length > 0) {
+      params.set('with_watch_providers', providerIds.join('|'));
+      params.set('watch_region', profile.watchRegion || 'IN');
+    }
+  }
+
+  // ── Mood / genre filter: always apply when moods are selected ─────────────
+  if (profile.dnaMoods && profile.dnaMoods.length > 0) {
+    const genreIds = new Set<number>();
+    profile.dnaMoods.forEach(mood => {
+      if (MOOD_TO_GENRE[mood]) {
+        MOOD_TO_GENRE[mood].forEach(id => genreIds.add(id));
+      }
+    });
+    if (genreIds.size > 0) {
+      params.set('with_genres', Array.from(genreIds).join('|'));
+    }
+  }
+
+  // ── Runtime cap: always apply when set ────────────────────────────────────
+  if (profile.dnaRuntime && profile.dnaRuntime !== 'none') {
+    const mins = parseInt(profile.dnaRuntime);
+    if (!isNaN(mins)) params.set('with_runtime.lte', mins.toString());
+  }
+
+  // ── Min rating: always apply when set ─────────────────────────────────────
+  if (profile.dnaMinRating && profile.dnaMinRating > 0) {
+    params.set('vote_average.gte', profile.dnaMinRating.toString());
+  }
+
+  const queryStr = params.toString();
+  return queryStr ? `&${queryStr}` : '';
+};
+
+export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movie[]> => {
   await fetchGenres();
   try {
-    const data = await fetchFromTmdb('trending/all/day');
+    const filterStr = applyProfileFilters(profile);
+    const contentType = profile?.prefContentType || 'both';
+    
+    let movieResults: any[] = [];
+    let tvResults: any[] = [];
 
-    const itemsToProcess = data.results
-      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
-      .slice(0, 10);
+    const shouldFetchMovie = contentType !== 'tv';
+    const shouldFetchTv = contentType !== 'movies';
+
+    if (filterStr) {
+      const [movieData, tvData] = await Promise.all([
+        shouldFetchMovie ? fetchFromTmdb(`discover/movie?sort_by=popularity.desc${filterStr}`) : Promise.resolve({ results: [] }),
+        shouldFetchTv ? fetchFromTmdb(`discover/tv?sort_by=popularity.desc${filterStr}`) : Promise.resolve({ results: [] })
+      ]);
+      movieResults = (movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
+      tvResults = (tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }));
+    } else {
+      let endpoint = 'trending/all/day';
+      if (contentType === 'movies') {
+        endpoint = 'trending/movie/day';
+      } else if (contentType === 'tv') {
+        endpoint = 'trending/tv/day';
+      }
+      
+      const data = await fetchFromTmdb(endpoint);
+      if (contentType === 'movies') {
+        movieResults = (data.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
+      } else if (contentType === 'tv') {
+        tvResults = (data.results || []).map((r: any) => ({ ...r, media_type: 'tv' }));
+      } else {
+        movieResults = (data.results || []).filter((r: any) => r.media_type === 'movie');
+        tvResults = (data.results || []).filter((r: any) => r.media_type === 'tv');
+      }
+    }
+
+    const combined = [...movieResults, ...tvResults];
+    combined.sort((a, b) => b.popularity - a.popularity);
+
+    const itemsToProcess = combined.slice(0, 10);
       
     const moviesWithTrailers = [];
     for (const item of itemsToProcess) {
       try {
-        const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=videos,watch/providers,images`);
-        const mapped = item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
+        const isTv = item.media_type === 'tv';
+        const detailData = await fetchFromTmdb(`${isTv ? 'tv' : 'movie'}/${item.id}?append_to_response=videos,watch/providers,images`);
+        const mapped = isTv ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
 
         moviesWithTrailers.push({
           ...mapped,
-          runtime: item.media_type === 'tv'
+          runtime: isTv
             ? (detailData.episode_run_time && detailData.episode_run_time.length > 0 ? `${detailData.episode_run_time[0]} Min` : 'N/A')
             : (detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A'),
         });
       } catch (error) {
         console.error(`Error fetching details for trending item ${item.id}:`, error);
-        moviesWithTrailers.push(item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item));
+        const isTv = item.media_type === 'tv' || (!item.media_type && !!(item.name || item.first_air_date));
+        moviesWithTrailers.push(isTv ? mapTmdbTvShow(item) : mapTmdbMovie(item));
       }
     }
     return moviesWithTrailers;
@@ -556,7 +691,7 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
   }
 };
 
-export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
+export const getMoviesByGenre = async (genreId: number, profile?: ProfileSettings): Promise<Movie[]> => {
   await fetchGenres();
   try {
     let tvGenreId = genreId;
@@ -568,14 +703,17 @@ export const getMoviesByGenre = async (genreId: number): Promise<Movie[]> => {
       tvGenreId = 10768;
     }
 
+    const shouldFetchMovie = !profile || profile.prefContentType !== 'tv';
+    const shouldFetchTv = (!profile || profile.prefContentType !== 'movies') && genreId !== 10770;
+
     const [movieData, tvData] = await Promise.all([
-      fetchFromTmdb(`discover/movie?with_genres=${genreId}`),
-      genreId === 10770 ? Promise.resolve({ results: [] }) : fetchFromTmdb(`discover/tv?with_genres=${tvGenreId}`)
+      shouldFetchMovie ? fetchFromTmdb(`discover/movie?with_genres=${genreId}${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] }),
+      shouldFetchTv ? fetchFromTmdb(`discover/tv?with_genres=${tvGenreId}${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] })
     ]);
 
     const combined = [
-      ...movieData.results.map((r: any) => ({ ...r, media_type: 'movie' })),
-      ...tvData.results.map((r: any) => ({ ...r, media_type: 'tv' }))
+      ...(movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' })),
+      ...(tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }))
     ];
     combined.sort((a, b) => b.popularity - a.popularity);
 
@@ -793,7 +931,8 @@ export const browseDiscoverMovies = async (
   sortBy: string = 'popularity.desc',
   language: string = 'All',
   watchProviderIds?: number[],
-  watchRegion?: string
+  watchRegion?: string,
+  contentType: 'movies' | 'tv' | 'both' = 'both'
 ): Promise<{ movies: Movie[], totalPages: number }> => {
   const sanitizedPage = Math.max(1, Math.min(500, Math.floor(Number(page) || 1)));
   await fetchGenres();
@@ -850,10 +989,11 @@ export const browseDiscoverMovies = async (
       tvParams.set('with_original_language', language);
     }
 
-    const shouldFetchTv = genreId !== 10770; // 10770 is TV Movie (movie only)
+    const shouldFetchMovie = contentType !== 'tv';
+    const shouldFetchTv = contentType !== 'movies' && genreId !== 10770; // 10770 is TV Movie (movie only)
 
     const [movieData, tvData] = await Promise.all([
-      fetchFromTmdb(`discover/movie?${movieParams.toString()}`),
+      shouldFetchMovie ? fetchFromTmdb(`discover/movie?${movieParams.toString()}`) : Promise.resolve({ results: [], total_pages: 0 }),
       shouldFetchTv ? fetchFromTmdb(`discover/tv?${tvParams.toString()}`) : Promise.resolve({ results: [], total_pages: 0 })
     ]);
 
@@ -926,17 +1066,21 @@ export const getRecommendations = async (movieId: number, type?: 'movie' | 'tv')
   }
 };
 
-export const getPopularMovies = async (): Promise<Movie[]> => {
+export const getPopularMovies = async (profile?: ProfileSettings): Promise<Movie[]> => {
   await fetchGenres();
   try {
+    const contentType = profile?.prefContentType || 'both';
+    const shouldFetchMovie = contentType !== 'tv';
+    const shouldFetchTv = contentType !== 'movies';
+
     const [movieData, tvData] = await Promise.all([
-      fetchFromTmdb('movie/popular'),
-      fetchFromTmdb('tv/popular')
+      shouldFetchMovie ? fetchFromTmdb(`movie/popular?page=1${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] }),
+      shouldFetchTv ? fetchFromTmdb(`tv/popular?page=1${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] })
     ]);
 
     const combined = [
-      ...movieData.results.map((r: any) => ({ ...r, media_type: 'movie' })),
-      ...tvData.results.map((r: any) => ({ ...r, media_type: 'tv' }))
+      ...(movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' })),
+      ...(tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }))
     ];
     combined.sort((a, b) => b.popularity - a.popularity);
 
@@ -957,10 +1101,12 @@ export const getPopularMovies = async (): Promise<Movie[]> => {
   }
 };
 
-export const getUpcomingMovies = async (): Promise<Movie[]> => {
+export const getUpcomingMovies = async (profile?: ProfileSettings): Promise<Movie[]> => {
+  const contentType = profile?.prefContentType || 'both';
+  if (contentType === 'tv') return [];
   await fetchGenres();
   try {
-    const data = await fetchFromTmdb('movie/upcoming?region=IN|US');
+    const data = await fetchFromTmdb(`movie/upcoming?region=IN|US${applyProfileFilters(profile)}`);
 
     // We only have movies in upcoming, no TV shows
     const itemsToProcess = data.results.slice(0, 20);

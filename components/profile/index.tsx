@@ -24,34 +24,8 @@ import {
 } from 'lucide-react';
 import ProfileSettingsPanel from '../profile-settings';
 
-interface ProfileSettings {
-  bio: string;
-  favoriteGenres: string[];
-  subscriptions: string[];
-  notifyNewRelease: boolean;
-  notifyFavGenres: boolean;
-  notifyLeavingSoon: boolean;
-  isPublic: boolean;
-  avatarFrame: 'none' | 'neon' | 'gold' | 'ghost';
-  top10: Movie[];
-  autoFilter?: boolean;
-  photoURL?: string;
-  email?: string;
-  displayName?: string;
-  weeklyDigest?: boolean;
-  watchRegion?: string;
-  // Extended notification fields
-  notifyNewEpisodes?: boolean;
-  notifyNewSeasons?: boolean;
-  notifyPlatformAdded?: boolean;
-  notifyNewFeatures?: boolean;
-  notifyTrendingGenres?: boolean;
-  notifyWatchHistoryRecs?: boolean;
-  notifySimilarContent?: boolean;
-  channelEmail?: boolean;
-  channelPush?: boolean;
-  channelBrowser?: boolean;
-}
+import { revalidatePage } from '@/app/actions/revalidate';
+import { ProfileSettings } from '@/types';
 
 const AVAILABLE_GENRES = [
   'Sci-Fi', 'Action', 'Drama', 'Thriller', 'Comedy', 'Horror', 'Romance', 'Mystery', 'Adventure', 'Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'
@@ -62,12 +36,12 @@ const STREAMING_PLATFORMS = [
   { id: 'disney', name: "Disney+", logo: "D", color: "bg-blue-600" },
   { id: 'prime', name: "Prime Video", logo: "P", color: "bg-cyan-500" },
   { id: 'hbo', name: "HBO Max", logo: "H", color: "bg-purple-600" },
-  { id: 'hotstar', name: "Hotstar", logo: "H", color: "bg-green-600" },
+  { id: 'hotstar', name: "Hotstar", logo: "H", color: "bg-blue-500" },
   { id: 'jiocinema', name: "JioCinema", logo: "J", color: "bg-pink-600" },
   { id: 'sonyliv', name: "SonyLIV", logo: "S", color: "bg-yellow-500" },
   { id: 'aha', name: "Aha", logo: "A", color: "bg-orange-500" },
   { id: 'zee5', name: "Zee5", logo: "Z", color: "bg-indigo-500" },
-  { id: 'apple', name: "Apple TV", logo: "A", color: "bg-slate-700" },
+  { id: 'apple', name: "Apple TV+", logo: "A", color: "bg-slate-700" },
 ];
 
 const frames = [
@@ -428,7 +402,7 @@ export default function ProfileComponent() {
           favoriteGenres: data.favoriteGenres || prev.favoriteGenres,
           subscriptions: data.subscriptions || prev.subscriptions,
           top10: data.top10 || prev.top10,
-          avatarFrame: data.avatarFrame || data.frameId || prev.avatarFrame,
+          avatarFrame: (data.avatarFrame || data.frameId || prev.avatarFrame) as ProfileSettings['avatarFrame'],
           bio: data.bio || prev.bio,
           autoFilter: data.autoFilter !== undefined ? data.autoFilter : prev.autoFilter,
           photoURL: data.photoURL || prev.photoURL,
@@ -556,7 +530,7 @@ export default function ProfileComponent() {
 
   const handleToggleSub = async (platformName: string) => {
     if (!user) return;
-    let updatedSubs = [...profile.subscriptions];
+    let updatedSubs = [...(profile.subscriptions || [])];
     if (updatedSubs.includes(platformName)) {
       updatedSubs = updatedSubs.filter(s => s !== platformName);
     } else {
@@ -567,6 +541,10 @@ export default function ProfileComponent() {
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { subscriptions: updatedSubs }, { merge: true });
       toast.success(updatedSubs.includes(platformName) ? `Subscribed to ${platformName}` : `Unsubscribed from ${platformName}`);
+      router.refresh();
+      // Instantly trigger server-side revalidation of home and browse pages
+      revalidatePage('/');
+      revalidatePage('/browse');
     } catch (err) {
       console.error("Error toggling subscriptions:", err);
       toast.error("Failed to update subscription");
@@ -591,6 +569,10 @@ export default function ProfileComponent() {
       await setDoc(docRef, { [field]: newValue }, { merge: true });
       setProfile(prev => ({ ...prev, [field]: newValue }));
       toast.success("Preference updated");
+      router.refresh();
+      // Instantly trigger server-side revalidation of home and browse pages
+      revalidatePage('/');
+      revalidatePage('/browse');
     } catch (err) {
       console.error("Error updating preference:", err);
       toast.error("Failed to update preference");
@@ -604,6 +586,10 @@ export default function ProfileComponent() {
       await setDoc(docRef, { watchRegion: region }, { merge: true });
       setProfile(prev => ({ ...prev, watchRegion: region }));
       toast.success(`Region updated to ${region}`);
+      router.refresh();
+      // Instantly trigger server-side revalidation of home and browse pages
+      revalidatePage('/');
+      revalidatePage('/browse');
     } catch (err) {
       console.error("Error updating region:", err);
       toast.error("Failed to update region");
@@ -612,14 +598,14 @@ export default function ProfileComponent() {
 
   const handleToggleGenre = async (genre: string) => {
     if (!user) return;
-    let updatedGenres = [...profile.favoriteGenres];
+    let updatedGenres = [...(profile.favoriteGenres || [])];
     let isFirstGenreSelection = false;
 
     if (updatedGenres.includes(genre)) {
       updatedGenres = updatedGenres.filter(g => g !== genre);
     } else {
       updatedGenres.push(genre);
-      if (profile.favoriteGenres.length === 0) {
+      if (!profile.favoriteGenres || profile.favoriteGenres.length === 0) {
         isFirstGenreSelection = true;
       }
     }
@@ -683,7 +669,7 @@ export default function ProfileComponent() {
     ? (userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length).toFixed(1)
     : "0.0";
 
-  const primaryFavGenre = profile.favoriteGenres[0] || 'Default';
+  const primaryFavGenre = profile.favoriteGenres?.[0] || 'Default';
   const getAuraColor = (genre: string) => {
     switch (genre) {
       case 'Sci-Fi': return 'from-purple-900/40 to-background';
@@ -840,7 +826,7 @@ export default function ProfileComponent() {
 
                     <div className="flex flex-wrap gap-2 mt-6 justify-center lg:justify-start">
                       {AVAILABLE_GENRES.map((genre) => {
-                        const isActive = profile.favoriteGenres.includes(genre);
+                        const isActive = (profile.favoriteGenres || []).includes(genre);
                         return (
                           <span
                             key={genre}

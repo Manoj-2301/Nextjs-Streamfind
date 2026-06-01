@@ -190,3 +190,8 @@
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+@keyframes slideRight {
+  0% { transform: translateX(-150%); }
+  100% { transform: translateX(350%); }
+}

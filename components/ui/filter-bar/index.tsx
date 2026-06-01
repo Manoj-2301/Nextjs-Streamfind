@@ -13,6 +13,8 @@ interface FilterBarProps {
   onPlatformChange: (platforms: string[]) => void;
   onSortChange: (sortBy: string, order: 'asc' | 'desc') => void;
   onLanguageChange: (language: string) => void;
+  onContentTypeChange?: (contentType: 'movies' | 'tv' | 'both') => void;
+  activeContentType?: 'movies' | 'tv' | 'both';
   activeGenre: string;
   activeLanguage: string;
   activeRating: number | null;
@@ -31,6 +33,8 @@ export default function FilterBar({
   onPlatformChange,
   onSortChange,
   onLanguageChange,
+  onContentTypeChange,
+  activeContentType = 'both',
   activeGenre,
   activeLanguage,
   activeRating,
@@ -79,6 +83,12 @@ export default function FilterBar({
     { label: "Japanese", value: "ja" },
     { label: "Spanish", value: "es" },
     { label: "French", value: "fr" }
+  ];
+
+  const contentTypes = [
+    { label: "Both Formats", value: "both" },
+    { label: "Movies Only", value: "movies" },
+    { label: "TV Shows Only", value: "tv" }
   ];
 
   useEffect(() => {
@@ -138,6 +148,38 @@ export default function FilterBar({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Content Type / Format Dropdown */}
+      {onContentTypeChange && (
+        <div className="relative">
+          <button 
+            onClick={() => setActiveDropdown(activeDropdown === 'format' ? null : 'format')}
+            className={`px-3.5 py-2.5 md:px-5 md:py-3 rounded-lg md:rounded-xl glass border-white/5 text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-3 transition-all ${activeContentType !== 'both' ? 'text-brand border-brand/40' : 'text-white/60 hover:text-white'}`}
+          >
+            {activeContentType === 'both' ? 'Format' : contentTypes.find(t => t.value === activeContentType)?.label} <ChevronDown className="w-3 h-3 md:w-4 md:h-4" />
+          </button>
+          <AnimatePresence>
+            {activeDropdown === 'format' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute top-full left-0 mt-2 w-48 glass-dark border border-white/10 rounded-xl p-2 z-[9999]"
+              >
+                {contentTypes.map(t => (
+                  <button
+                    key={t.value}
+                    onClick={() => { onContentTypeChange(t.value as 'movies' | 'tv' | 'both'); setActiveDropdown(null); }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${activeContentType === t.value ? 'bg-brand/20 text-brand' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}
+                  >
+                    {t.label} {activeContentType === t.value && <Check className="w-3 h-3" />}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Language Dropdown */}
       <div className="relative">

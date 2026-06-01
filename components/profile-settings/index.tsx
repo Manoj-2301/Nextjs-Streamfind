@@ -9,47 +9,19 @@ import {
   Info, Activity, Globe, Heart, ChevronDown, CheckCircle2, Layout, Calendar,
   ArrowRight, MessageSquare, AlertCircle, Laptop, Smartphone, AlertTriangle, LogOut,
   Search, ArrowUp, ArrowDown, History, Award, Clock, Trophy, Zap, Star, ChevronLeft, ChevronRight, Share2,
-  UserX, MonitorPlay, Sliders, Unlock, LayoutList, ExternalLink
+  UserX, MonitorPlay, Sliders, Unlock, LayoutList, ExternalLink, Power
 } from 'lucide-react';
 import { getUserActivities, clearUserActivities } from '@/lib/genreTracker';
 import { searchMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { app } from '@/lib/firebase';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField } from 'firebase/firestore';
+import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 
-interface ProfileSettings {
-  bio: string;
-  favoriteGenres: string[];
-  subscriptions: string[];
-  notifyNewRelease: boolean;
-  notifyFavGenres: boolean;
-  notifyLeavingSoon: boolean;
-  isPublic: boolean;
-  avatarFrame: 'none' | 'neon' | 'gold' | 'ghost';
-  top10: any[];
-  autoFilter?: boolean;
-  photoURL?: string;
-  email?: string;
-  displayName?: string;
-  weeklyDigest?: boolean;
-  watchRegion?: string;
-  // Extended fields
-  notifyNewEpisodes?: boolean;
-  notifyNewSeasons?: boolean;
-  notifyPlatformAdded?: boolean;
-  notifyNewFeatures?: boolean;
-  notifyTrendingGenres?: boolean;
-  notifyWatchHistoryRecs?: boolean;
-  notifySimilarContent?: boolean;
-  channelEmail?: boolean;
-  channelPush?: boolean;
-  channelBrowser?: boolean;
-  prefLanguage?: string;
-  prefContentType?: 'movies' | 'tv' | 'both';
-  dnaMoods?: string[];
-  dnaRuntime?: '90m' | '120m' | 'none';
-  dnaMinRating?: number;
-}
+import { useRouter } from 'next/navigation';
+import { revalidatePage } from '@/app/actions/revalidate';
+import { ProfileSettings } from '@/types';
 
 interface ProfileSettingsPanelProps {
   user: any;
@@ -73,8 +45,8 @@ const STREAMING_PLATFORMS = [
   { id: 'disney', name: 'Disney+', logo: 'D', color: 'bg-blue-600', glow: 'shadow-blue-500/30' },
   { id: 'prime', name: 'Prime Video', logo: 'P', color: 'bg-cyan-500', glow: 'shadow-cyan-400/30' },
   { id: 'hbo', name: 'HBO Max', logo: 'H', color: 'bg-purple-600', glow: 'shadow-purple-500/30' },
-  { id: 'hotstar', name: 'Disney+ Hotstar', logo: 'H', color: 'bg-blue-500', glow: 'shadow-blue-400/30' },
-  { id: 'jiocinema', name: 'JioHotstar', logo: 'J', color: 'bg-pink-600', glow: 'shadow-pink-500/30' },
+  { id: 'hotstar', name: 'Hotstar', logo: 'H', color: 'bg-blue-500', glow: 'shadow-blue-400/30' },
+  { id: 'jiocinema', name: 'JioCinema', logo: 'J', color: 'bg-pink-600', glow: 'shadow-pink-500/30' },
   { id: 'sonyliv', name: 'SonyLIV', logo: 'S', color: 'bg-yellow-500', glow: 'shadow-yellow-400/30' },
   { id: 'aha', name: 'Aha', logo: 'A', color: 'bg-orange-500', glow: 'shadow-orange-400/30' },
   { id: 'zee5', name: 'Zee5', logo: 'Z', color: 'bg-indigo-500', glow: 'shadow-indigo-400/30' },
@@ -102,11 +74,27 @@ export default function ProfileSettingsPanel({
   const [activeSettingTab, setActiveSettingTab] = useState<
     'notifications' | 'preferences' | 'privacy' | 'payment' | 'help' | 'tracking' | 'activity' | 'notes'
   >('notifications');
+  const router = useRouter();
 
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
   const [showActivityPopup, setShowActivityPopup] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const db = getFirestore(app);
+    const auditRef = collection(db, `users/${user.uid}/audit_logs`);
+    const q = query(auditRef, orderBy('timestamp', 'desc'), limit(5));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditEvent));
+      setAuditLogs(logs);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -120,6 +108,55 @@ export default function ProfileSettingsPanel({
         }
       }
     }
+  }, []);
+
+  const [tmdbLanguages, setTmdbLanguages] = useState<{ value: string, label: string }[]>([]);
+  const [tmdbRegions, setTmdbRegions] = useState<{ value: string, label: string }[]>([]);
+
+  useEffect(() => {
+    const fetchTmdbConfig = async () => {
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+        if (!apiKey) return;
+
+        const [langRes, reqRes] = await Promise.all([
+          fetch(`https://api.themoviedb.org/3/configuration/languages?api_key=${apiKey}`),
+          fetch(`https://api.themoviedb.org/3/configuration/countries?api_key=${apiKey}`)
+        ]);
+
+        if (langRes.ok) {
+          const langs = await langRes.json();
+          // Sort english first, then alphabetical
+          const mappedLangs = langs.map((l: any) => ({
+            value: l.iso_639_1,
+            label: l.english_name || l.name || l.iso_639_1
+          })).sort((a: any, b: any) => {
+            if (a.value === 'en') return -1;
+            if (b.value === 'en') return 1;
+            return a.label.localeCompare(b.label);
+          });
+          setTmdbLanguages(mappedLangs);
+        }
+
+        if (reqRes.ok) {
+          const regions = await reqRes.json();
+          const mappedRegions = regions.map((r: any) => ({
+            value: r.iso_3166_1,
+            label: r.english_name || r.native_name || r.iso_3166_1
+          })).sort((a: any, b: any) => {
+            if (a.value === 'IN') return -1;
+            if (b.value === 'IN') return 1;
+            if (a.value === 'US') return -1;
+            if (b.value === 'US') return 1;
+            return a.label.localeCompare(b.label);
+          });
+          setTmdbRegions(mappedRegions);
+        }
+      } catch (err) {
+        console.error("Failed to fetch TMDB config", err);
+      }
+    };
+    fetchTmdbConfig();
   }, []);
 
   // Carousel gesture drag settings for Director's Notes
@@ -236,9 +273,10 @@ export default function ProfileSettingsPanel({
   };
 
   const handleAddTopMovie = async (movie: Movie) => {
-    if (!user || profile.top10.length >= 5) return;
-    if (profile.top10.some(m => m.id === movie.id)) return;
-    const updatedTop10 = [...profile.top10, movie];
+    const currentTop10 = profile.top10 || [];
+    if (!user || currentTop10.length >= 5) return;
+    if (currentTop10.some(m => m.id === movie.id)) return;
+    const updatedTop10 = [...currentTop10, movie];
     const sanitizedTop10 = JSON.parse(JSON.stringify(updatedTop10));
     try {
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
@@ -253,21 +291,20 @@ export default function ProfileSettingsPanel({
   };
 
   const handleRemoveTopMovie = async (movieId: number) => {
-    if (!user) return;
+    if (!user || !profile.top10) return;
     const updatedTop10 = profile.top10.filter(m => m.id !== movieId);
     try {
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
       setProfile(prev => ({ ...prev, top10: updatedTop10 }));
-      toast.success("Removed movie from Top 5");
-    } catch (err) {
-      console.error("Error removing from Top 5:", err);
-      toast.error("Failed to remove movie");
+    } catch (error) {
+      console.error('Error removing top movie:', error);
+      alert('Failed to remove movie.');
     }
   };
 
   const handleMoveTopMovie = async (index: number, direction: 'up' | 'down') => {
-    if (!user) return;
+    if (!user || !profile.top10) return;
     const updatedTop10 = [...profile.top10];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= updatedTop10.length) return;
@@ -302,26 +339,59 @@ export default function ProfileSettingsPanel({
     { id: '2', name: 'Late Night Thrillers', count: 8 },
     { id: '3', name: 'Family Weekend Critiques', count: 15 }
   ]);
-  const [securityAlerts, setSecurityAlerts] = useState([true, true, false, false]);
-  const toggleSecurityAlert = (i: number) => setSecurityAlerts(prev => prev.map((v, idx) => idx === i ? !v : v));
   const [activeSessions, setActiveSessions] = useState([
     { id: '1', device: 'MacBook Pro 16"', browser: 'Chrome', location: 'Mumbai, India', lastActive: 'Active now', current: true },
     { id: '2', device: 'iPhone 15 Pro', browser: 'Safari', location: 'Mumbai, India', lastActive: '2 hours ago', current: false },
     { id: '3', device: 'Windows Desktop', browser: 'Edge', location: 'New Delhi, India', lastActive: 'May 28, 2026', current: false }
   ]);
-  const handleLocalToggle = (field: keyof ProfileSettings) => {
-    setProfile(prev => ({ ...prev, [field]: !prev[field] }));
-    toast.success('Preference updated successfully');
+  const handleLocalToggle = async (field: keyof ProfileSettings) => {
+    const newValue = !profile[field];
+    setProfile(prev => ({ ...prev, [field]: newValue }));
+    if (user) {
+      try {
+        const docRef = doc(getFirestore(app), `users/${user.uid}`);
+        await setDoc(docRef, { [field]: newValue }, { merge: true });
+        toast.success('Preference updated successfully');
+        // Immediate UI update; no need for router refresh or revalidation
+      } catch (err) {
+        console.error("Failed to update preference", err);
+        toast.error("Failed to save to database");
+      }
+    }
   };
-  const handleLocalSelect = (field: keyof ProfileSettings, value: any) => {
+
+  const handleLocalSelect = async (field: keyof ProfileSettings, value: any) => {
     setProfile(prev => ({ ...prev, [field]: value }));
-    toast.success('Settings updated');
+    if (user) {
+      try {
+        const docRef = doc(getFirestore(app), `users/${user.uid}`);
+        await setDoc(docRef, { [field]: value }, { merge: true });
+        toast.success('Settings updated');
+        // Immediate UI update; no need for router refresh or revalidation
+      } catch (err) {
+        console.error("Failed to update settings", err);
+        toast.error("Failed to save to database");
+      }
+    }
   };
-  const handleToggleDnaMood = (mood: string) => {
+  const handleToggleDnaMood = async (mood: string) => {
     const moods = profile.dnaMoods || [];
     let updated = moods.includes(mood) ? moods.filter(m => m !== mood) : [...moods, mood];
     setProfile(prev => ({ ...prev, dnaMoods: updated }));
-    toast.success(`${mood} filter updated`);
+    if (user) {
+      try {
+        const docRef = doc(getFirestore(app), `users/${user.uid}`);
+        await setDoc(docRef, { dnaMoods: updated }, { merge: true });
+        toast.success(`${mood} filter updated`);
+        router.refresh();
+        // Instantly trigger server-side revalidation of home and browse pages
+        revalidatePage('/');
+        revalidatePage('/browse');
+      } catch (err) {
+        console.error("Failed to update dnaMoods", err);
+        toast.error("Failed to save to database");
+      }
+    }
   };
 
   return (
@@ -351,8 +421,8 @@ export default function ProfileSettingsPanel({
                 key={t.id}
                 onClick={() => setActiveSettingTab(t.id as any)}
                 className={`flex flex-col items-center lg:items-start shrink-0 px-5 lg:px-6 py-4 rounded-2xl border transition-all ${isActive
-                    ? 'bg-brand/10 border-brand/35 text-brand shadow-lg shadow-brand/5'
-                    : 'bg-white/5 border-white/5 text-white/50 hover:bg-white/10 hover:text-white hover:border-white/10'
+                  ? 'bg-brand/10 border-brand/35 text-brand shadow-lg shadow-brand/5'
+                  : 'bg-white/5 border-white/5 text-white/50 hover:bg-white/10 hover:text-white hover:border-white/10'
                   }`}
               >
                 <div className="flex items-center gap-2">
@@ -386,8 +456,8 @@ export default function ProfileSettingsPanel({
                           key={c.key}
                           onClick={() => handleTogglePref(c.key)}
                           className={`p-5 rounded-2xl border cursor-pointer transition-all text-left relative overflow-hidden group ${isActive
-                              ? 'bg-brand/8 border-brand/25 text-white shadow-md shadow-brand/5'
-                              : 'bg-white/5 border-white/5 text-white/40 hover:border-white/10 hover:bg-white/8'
+                            ? 'bg-brand/8 border-brand/25 text-white shadow-md shadow-brand/5'
+                            : 'bg-white/5 border-white/5 text-white/40 hover:border-white/10 hover:bg-white/8'
                             }`}
                         >
                           {isActive && <div className="absolute top-0 right-0 w-16 h-16 bg-brand/10 rounded-full -mr-6 -mt-6 blur-xl" />}
@@ -419,8 +489,8 @@ export default function ProfileSettingsPanel({
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
                           className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                              ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
-                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
                             }`}
                         >
                           <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
@@ -445,8 +515,8 @@ export default function ProfileSettingsPanel({
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
                           className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                              ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
-                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
                             }`}
                         >
                           <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
@@ -472,8 +542,8 @@ export default function ProfileSettingsPanel({
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
                           className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                              ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
-                              : 'bg-white/5 border-white/10 hover:border-white/20'
+                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
                             }`}
                         >
                           <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
@@ -516,67 +586,93 @@ export default function ProfileSettingsPanel({
                       </div>
                       <div className="space-y-2">
                         <h6 className="text-[9px] font-black uppercase tracking-widest text-white/30">Recent Account Events</h6>
-                        {[
-                          { event: 'Login Successful', detail: 'Chrome • Mumbai, India', time: 'Just now', dot: 'bg-green-400' },
-                          { event: 'Profile Settings Saved', detail: 'Notification prefs updated', time: '10 min ago', dot: 'bg-brand' },
-                          { event: 'Login Successful', detail: 'Safari • Mumbai, India', time: '2 hrs ago', dot: 'bg-green-400' },
-                          { event: 'Watchlist Updated', detail: '3 new titles added', time: 'Yesterday', dot: 'bg-blue-400' },
-                          { event: 'Password Last Changed', detail: 'Via email reset link', time: 'May 12, 2026', dot: 'bg-white/20' },
-                        ].map((ev, i) => (
-                          <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
+                        {auditLogs.length > 0 ? auditLogs.map((ev, i) => (
+                          <div key={ev.id || i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
                             <div className={`w-2 h-2 rounded-full shrink-0 ${ev.dot}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-[10px] font-black uppercase text-white/80 tracking-tight truncate">{ev.event}</p>
                               <p className="text-[9px] text-white/30 font-medium mt-0.5 truncate">{ev.detail}</p>
                             </div>
-                            <span className="text-[8px] text-white/20 font-black uppercase tracking-widest shrink-0">{ev.time}</span>
+                            <span className="text-[8px] text-white/20 font-black uppercase tracking-widest shrink-0">
+                              {ev.timestamp ? new Date(ev.timestamp?.toDate?.() || ev.timestamp).toLocaleDateString() : 'Just now'}
+                            </span>
                           </div>
-                        ))}
+                        )) : (
+                          <div className="p-4 text-center border border-white/5 rounded-xl bg-white/5">
+                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">No recent events</p>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-3 pt-2 border-t border-white/5">
                         <h6 className="text-[9px] font-black uppercase tracking-widest text-white/30">Security Alert Preferences</h6>
-                        {[
-                          { label: 'Login from New Device', desc: 'Instant alert when account is accessed from an unrecognized device.' },
-                          { label: 'Suspicious Activity Alerts', desc: 'Notified of unusual login patterns or location changes.' },
-                          { label: 'Profile Change Confirmed', desc: 'Confirmation when display name, bio, or avatar is updated.' },
-                          { label: 'Weekly Security Digest', desc: 'Summary of login activity and account changes every Sunday.' },
-                        ].map((t, i) => (
-                          <div key={i} className="flex gap-4 items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                            <div>
-                              <p className="text-[10px] font-black text-white uppercase">{t.label}</p>
-                              <p className="text-[9px] text-white/30 mt-0.5">{t.desc}</p>
-                            </div>
-                            <button
-                              onClick={() => { toggleSecurityAlert(i); toast.success('Security alert preference updated'); }}
-                              className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${securityAlerts[i]
+                        {([
+                          { key: 'securityAlertNewDevice', label: 'Login from New Device', desc: 'Instant alert when account is accessed from an unrecognized device.' },
+                          { key: 'securityAlertSuspicious', label: 'Suspicious Activity Alerts', desc: 'Notified of unusual login patterns or location changes.' },
+                          { key: 'securityAlertProfileChange', label: 'Profile Change Confirmed', desc: 'Confirmation when display name, bio, or avatar is updated.' },
+                          { key: 'securityAlertWeeklyDigest', label: 'Weekly Security Digest', desc: 'Summary of login activity and account changes every Sunday.' },
+                        ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((t) => {
+                          const isActive = profile[t.key] ?? true;
+                          return (
+                            <div key={t.key} className="flex gap-4 items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                              <div>
+                                <p className="text-[10px] font-black text-white uppercase">{t.label}</p>
+                                <p className="text-[9px] text-white/30 mt-0.5">{t.desc}</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  handleTogglePref(t.key as any);
+                                  logSecurityEvent(user?.uid, 'Security Preference Updated', `${t.label} was toggled`, 'bg-brand');
+                                }}
+                                className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
                                   ? 'bg-purple-500 border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]'
                                   : 'bg-white/5 border-white/10 hover:border-white/20'
-                                }`}
-                            >
-                              <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${securityAlerts[i] ? 'left-[23px]' : 'left-[3px]'}`} />
-                            </button>
-                          </div>
-                        ))}
+                                  }`}
+                              >
+                                <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                       <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
                         <button
-                          onClick={() => toast.success('Sending login activity report to your email…')}
+                          onClick={() => toast.success('Sending login activity report to your email.')}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/30 hover:bg-purple-500/5 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all"
                         >
                           <Activity className="w-3 h-3" /> Email Activity Report
                         </button>
                         <button
-                          onClick={() => toast.success('All other device sessions have been terminated.')}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/5 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-red-400 transition-all"
+                          onClick={async () => {
+                            if (!user?.uid) return;
+                            const t = toast.loading('Terminating all sessions…');
+                            try {
+                              const res = await fetch('/api/user/revoke-sessions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ uid: user.uid }),
+                              });
+                              if (!res.ok) throw new Error();
+                              logSecurityEvent(user?.uid, 'All Sessions Terminated', 'All refresh tokens revoked via Firebase Admin.', 'bg-red-500');
+                              toast.dismiss(t);
+                              toast.success('All sessions terminated. Signing you out…');
+                              setTimeout(() => onSignOut?.(), 1500);
+                            } catch {
+                              toast.dismiss(t);
+                              toast.error('Failed to terminate sessions.');
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/30 hover:bg-red-500/5 text-[9px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-all"
                         >
-                          <AlertTriangle className="w-3 h-3" /> Terminate All Sessions
+                          <Power className="w-3 h-3" /> Terminate All Sessions
                         </button>
+                        {/* 
                         <button
-                          onClick={() => toast.success('Two-factor authentication setup email sent.')}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/25 hover:bg-purple-500/20 text-[9px] font-black uppercase tracking-widest text-purple-400 transition-all"
+                          onClick={() => toast.error('2FA setup is currently unavailable.')}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/25 hover:bg-purple-500/20 text-[9px] font-black uppercase tracking-widest text-purple-400/50 transition-all"
                         >
                           <ShieldCheck className="w-3 h-3" /> Enable 2FA
                         </button>
+                        */}
                       </div>
                     </div>
                   </div>
@@ -592,32 +688,21 @@ export default function ProfileSettingsPanel({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-white/40 px-1 tracking-widest">Prevalent Language</label>
-                    <select
+                    <CustomSelect
                       value={profile.prefLanguage || 'en'}
-                      onChange={(e) => handleLocalSelect('prefLanguage', e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-2xl p-4 text-xs text-white font-bold focus:border-brand focus:outline-none"
-                    >
-                      <option value="en">🇬🇧 English</option>
-                      <option value="hi">🇮🇳 Hindi</option>
-                      <option value="te">🇮🇳 Telugu</option>
-                      <option value="ta">🇮🇳 Tamil</option>
-                      <option value="kn">🇮🇳 Kannada</option>
-                      <option value="ml">🇮🇳 Malayalam</option>
-                    </select>
+                      onChange={(val) => handleLocalSelect('prefLanguage', val)}
+                      options={tmdbLanguages.length > 0 ? tmdbLanguages : [{ value: 'en', label: 'English' }]}
+                      className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-white/40 px-1 tracking-widest">Active Watch Region</label>
-                    <select
+                    <CustomSelect
                       value={profile.watchRegion || 'IN'}
-                      onChange={(e) => handleRegionChange(e.target.value)}
-                      className="w-full bg-black/60 border border-white/10 rounded-2xl p-4 text-xs text-white font-bold focus:border-brand focus:outline-none"
-                    >
-                      <option value="IN">🇮🇳 India (IN)</option>
-                      <option value="US">🇺🇸 United States (US)</option>
-                      <option value="GB">🇬🇧 United Kingdom (GB)</option>
-                      <option value="CA">🇨🇦 Canada (CA)</option>
-                      <option value="AU">🇦🇺 Australia (AU)</option>
-                    </select>
+                      onChange={(val) => handleRegionChange(val)}
+                      options={tmdbRegions.length > 0 ? tmdbRegions : [{ value: 'IN', label: 'India' }]}
+                      className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
+                    />
                   </div>
                 </div>
                 <div className="space-y-3 pt-4 border-t border-white/5">
@@ -748,15 +833,10 @@ export default function ProfileSettingsPanel({
                   <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Privacy & Security</h4>
                   <p className="text-white/40 text-xs mt-1">Review active connections, secure your account details, and manage local logs.</p>
                 </div>
+                {/* TEMPORARILY DISABLED - Account Security / 2FA
                 <div className="space-y-4">
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Account Security</h5>
                   <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => setIsChangePasswordModalOpen(true)}
-                      className="bg-white/5 border border-white/10 hover:border-brand/40 text-white font-black text-[10px] uppercase tracking-wider px-6 py-4 rounded-xl transition-all flex items-center gap-2"
-                    >
-                      <Lock className="w-3.5 h-3.5" /> Change Password
-                    </button>
                     <button
                       onClick={() => setIsTwoFactorModalOpen(true)}
                       className="bg-white/5 border border-white/10 hover:border-brand/40 text-white font-black text-[10px] uppercase tracking-wider px-6 py-4 rounded-xl transition-all flex items-center gap-2"
@@ -765,13 +845,29 @@ export default function ProfileSettingsPanel({
                     </button>
                   </div>
                 </div>
+                */}
                 <div className="space-y-4 pt-4 border-t border-white/5">
                   <div className="flex justify-between items-center">
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Active Sessions</h5>
                     <button
-                      onClick={() => {
-                        setActiveSessions(prev => prev.filter(s => s.current));
-                        toast.success('Logged out of all other devices successfully.');
+                      onClick={async () => {
+                        if (!user?.uid) return;
+                        const t = toast.loading('Revoking all sessions…');
+                        try {
+                          const res = await fetch('/api/user/revoke-sessions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ uid: user.uid }),
+                          });
+                          if (!res.ok) throw new Error();
+                          logSecurityEvent(user?.uid, 'All Sessions Revoked', 'All refresh tokens invalidated via Firebase Admin.', 'bg-red-500');
+                          toast.dismiss(t);
+                          toast.success('All sessions revoked. Signing you out…');
+                          setTimeout(() => onSignOut?.(), 1500);
+                        } catch {
+                          toast.dismiss(t);
+                          toast.error('Failed to revoke sessions.');
+                        }
                       }}
                       className="text-[9px] font-black text-brand uppercase tracking-widest hover:underline"
                     >
@@ -815,10 +911,121 @@ export default function ProfileSettingsPanel({
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Data Controls</h5>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { label: 'Download My Data', action: () => toast.success('Data collection package successfully compiled.'), icon: Download },
-                      { label: 'Clear Search History', action: () => toast.success('Local aggregator search history database wiped.'), icon: RefreshCw },
-                      { label: 'Clear Watch History', action: () => toast.success('Profile streaming log timelines cleared.'), icon: Trash2 },
-                      { label: 'Delete Curation Data', action: () => toast.success('Aggregated vector recommendations deleted.'), icon: AlertCircle }
+                      {
+                        label: 'Download My Data', action: async () => {
+                          if (!user?.uid || !user?.email) { toast.error('No account found.'); return; }
+                          const loadingToast = toast.loading('Compiling your data archive…');
+                          try {
+                            const res = await fetch('/api/user/export-data', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ uid: user.uid, email: user.email, displayName: user.displayName }),
+                            });
+                            if (!res.ok) throw new Error('Server error');
+                            toast.dismiss(loadingToast);
+                            logSecurityEvent(user?.uid, 'Data Export Requested', `Full archive emailed to ${user.email}`, 'bg-blue-400');
+                            toast.success(`Data archive sent to ${user.email}!`);
+                          } catch {
+                            toast.dismiss(loadingToast);
+                            toast.error('Failed to compile data. Please try again.');
+                          }
+                        }, icon: Download
+                      },
+                      {
+                        label: 'Clear Search History', action: async () => {
+                          const loadingToast = toast.loading('Clearing search history…');
+                          try {
+                            // 1. Clear all known localStorage search keys
+                            const searchKeys = ['searchHistory', 'recentSearches', 'streamfind_search', 'search_history'];
+                            searchKeys.forEach(k => localStorage.removeItem(k));
+                            // Also scan for any dynamic search keys
+                            Object.keys(localStorage)
+                              .filter(k => k.toLowerCase().includes('search'))
+                              .forEach(k => localStorage.removeItem(k));
+
+                            // 2. Clear from Firestore user document (searchHistory field)
+                            if (user?.uid) {
+                              const db = getFirestore(app);
+                              // Delete the searchHistory field from user doc
+                              await updateDoc(doc(db, `users/${user.uid}`), {
+                                searchHistory: deleteField(),
+                                recentSearches: deleteField(),
+                              });
+                              // Also batch-delete search_history subcollection if it exists
+                              try {
+                                const shDocs = await getDocs(collection(db, `users/${user.uid}/search_history`));
+                                if (!shDocs.empty) {
+                                  const batch = writeBatch(db);
+                                  shDocs.forEach(d => batch.delete(d.ref));
+                                  await batch.commit();
+                                }
+                              } catch { /* subcollection may not exist, fine */ }
+                            }
+
+                            logSecurityEvent(user?.uid, 'Search History Cleared', 'All search history wiped from local storage and Firebase.', 'bg-orange-400');
+                            toast.dismiss(loadingToast);
+                            toast.success('Search history cleared from local storage and Firebase.');
+                          } catch {
+                            toast.dismiss(loadingToast);
+                            toast.error('Failed to clear search history.');
+                          }
+                        }, icon: RefreshCw
+                      },
+                      {
+                        label: 'Clear Watch History', action: async () => {
+                          if (!user?.uid) return;
+                          const loadingToast = toast.loading('Clearing watch history…');
+                          try {
+                            const db = getFirestore(app);
+                            const batch = writeBatch(db);
+                            // Clear Firestore watchlist
+                            const wlDocs = await getDocs(collection(db, `users/${user.uid}/watchlist`));
+                            wlDocs.forEach(d => batch.delete(d.ref));
+                            // Clear Firestore reviews
+                            const rvDocs = await getDocs(collection(db, `users/${user.uid}/reviews`));
+                            rvDocs.forEach(d => batch.delete(d.ref));
+                            await batch.commit();
+                            // Clear local state via props callback if available
+                            // (parent component re-fetches from Firestore, which is now empty)
+                            logSecurityEvent(user?.uid, 'Watch History Cleared', 'Watchlist and reviews wiped from Firebase and local state.', 'bg-red-500');
+                            toast.dismiss(loadingToast);
+                            toast.success('Watch history cleared from all sources.');
+                          } catch {
+                            toast.dismiss(loadingToast);
+                            toast.error('Failed to clear watch history.');
+                          }
+                        }, icon: Trash2
+                      },
+                      {
+                        label: 'Delete Curation Data', action: async () => {
+                          if (!user?.uid) return;
+                          const loadingToast = toast.loading('Deleting curation data…');
+                          try {
+                            const db = getFirestore(app);
+                            // Clear Firestore DNA fields
+                            await updateDoc(doc(db, `users/${user.uid}`), {
+                              dnaMoods: deleteField(),
+                              dnaRuntime: deleteField(),
+                              dnaMinRating: deleteField(),
+                              top10: deleteField(),
+                            });
+                            // Reset local profile state
+                            setProfile(prev => ({
+                              ...prev,
+                              dnaMoods: [],
+                              dnaRuntime: 'none',
+                              dnaMinRating: 7,
+                              top10: undefined,
+                            }));
+                            logSecurityEvent(user?.uid, 'Curation Data Deleted', 'DNA filters and top picks wiped from Firebase and local state.', 'bg-red-500');
+                            toast.dismiss(loadingToast);
+                            toast.success('Curation data deleted from all sources.');
+                          } catch {
+                            toast.dismiss(loadingToast);
+                            toast.error('Failed to delete curation data.');
+                          }
+                        }, icon: AlertCircle
+                      }
                     ].map((item, idx) => (
                       <button
                         key={idx}
@@ -898,14 +1105,14 @@ export default function ProfileSettingsPanel({
                 </div>
               </div>
             )}
-            
+
             {activeSettingTab === 'payment' && (
               <div className="space-y-8 animate-fadeIn">
                 <div className="border-b border-white/5 pb-4">
                   <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Payment Methods</h4>
                   <p className="text-white/40 text-xs mt-1">Manage your billing, saved methods, and premium subscriptions.</p>
                 </div>
-                
+
                 {/* Saved Methods */}
                 <div className="space-y-4">
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Saved Methods</h5>
@@ -989,7 +1196,7 @@ export default function ProfileSettingsPanel({
                   <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Help & Support</h4>
                   <p className="text-white/40 text-xs mt-1">Get assistance, contact support, and view legal documents.</p>
                 </div>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Left Column: FAQ & Legal */}
                   <div className="space-y-8">
@@ -1009,7 +1216,7 @@ export default function ProfileSettingsPanel({
                         ))}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-4 pt-4 border-t border-white/5">
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Legal</h5>
                       <div className="grid grid-cols-2 gap-3">
@@ -1026,7 +1233,7 @@ export default function ProfileSettingsPanel({
                   {/* Right Column: Contact Support */}
                   <div className="space-y-4">
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Contact Support</h5>
-                    
+
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <button className="p-4 rounded-xl bg-brand/10 border border-brand/20 flex flex-col items-center gap-2 hover:bg-brand/20 transition-all">
                         <MessageSquare className="w-5 h-5 text-brand" />
@@ -1041,25 +1248,30 @@ export default function ProfileSettingsPanel({
                     <div className="p-6 rounded-2xl bg-black/20 border border-white/5 space-y-4">
                       <div className="space-y-1">
                         <label className="text-[9px] font-black text-white/30 uppercase tracking-widest">Inquiry Type</label>
-                        <select className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand appearance-none">
-                          <option>Submit Ticket</option>
-                          <option>Feedback</option>
-                          <option>Report Wrong Availability</option>
-                          <option>Report Missing Show/Movie</option>
-                          <option>Suggest New Streaming Service</option>
-                          <option>Feature Requests</option>
-                        </select>
+                        <CustomSelect
+                          value={supportMessage.startsWith('Type:') ? supportMessage.split(':')[1] : 'Submit Ticket'}
+                          onChange={(val) => setSupportMessage(`Type:${val}`)}
+                          options={[
+                            { value: 'Submit Ticket', label: 'Submit Ticket' },
+                            { value: 'Feedback', label: 'Feedback' },
+                            { value: 'Report Wrong Availability', label: 'Report Wrong Availability' },
+                            { value: 'Report Missing Show/Movie', label: 'Report Missing Show/Movie' },
+                            { value: 'Suggest New Streaming Service', label: 'Suggest New Streaming Service' },
+                            { value: 'Feature Requests', label: 'Feature Requests' }
+                          ]}
+                          className="bg-white/5 rounded-xl p-3 text-xs"
+                        />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] font-black text-white/30 uppercase tracking-widest">Your Message</label>
-                        <textarea 
+                        <textarea
                           value={supportMessage}
                           onChange={(e) => setSupportMessage(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand h-24 resize-none"
                           placeholder="Describe your issue or request..."
                         />
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           if (!supportMessage) return toast.error('Please enter a message');
                           setIsSubmittingSupport(true);
@@ -1086,7 +1298,7 @@ export default function ProfileSettingsPanel({
                   <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Watchlists & Tracking</h4>
                   <p className="text-white/40 text-xs mt-1">Organize your movies, monitor watch history, and track releases.</p>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Left Column: My Watchlists */}
                   <div className="space-y-6">
@@ -1114,7 +1326,7 @@ export default function ProfileSettingsPanel({
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Custom Lists</h5>
                       <div className="flex items-end gap-3">
                         <div className="flex-1 space-y-1">
-                          <input 
+                          <input
                             type="text"
                             value={newWatchlistName}
                             onChange={(e) => setNewWatchlistName(e.target.value)}
@@ -1122,7 +1334,7 @@ export default function ProfileSettingsPanel({
                             placeholder="e.g., Sci-Fi Classics"
                           />
                         </div>
-                        <button 
+                        <button
                           onClick={() => {
                             if (!newWatchlistName.trim()) return toast.error('Please enter a list name');
                             setCustomWatchlists(prev => [...prev, { id: Date.now().toString(), name: newWatchlistName, count: 0 }]);
@@ -1142,7 +1354,7 @@ export default function ProfileSettingsPanel({
                               <p className="text-xs font-black text-white">{list.name}</p>
                               <p className="text-[9px] text-white/40 font-medium">{list.count} items</p>
                             </div>
-                            <button 
+                            <button
                               onClick={() => {
                                 setCustomWatchlists(prev => prev.filter(l => l.id !== list.id));
                                 toast.success('Watchlist deleted');
@@ -1163,7 +1375,7 @@ export default function ProfileSettingsPanel({
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Release Calendar</h5>
                       <span className="text-[9px] px-2 py-1 bg-brand/10 text-brand rounded uppercase font-black tracking-widest">Beta</span>
                     </div>
-                    
+
                     <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-5">
                       <div className="flex items-center gap-3 pb-4 border-b border-white/5">
                         <Calendar className="w-8 h-8 text-white/40" />
@@ -1172,7 +1384,7 @@ export default function ProfileSettingsPanel({
                           <p className="text-[10px] text-white/40 mt-0.5">Track movies before they hit streaming.</p>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-3">
                         <h6 className="text-[9px] font-black uppercase tracking-widest text-brand">Content Reminders</h6>
                         <div className="space-y-2">

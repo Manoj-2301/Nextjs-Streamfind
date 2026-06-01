@@ -77,6 +77,7 @@ export default function Browse() {
   const [yearRange, setYearRange] = useState<[number, number] | null>(null);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [language, setLanguage] = useState<string>("All");
+  const [contentType, setContentType] = useState<'movies' | 'tv' | 'both'>("both");
   const [sortBy, setSortBy] = useState("popularity");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isLoading, setIsLoading] = useState(true);
@@ -87,7 +88,13 @@ export default function Browse() {
   const [allAvailablePlatforms, setAllAvailablePlatforms] = useState<WatchProvider[]>([]);
 
   const { user } = useAuth();
-  const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
+  const [profile, setProfile] = useState<{
+    subscriptions: string[];
+    autoFilter: boolean;
+    prefLanguage?: string;
+    dnaMinRating?: number | null;
+    prefContentType?: 'movies' | 'tv' | 'both';
+  } | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
 
   useEffect(() => {
@@ -104,7 +111,10 @@ export default function Browse() {
           const data = docSnap.data();
           setProfile({
             subscriptions: data.subscriptions || [],
-            autoFilter: data.autoFilter ?? false
+            autoFilter: data.autoFilter ?? false,
+            prefLanguage: data.prefLanguage || 'All',
+            dnaMinRating: data.dnaMinRating || null,
+            prefContentType: data.prefContentType || 'both'
           });
         }
       });
@@ -112,6 +122,33 @@ export default function Browse() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Always sync Firestore preferences → local filter state whenever profile changes
+  // This ensures navigating back from Profile Settings reflects latest preferences
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.prefLanguage && profile.prefLanguage !== 'All') {
+      setLanguage(profile.prefLanguage);
+    } else {
+      setLanguage('All');
+    }
+    if (profile.dnaMinRating) {
+      setRating(profile.dnaMinRating);
+    } else {
+      setRating(null);
+    }
+    if (profile.subscriptions && profile.subscriptions.length > 0) {
+      setPlatforms(profile.subscriptions);
+    } else {
+      setPlatforms([]);
+    }
+    if (profile.prefContentType) {
+      setContentType(profile.prefContentType);
+    } else {
+      setContentType('both');
+    }
+    setCurrentPage(1);
+  }, [profile]);
 
   useEffect(() => {
     const loadPlatforms = async () => {
@@ -226,7 +263,8 @@ export default function Browse() {
             sortBy,
             language,
             providerIds,
-            watchRegion
+            watchRegion,
+            contentType
           );
 
           results = data.movies;
@@ -234,8 +272,13 @@ export default function Browse() {
         }
 
         // Apply activePlatforms filter locally for Search mode ONLY, or if server-side provider mapping failed
+        // Only apply local filter if it would produce results (don't blank out due to missing watch provider data)
         if (activePlatforms.length > 0 && (search || !providerIds || providerIds.length === 0)) {
-          results = results.filter(m => m.platforms?.some(p => activePlatforms.some(sub => matchPlatform(sub, p.name))));
+          const localFiltered = results.filter(m => m.platforms?.some(p => activePlatforms.some(sub => matchPlatform(sub, p.name))));
+          // Only apply if we still have results; otherwise show unfiltered (API-side filter already applied)
+          if (localFiltered.length > 0) {
+            results = localFiltered;
+          }
         }
 
         setMovies(results);
@@ -250,7 +293,7 @@ export default function Browse() {
 
     const timer = setTimeout(loadMovies, 500);
     return () => clearTimeout(timer);
-  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language, allAvailablePlatforms]);
+  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language, contentType, allAvailablePlatforms]);
 
   const totalPages = apiTotalPages;
   const currentMovies = movies;
@@ -333,9 +376,14 @@ export default function Browse() {
               setLanguage(l);
               setCurrentPage(1);
             }}
+            onContentTypeChange={(c) => {
+              setContentType(c);
+              setCurrentPage(1);
+            }}
             onSortChange={(s, o) => { setSortBy(s); setSortOrder(o); setCurrentPage(1); }}
             activeGenre={genre}
             activeLanguage={language}
+            activeContentType={contentType}
             activeRating={rating}
             activeYearRange={yearRange}
             selectedPlatforms={platforms}
@@ -348,7 +396,7 @@ export default function Browse() {
       </div>
 
       {/* Active Filters Pills */}
-      {(genre !== "All" || language !== "All" || rating !== null || yearRange !== null || platforms.length > 0) && (
+      {(genre !== "All" || language !== "All" || contentType !== "both" || rating !== null || yearRange !== null || platforms.length > 0) && (
         <div className="flex flex-wrap gap-2 mb-6 items-center bg-white/[0.02] border border-white/5 p-3 rounded-xl backdrop-blur-sm z-30 relative">
           <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mr-2">Active Filters:</span>
           
@@ -358,6 +406,16 @@ export default function Browse() {
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
             >
               Genre: {genre}
+              <span className="text-[10px] opacity-60">×</span>
+            </button>
+          )}
+
+          {contentType !== "both" && (
+            <button
+              onClick={() => { setContentType("both"); setCurrentPage(1); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f0abfc]/5 border border-[#f0abfc]/40 text-xs text-[#f0abfc] hover:bg-[#f0abfc]/15 hover:border-[#f0abfc]/80 hover:shadow-[0_0_12px_rgba(240,171,252,0.4)] transition-all duration-300 font-medium backdrop-blur-md cursor-pointer"
+            >
+              Format: {contentType === 'movies' ? 'Movies Only' : 'TV Shows Only'}
               <span className="text-[10px] opacity-60">×</span>
             </button>
           )}
@@ -410,6 +468,7 @@ export default function Browse() {
             onClick={() => {
               setGenre("All");
               setLanguage("All");
+              setContentType("both");
               setRating(null);
               setYearRange(null);
               setPlatforms([]);
