@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Mail, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getFirestore, doc, updateDoc, collection, addDoc } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+
 import { toast } from 'react-hot-toast';
 
 const STORAGE_KEY = 'sf_newsletter_popup_date';
@@ -43,6 +42,8 @@ export default function NewsletterPopup() {
 
     setIsSubmitting(true);
     try {
+      const { getFirestore, doc, updateDoc, collection, addDoc } = await import('firebase/firestore');
+      const { app } = await import('@/lib/firebase');
       const db = getFirestore(app);
 
       if (user) {

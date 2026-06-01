@@ -1,135 +1,131 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { Star, Play, Bookmark } from 'lucide-react';
+import { Star } from 'lucide-react';
 import Link from 'next/link';
-import { OptimizedImage } from '@/components/ui/optimized-media';
+import Image from 'next/image';
 import { Movie } from '@/types';
-import React from 'react';
-import { useWatchlist } from '@/context/WatchlistContext';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import PlatformBadge from '@/components/ui/platform-badge';
 
 interface MovieCardProps {
   movie: Movie;
-  key?: React.Key;
+  accentColor?: string;
   priority?: boolean;
+  activeGenre?: string;
 }
 
-export default function MovieCard({ movie, priority = false }: MovieCardProps) {
-  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
-  const { user } = useAuth();
-  const router = useRouter();
-  const saved = isInWatchlist(movie.id);
+export default function MovieCard({ movie, accentColor = '#999', priority = false, activeGenre }: MovieCardProps) {
+  const [imgError, setImgError] = useState(false);
+  const [posterIndex, setPosterIndex] = useState(0);
 
-  const toggleWatchlist = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!user) {
-      router.push('/auth');
-      return;
-    }
+  // Collect available image URLs to try
+  const possibleUrls = [movie.posterUrl, movie.backdropUrl].filter(Boolean) as string[];
+  const currentPoster = possibleUrls[posterIndex];
 
-    if (saved) {
-      removeFromWatchlist(movie.id);
+  const handleImgError = () => {
+    if (posterIndex < possibleUrls.length - 1) {
+      setPosterIndex(p => p + 1);
     } else {
-      addToWatchlist(movie);
+      setImgError(true);
     }
+  };
+
+  const primaryPlatform = movie.platforms?.[0];
+  
+  // Prioritize displaying the selected/active genre if it matches one of the movie's genres
+  const displayGenre = React.useMemo(() => {
+    if (!movie.genre || movie.genre.length === 0) return '';
+    if (activeGenre && activeGenre !== 'All') {
+      const normSelected = activeGenre.toLowerCase().trim();
+      const matched = movie.genre.find(g => {
+        const normG = g.toLowerCase().trim();
+        return normG === normSelected || 
+               normG.includes(normSelected) || 
+               (normSelected === 'sci-fi' && normG.includes('science fiction'));
+      });
+      if (matched) return matched;
+    }
+    return movie.genre[0];
+  }, [movie.genre, activeGenre]);
+
+  const formatDate = (dateString?: string, year?: number | string) => {
+    if (dateString) {
+      const d = new Date(dateString);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    if (year) return year.toString();
+    return '';
   };
 
   return (
     <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`}>
       <motion.div
-        whileHover={{ scale: 1.03, y: -6 }}
-        transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-        className="relative group/card w-full aspect-[2/3] rounded-xl md:rounded-2xl overflow-hidden bg-[#111] border border-white/5 hover:border-brand/50 shadow-xl hover:shadow-[0_15px_40px_rgba(229,9,20,0.25)] transition-all duration-500"
+        whileHover={{ scale: 1.03 }}
+        className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all flex-shrink-0"
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-brand/0 via-brand/0 to-brand/10 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none z-10" />
-        {/* Poster Image */}
-        <OptimizedImage
-          src={movie.posterUrl}
-          alt={movie.title}
-          fill
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          className="object-cover transition-transform duration-500 group-hover/card:scale-105"
-          priority={priority}
-        />
+        {/* Background Image / Fallback */}
+        {imgError || !currentPoster ? (
+          <div className="absolute inset-0 flex items-center justify-center p-4 bg-[#141414] text-center">
+            <span className="font-serif font-bold text-white text-sm">{movie.title}</span>
+          </div>
+        ) : (
+          <Image
+            src={currentPoster}
+            alt={movie.title}
+            fill
+            className="object-cover"
+            onError={handleImgError}
+            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            priority={priority}
+          />
+        )}
 
-        {/* Binge Worthy Badge */}
-        {movie.rating >= 7.5 && (
-          <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-brand/90 backdrop-blur-md border border-white/20 text-white font-black text-[7px] md:text-[8px] uppercase tracking-widest px-2.5 py-1.5 rounded-full shadow-[0_4px_12px_rgba(255,40,78,0.4)] z-30 flex items-center gap-1.5 scale-95 group-hover/card:scale-100 transition-transform">
-            <span className="animate-pulse drop-shadow-md">🔥</span>
-            <span>Hot</span>
+        {/* Dark Gradient bottom 60% */}
+        <div className="absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/80 to-transparent pointer-events-none" />
+
+        {/* Top-Left: Platform Badge (if trending/active, for now show if we have platform) */}
+        {primaryPlatform && (
+          <div className="absolute top-2.5 left-2.5 z-10 border border-white/15 rounded-md overflow-hidden shadow-lg flex items-center justify-center bg-[#0f0f0f]">
+            <PlatformBadge platform={primaryPlatform} showLabel={false} size="md" className="!gap-0" />
           </div>
         )}
 
-        {/* Permanent Bottom Black Gradient for text readability */}
-        <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent pointer-events-none z-10 opacity-90" />
-
-        {/* Watchlist Bookmark (Hover only) */}
-        <button
-          onClick={toggleWatchlist}
-          aria-label={saved ? "Remove from watchlist" : "Add to watchlist"}
-          className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 z-30 opacity-0 group-hover/card:opacity-100 ${
-            saved 
-              ? 'bg-brand text-white shadow-[0_0_10px_rgba(229,9,20,0.5)] !opacity-100' 
-              : 'bg-black/60 text-white/80 hover:text-white hover:bg-black/80'
-          }`}
-        >
-          <Bookmark className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} />
-        </button>
-
-        {/* Content Overlay */}
-        <div className="absolute inset-x-0 bottom-0 p-3 md:p-4 md:pb-5 flex flex-col justify-end z-20 w-full overflow-hidden">
-          <p className="text-sm md:text-base font-black text-white uppercase tracking-tight line-clamp-1 mb-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] group-hover/card:text-brand transition-colors duration-300">
-            {movie.title}
-          </p>
-          
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="bg-white/10 backdrop-blur-sm border border-white/10 text-white/90 text-[8px] md:text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded-sm shadow-sm">
-              {movie.releaseDate ? new Date(movie.releaseDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : movie.year ? `'${String(movie.year).slice(-2)}` : ''}
+        {/* Top-Right: Genre Chip */}
+        {displayGenre && (
+          <div className="absolute top-2.5 right-2.5 z-10 bg-[#0a0a0a]/90 backdrop-blur-md border border-white/10 px-2 py-1 rounded-md shadow-md flex items-center justify-center">
+            <span className="font-sans text-[9px] font-black uppercase tracking-wider text-white/95 leading-none">
+              {displayGenre}
             </span>
-            <div className="flex items-center gap-1">
-              <Star className="w-3 h-3 text-yellow-500 fill-yellow-500 drop-shadow-[0_0_5px_rgba(234,179,8,0.5)]" />
-              <span className="text-[10px] font-bold text-white drop-shadow-md">{movie.rating}</span>
-            </div>
           </div>
+        )}
 
-          <div className="flex flex-wrap gap-1.5 mb-1">
-            {movie.platforms && movie.platforms.slice(0, 2).map((p, i) => {
-              const isPartner = p.isSponsored || (p as any).isPartner;
-              // Highlight the first provider (main provider) or partner
-              const isMain = i === 0;
-              
-              return (
-                <div
-                  key={i}
-                  className={`text-[8px] md:text-[9px] px-1.5 py-0.5 rounded-sm border flex items-center gap-1 transition-colors ${
-                    isPartner 
-                      ? 'border-brand/50 bg-brand/10 text-brand font-black shadow-[0_0_10px_rgba(229,9,20,0.2)]' 
-                      : isMain
-                        ? 'border-white/30 bg-white/20 text-white font-bold shadow-sm'
-                        : 'border-white/10 bg-white/5 text-white/70'
-                  }`}
-                  title={p.name}
-                >
-                  {p.name}
-                </div>
-              );
-            })}
-            {movie.platforms && movie.platforms.length > 2 && (
-              <div className="text-[8px] md:text-[9px] px-1.5 py-0.5 rounded-sm border border-white/10 bg-white/5 text-white/70 flex items-center">
-                +{movie.platforms.length - 2}
+        {/* Bottom Content */}
+        <div className="absolute bottom-0 inset-x-0 p-3 z-10 flex flex-col">
+          <div className="font-mono text-[9px] uppercase tracking-widest mb-1 truncate" style={{ color: accentColor }}>
+            {displayGenre || 'Unknown'} · {movie.language || 'EN'}
+          </div>
+          
+          <h3 className="font-serif text-[13px] text-white font-bold leading-tight mb-1.5 line-clamp-2">
+            {movie.title}
+          </h3>
+
+          <div className="flex items-center justify-between mt-auto">
+            <span className="font-mono text-[9px] text-[#999]">
+              {formatDate(movie.releaseDate, movie.year)}
+            </span>
+            
+            {movie.rating > 0 && (
+              <div className="flex items-center gap-1">
+                <Star 
+                  className={`w-3 h-3 fill-current ${
+                    movie.rating >= 8.0 ? 'text-[#22C55E]' : 
+                    movie.rating >= 6.5 ? 'text-[#F59E0B]' : 'text-[#E50914]'
+                  }`} 
+                />
+                <span className="font-mono text-[10px] text-white font-bold">{movie.rating.toFixed(1)}</span>
               </div>
             )}
-          </div>
-
-          {/* VIEW DETAILS Button (Hover only) */}
-          <div className="h-0 opacity-0 group-hover/card:h-9 group-hover/card:opacity-100 group-hover/card:mt-3 transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] overflow-hidden">
-            <button className="w-full h-full bg-gradient-to-r from-brand to-red-600 hover:from-red-600 hover:to-red-700 text-white text-[10px] font-black rounded-lg transition-all tracking-[0.2em] uppercase flex items-center justify-center shadow-[0_0_15px_rgba(229,9,20,0.4)]">
-              View Details
-            </button>
           </div>
         </div>
       </motion.div>

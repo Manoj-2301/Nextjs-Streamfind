@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Movie } from '@/types';
 import { searchMovies } from '@/services/tmdbService';
+import Image from 'next/image';
 
 export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
@@ -60,6 +61,8 @@ export default function GlobalSearch() {
     <div className="relative" ref={containerRef}>
       <button 
         onClick={() => setIsOpen(true)}
+        aria-label="Toggle Search"
+        aria-expanded={isOpen}
         className="p-2 text-white/70 hover:text-brand transition-colors"
       >
         <Search className="w-5 h-5" />
@@ -104,11 +107,13 @@ export default function GlobalSearch() {
                       onClick={() => handleSelect(movie)}
                       className="flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-all text-left group"
                     >
-                      <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0">
-                        <img 
+                      <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0 relative">
+                        <Image 
                           src={movie.posterUrl} 
                           alt={movie.title} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                          fill
+                          sizes="48px"
+                          className="object-cover group-hover:scale-110 transition-transform"
                           referrerPolicy="no-referrer"
                         />
                       </div>

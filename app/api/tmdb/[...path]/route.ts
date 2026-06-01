@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -12,7 +10,43 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
+    // Security: Validate CORS Origin
+    const origin = request.headers.get('origin');
+    if (origin) {
+      const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+      const isProductionOrigin = origin === 'https://streamfinds.vercel.app';
+      
+      if (process.env.NODE_ENV === 'production' && !isProductionOrigin) {
+        return NextResponse.json({ error: 'Forbidden: Invalid CORS origin' }, { status: 403 });
+      } else if (process.env.NODE_ENV !== 'production') {
+        const isLan = origin.startsWith('http://192.168.') || origin.startsWith('http://10.');
+        if (!isLocalhost && !isProductionOrigin && !isLan) {
+          // Allow LAN access for testing on mobile devices
+          return NextResponse.json({ error: 'Forbidden: Invalid CORS origin' }, { status: 403 });
+        }
+      }
+    }
+
     const path = resolvedParams.path.join('/');
+
+    // Security: Only allow specific TMDB endpoint prefixes to prevent proxy abuse
+    const allowedPaths = [
+      /^movie\//,
+      /^tv\//,
+      /^search\//,
+      /^discover\//,
+      /^trending\//,
+      /^person\//,
+      /^genre\//,
+      /^watch\//,
+      /^watch\/providers\//
+    ];
+
+    const isAllowed = allowedPaths.some(regex => regex.test(path));
+    if (!isAllowed) {
+      return NextResponse.json({ error: 'Forbidden: Endpoint not allowed by proxy' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
 
     // Append private API key (always fetch from server envs)
@@ -21,16 +55,33 @@ export async function GET(
       return NextResponse.json({ error: 'TMDB API key not configured' }, { status: 500 });
     }
 
-    // Build target URL
-    const query = new URLSearchParams(searchParams);
-    query.delete('path');
+    // Build target URL without duplicate params or Next.js route segments
+    const query = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+      // Exclude framework-injected dynamic route segment keys like 'path'
+      if (key !== 'path') {
+        if (key === 'page') {
+          // Keep page parameter within TMDB's strict integer bounds [1, 500]
+          const pageVal = Math.max(1, Math.min(500, Math.floor(Number(value) || 1)));
+          query.set(key, pageVal.toString());
+        } else {
+          query.set(key, value); // use .set() instead of .append() to de-duplicate
+        }
+      }
+    });
     query.set('api_key', apiKey);
     const targetUrl = `https://api.themoviedb.org/3/${path}?${query.toString()}`;
 
-    const response = await fetch(targetUrl);
+    const response = await fetch(targetUrl, { next: { revalidate: 3600 } });
     if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
       return NextResponse.json(
-        { error: `TMDB API error: ${response.statusText}` },
+        { 
+          error: `TMDB API error: ${response.statusText}`,
+          targetUrl,
+          responseText,
+          status: response.status
+        },
         { status: response.status }
       );
     }

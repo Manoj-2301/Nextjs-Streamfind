@@ -1,27 +1,19 @@
-import React from 'react';
-
 export default function MovieCardSkeleton() {
   return (
-    <div className="relative group/card w-full aspect-[2/3] rounded-2xl overflow-hidden bg-white/5 border border-white/5 animate-pulse">
-      {/* Aspect Ratio Container for Poster */}
-      <div className="absolute inset-0 bg-white/5" />
+    <div className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#111] border border-[#1a1a1a] flex-shrink-0 animate-pulse">
+      {/* Full Area Pulse */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-[#1a1a1a] to-[#222]" />
       
-      {/* Bottom overlay skeleton */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex flex-col gap-2">
-        {/* Title skeleton */}
-        <div className="h-5 bg-white/10 rounded w-3/4" />
-        
-        {/* Rating/Year skeleton */}
-        <div className="flex gap-2">
-          <div className="h-3.5 bg-white/10 rounded w-1/4" />
-          <div className="h-3.5 bg-white/10 rounded w-1/4" />
-        </div>
+      {/* Dark Gradient bottom 60% */}
+      <div className="absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/80 to-transparent pointer-events-none" />
 
-        {/* Platform badges skeleton */}
-        <div className="flex gap-1.5 mt-1">
-          <div className="w-5 h-5 rounded-full bg-white/10" />
-          <div className="w-5 h-5 rounded-full bg-white/10" />
-        </div>
+      {/* Content Blocks */}
+      <div className="absolute bottom-0 inset-x-0 p-3 z-10 flex flex-col justify-end">
+        {/* Title bar (70% width) */}
+        <div className="h-4 bg-[#222] rounded w-[70%] mb-2" />
+        
+        {/* Meta bar (40% width) */}
+        <div className="h-3 bg-[#222] rounded w-[40%]" />
       </div>
     </div>
   );

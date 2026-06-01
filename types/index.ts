@@ -1,6 +1,7 @@
 export interface Platform {
   name: string;
   logo: string;
+  logoUrl?: string;
   watchUrl: string;
   isSponsored?: boolean;
   countries?: string[];
@@ -36,4 +37,42 @@ export interface Movie {
   trailerSite?: string;
   type?: 'movie' | 'tv';
   originalLanguage?: string;
+  language?: string;
+}
+
+export interface ProfileSettings {
+  bio?: string;
+  favoriteGenres?: string[];
+  subscriptions?: string[];
+  notifyNewRelease?: boolean;
+  notifyFavGenres?: boolean;
+  notifyLeavingSoon?: boolean;
+  isPublic?: boolean;
+  avatarFrame?: 'none' | 'neon' | 'gold' | 'ghost';
+  top10?: any[];
+  autoFilter?: boolean;
+  photoURL?: string;
+  email?: string;
+  displayName?: string;
+  weeklyDigest?: boolean;
+  watchRegion?: string;
+  notifyNewEpisodes?: boolean;
+  notifyNewSeasons?: boolean;
+  notifyPlatformAdded?: boolean;
+  notifyNewFeatures?: boolean;
+  notifyTrendingGenres?: boolean;
+  notifyWatchHistoryRecs?: boolean;
+  notifySimilarContent?: boolean;
+  channelEmail?: boolean;
+  channelPush?: boolean;
+  channelBrowser?: boolean;
+  prefLanguage?: string;
+  prefContentType?: 'movies' | 'tv' | 'both';
+  dnaMoods?: string[];
+  dnaRuntime?: '90m' | '120m' | 'none';
+  securityAlertNewDevice?: boolean;
+  securityAlertSuspicious?: boolean;
+  securityAlertProfileChange?: boolean;
+  securityAlertWeeklyDigest?: boolean;
+  plan?: 'free' | 'premium';
 }

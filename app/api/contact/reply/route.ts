@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { escapeHtml } from '@/lib/utils';
 
 // ─── Nodemailer transporter ───────────────────────────────
 function createTransporter() {
@@ -80,26 +81,29 @@ export async function POST(request: Request) {
               Reply to Your Query
             </h2>
             <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(255,255,255,0.6);">
-              Hi ${name || 'there'}, our support team has replied to your query.
+              Hi ${escapeHtml(name || 'there')}, our support team has replied to your query.
             </p>
           </td>
         </tr>
       </table>
 
-      ${originalMessage ? `
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
         <tr>
           <td>
             <p style="margin:0 0 4px 0;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.3);">
-              Your Original Message
+              Email Address
             </p>
-            <div style="background-color:#111111;border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:12px 16px;">
-              <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.6;white-space:pre-wrap;">${originalMessage}</p>
+            <p style="margin:0;font-size:14px;color:#ffffff;">
+              ${escapeHtml(email)}
+            </p>
+            ${originalMessage ? `
+            <div style="background-color:#111111;border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:12px 16px;margin-top:10px;">
+              <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.6;white-space:pre-wrap;">${escapeHtml(originalMessage)}</p>
             </div>
+            ` : ''}
           </td>
         </tr>
       </table>
-      ` : ''}
 
       <table border="0" cellpadding="0" cellspacing="0" width="100%">
         <tr>
@@ -107,8 +111,8 @@ export async function POST(request: Request) {
             <p style="margin:0 0 4px 0;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.3);">
               Admin Reply
             </p>
-            <div style="background-color:#111111;border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:16px 20px;">
-              <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.9);line-height:1.6;white-space:pre-wrap;">${replyMessage}</p>
+            <div style="background-color:rgba(255,40,78,0.05);border:1px solid rgba(255,40,78,0.2);border-left:3px solid #ff284e;border-radius:10px;padding:16px 20px;">
+              <p style="margin:0;font-size:13px;color:#ffffff;line-height:1.6;white-space:pre-wrap;">${escapeHtml(replyMessage)}</p>
             </div>
           </td>
         </tr>

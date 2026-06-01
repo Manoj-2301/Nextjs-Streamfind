@@ -7,6 +7,7 @@ import { useAuth } from './AuthContext';
 import { app } from '@/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 import { logUserActivity } from '@/lib/genreTracker';
+import { toast } from 'react-hot-toast';
 
 interface WatchlistContextType {
   watchlist: Movie[];
@@ -122,7 +123,17 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
 
     const path = `users/${user.uid}/watchlist/${movie.id}`;
     try {
-      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      
+      // Check limit for new additions
+      if (!isInWatchlist(movie.id) && watchlist.length >= 15) {
+        const userDoc = await getDoc(doc(getFirestore(app), `users/${user.uid}`));
+        if (userDoc.data()?.plan !== 'premium') {
+          toast.error("Upgrade to Premium to add more than 15 movies to your Watchlist!");
+          return;
+        }
+      }
+
       await setDoc(doc(getFirestore(app), path), {
         ...movie,
         addedAt: serverTimestamp()

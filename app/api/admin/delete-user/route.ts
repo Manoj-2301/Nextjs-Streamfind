@@ -3,16 +3,29 @@ import { admin } from '@/lib/firebaseAdmin';
 
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
+    }
+    const token = authHeader.split('Bearer ')[1];
+
+    // Verify token and verify admin rights
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(token);
+    } catch (e) {
+      return NextResponse.json({ error: 'Unauthorized: Token verification failed' }, { status: 401 });
+    }
+
+    if (decodedToken.email !== 'mt398401@gmail.com') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
-    const { uid, adminEmail } = body;
+    const { uid } = body;
 
     if (!uid) {
       return NextResponse.json({ error: 'Missing required field: uid' }, { status: 400 });
-    }
-
-    // Basic authorization check: verify it's the admin calling this
-    if (adminEmail !== 'mt398401@gmail.com') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     // Attempt to delete the user from Firebase Authentication

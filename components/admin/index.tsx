@@ -68,10 +68,16 @@ export default function AdminComponent() {
 
         // Sync users with Firebase Auth to purge deleted users
         try {
+          const { getAuth } = await import('firebase/auth');
+          const auth = getAuth(app);
+          const token = await auth.currentUser?.getIdToken();
+          
           await fetch('/api/admin/sync-users', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminEmail: user.email })
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
           });
         } catch (e) {
           console.warn('Failed to sync users with auth:', e);
@@ -378,10 +384,15 @@ export default function AdminComponent() {
       try {
         const { getAuth } = await import('firebase/auth');
         const auth = getAuth(app);
+        const token = await auth.currentUser?.getIdToken();
+        
         const res = await fetch('/api/admin/delete-user', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: userId, adminEmail: auth.currentUser?.email })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ uid: userId })
         });
         const data = await res.json();
         if (!res.ok) {

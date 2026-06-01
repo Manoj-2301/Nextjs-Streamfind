@@ -1,15 +1,17 @@
 'use client';
 import { getFirestore } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
+import { toast } from 'react-hot-toast';
 
 const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), { 
   ssr: true,
@@ -30,28 +32,36 @@ export default function Home({
   initialSciFi = [],
   initialPopular = []
 }: HomeProps) {
+  const router = useRouter();
   const [trending, setTrending] = useState<Movie[]>(initialTrending);
   const [upcoming, setUpcoming] = useState<Movie[]>(initialUpcoming);
   const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
   const [recommendations, setRecommendations] = useState<Movie[]>(initialPopular);
   const [recSource, setRecSource] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(initialTrending.length === 0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { watchlist } = useWatchlist();
   const { user } = useAuth();
-  const [profile, setProfile] = useState<{ subscriptions: string[]; autoFilter: boolean } | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
+  const [heroFallback, setHeroFallback] = useState<Movie[]>(initialTrending);
   const [featuredPartner, setFeaturedPartner] = useState<{
     movieName: string;
     providerName: string;
     offerText?: string;
     affiliateUrl: string;
   } | null>(null);
+  const [affiliateLinks, setAffiliateLinks] = useState<any>({});
+  // Track whether the profile has been fetched at least once to avoid flicker
+  const [profileReady, setProfileReady] = useState(!user); // true immediately if no user
 
   useEffect(() => {
     if (!user) {
       setProfile(null);
+      setProfileReady(true);
       return;
     }
+    setProfileReady(false);
     let unsubscribe = () => {};
 
     import('firebase/firestore').then(({ doc, onSnapshot }) => {
@@ -61,32 +71,70 @@ export default function Home({
           const data = docSnap.data();
           setProfile({
             subscriptions: data.subscriptions || [],
-            autoFilter: data.autoFilter ?? false
+            autoFilter: data.autoFilter ?? false,
+            prefLanguage: data.prefLanguage || 'en',
+            watchRegion: data.watchRegion || 'IN',
+            dnaMoods: data.dnaMoods || [],
+            dnaRuntime: data.dnaRuntime,
+
+            prefContentType: data.prefContentType || 'both'
           });
         }
+        // Mark profile as ready after first snapshot (even if doc doesn't exist)
+        setProfileReady(true);
       });
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        let currentTrending = trending;
-        let currentSciFi = sciFi;
+  const filterKey = useMemo(() => JSON.stringify({
+    autoFilter: profile?.autoFilter,
+    dnaMoods: profile?.dnaMoods,
+    subscriptions: profile?.subscriptions,
+    prefLanguage: profile?.prefLanguage,
+    watchRegion: profile?.watchRegion,
+    dnaRuntime: profile?.dnaRuntime,
 
-        if (trending.length === 0 || sciFi.length === 0 || upcoming.length === 0) {
-          const [trendingData, upcomingData, sciFiData] = await Promise.all([
-            getTrendingMovies(),
-            getUpcomingMovies(),
-            getMoviesByGenre(878) // 878 is Sci-Fi genre ID in TMDB
-          ]);
-          currentTrending = trendingData;
-          currentSciFi = sciFiData;
-          setTrending(trendingData);
-          setUpcoming(upcomingData);
-          setSciFi(sciFiData);
+    prefContentType: profile?.prefContentType,
+  }), [profile]);
+
+  useEffect(() => {
+    // Wait until the authenticated user's profile has been fetched from Firestore
+    if (!profileReady) return;
+
+    const loadData = async () => {
+      // First load with no data: show full spinner. Re-fetches: show subtle refreshing bar.
+      const hasData = trending.length > 0 || heroFallback.length > 0;
+      if (!hasData) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      try {
+        // Always fetch fresh data when profile preferences change
+        const [trendingData, upcomingData, sciFiData] = await Promise.all([
+          getTrendingMovies(profile || undefined),
+          getUpcomingMovies(profile || undefined),
+          getMoviesByGenre(878, profile || undefined) // 878 is Sci-Fi genre ID in TMDB
+        ]);
+
+        setTrending(trendingData);
+        setUpcoming(upcomingData);
+        setSciFi(sciFiData);
+        
+        console.log("CLIENT FETCH RESULTS:", {
+          trendingCount: trendingData.length,
+          upcomingCount: upcomingData.length,
+          sciFiCount: sciFiData.length
+        });
+
+        // If filters narrowed results to 0, fetch unfiltered popular content for the hero
+        if (trendingData.length === 0) {
+          const fallbackData = await getPopularMovies(undefined);
+          setHeroFallback(fallbackData.slice(0, 5));
+        } else {
+          setHeroFallback(trendingData.slice(0, 5));
         }
 
         // Fetch Recommendations based on watchlist
@@ -116,23 +164,22 @@ export default function Home({
             setRecSource("your watchlist");
           }
         } else {
-          if (recommendations.length === 0) {
-            const popularData = await getPopularMovies();
-            setRecommendations(popularData);
-          }
+          const popularData = await getPopularMovies(profile || undefined);
+          setRecommendations(popularData);
           setRecSource(null);
         }
 
         // Fetch Featured Partner
         const { getAffiliateLinks } = await import('@/services/affiliateService');
         const links = await getAffiliateLinks();
+        setAffiliateLinks(links);
         const featuredKey = Object.keys(links).find(key => {
           const linkData = links[key];
           return typeof linkData === 'object' && linkData?.isFeatured;
         });
 
-        if (featuredKey && currentTrending.length > 0) {
-          const topMovie = currentTrending[0];
+        if (featuredKey && trendingData.length > 0) {
+          const topMovie = trendingData[0];
           const linkData = links[featuredKey] as any;
           
           const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
@@ -157,46 +204,37 @@ export default function Home({
         console.error('Error loading home data:', error);
       } finally {
         setIsLoading(false);
+        setIsRefreshing(false);
       }
     };
     loadData();
-  }, [watchlist.length]);
-  if (isLoading) {
+  }, [watchlist.length, profileReady, filterKey]);
+  if (isLoading && trending.length === 0 && heroFallback.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-12 h-12 text-brand animate-spin" />
-        <p className="text-white/40 font-black tracking-widest uppercase text-xs">Syncing with Cinema...</p>
-      </div>
+      <div className="w-full h-[75vh] md:h-[90vh] bg-surface animate-pulse rounded-none" />
     );
   }
 
-  const matchPlatform = (userSub: string, moviePlatform: string) => {
-    const norm = (s: string) => s.toLowerCase().replace(/amazon/g, '').replace(/video/g, '').replace(/prime/g, 'prime').trim();
-    return norm(userSub) === norm(moviePlatform);
-  };
+  const filteredTrending = trending;
+  const filteredUpcoming = upcoming;
+  const filteredSciFi = sciFi;
+  const filteredRecs = recommendations;
 
-  const filterBySubs = (movieList: Movie[]) => {
-    if (!profile || !profile.autoFilter || profile.subscriptions.length === 0) {
-      return movieList;
-    }
-    return movieList.filter(movie => 
-      movie.platforms && movie.platforms.some(platform => 
-        profile.subscriptions.some(sub => matchPlatform(sub, platform.name))
-      )
-    );
-  };
-
-  const filteredTrending = filterBySubs(trending);
-  const filteredUpcoming = filterBySubs(upcoming);
-  const filteredSciFi = filterBySubs(sciFi);
-  const filteredRecs = filterBySubs(recommendations);
-
-  const featuredMovies = filteredTrending.length > 0 ? filteredTrending.slice(0, 5) : trending.slice(0, 5);
+  // Hero always uses the best available: filtered trending, or fallback popular content
+  const featuredMovies = filteredTrending.length > 0
+    ? filteredTrending.slice(0, 5)
+    : heroFallback.slice(0, 5);
   const topRated = [...filteredTrending].sort((a, b) => b.rating - a.rating);
 
   return (
     <div className="bg-background">
-      <HeroSection movies={featuredMovies} />
+      {/* Subtle refresh indicator at top */}
+      {isRefreshing && (
+        <div className="fixed top-0 left-0 right-0 z-[100] h-0.5 bg-brand/20 overflow-hidden">
+          <div className="h-full bg-brand animate-[slide-right_1.2s_ease-in-out_infinite]" style={{ width: '40%', animation: 'slideRight 1.2s ease-in-out infinite' }} />
+        </div>
+      )}
+      <HeroSection movies={featuredMovies} affiliateLinks={affiliateLinks} />
 
       <div className="relative z-20 space-y-4 md:space-y-8 pb-14 -mt-10 md:-mt-20">
         {filteredRecs.length > 0 && (
@@ -288,7 +326,7 @@ export default function Home({
                       </button>
                     </div>
                     <p className="text-xs text-white/50 mt-1.5 leading-relaxed">
-                      Filtering library to show only movies on your active subscriptions: <strong className="text-white font-bold">{profile.subscriptions.join(', ')}</strong>.
+                      Filtering library to match your Cinema DNA: <strong className="text-white font-bold">{[...(profile.subscriptions || []), ...(profile.dnaMoods || [])].join(', ') || 'Custom Filters'}</strong>.
                     </p>
                     <div className="flex gap-2 mt-4">
                       <button 
@@ -332,6 +370,10 @@ export default function Home({
                 whileTap={{ scale: 0.95 }}
                 onClick={async (e) => {
                   e.stopPropagation();
+                  if (profile.plan !== 'premium') {
+                    toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment');
+                    return;
+                  }
                   try {
                     const { doc, updateDoc } = await import('firebase/firestore');
                     await updateDoc(doc(getFirestore(app), `users/${user!.uid}`), { autoFilter: true });
@@ -340,10 +382,15 @@ export default function Home({
                     console.error(e);
                   }
                 }}
-                className="bg-black/95 hover:bg-black/100 border border-white/10 hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest text-white/80 hover:text-brand cursor-pointer transition-all duration-300 backdrop-blur-md animate-bounce-subtle"
+                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 backdrop-blur-md animate-bounce-subtle ${
+                  profile.plan !== 'premium'
+                    ? 'border-white/5 text-white/40 cursor-not-allowed opacity-80'
+                    : 'border-white/10 text-white/80 hover:text-brand hover:bg-black/100 cursor-pointer'
+                }`}
               >
                 <span>🍿</span>
                 <span>Enable Subs DNA Filter</span>
+                {profile.plan !== 'premium' && <span className="ml-1 opacity-50">🔒</span>}
               </motion.button>
             )}
           </motion.div>

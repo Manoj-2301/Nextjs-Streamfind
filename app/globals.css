@@ -1,35 +1,26 @@
 @import "tailwindcss";
 
+
 @theme {
-  --color-brand: #e50914;
-  --color-background: #0a0a0a;
-  --color-surface: #121212;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
+  --color-brand: #f0abfc;
+  --color-accent: #e879f9;
+  --color-background: #080009;
+  --color-surface: #10001a;
+  --color-surface-2: #18002a;
+  --color-text: #fdf4ff;
+  --font-display: "Bebas Neue", sans-serif;
+  --font-sans: "Space Grotesk", ui-sans-serif, sans-serif;
   --font-accent: "Bebas Neue", sans-serif;
 }
 
+
+
+
+
+
 @layer base {
-
-  html.lenis,
-  html.lenis body {
-    height: auto;
-  }
-
-  .lenis.lenis-smooth {
-    scroll-behavior: auto !important;
-  }
-
-  .lenis.lenis-smooth [data-lenis-prevent] {
-    overscroll-behavior: contain;
-  }
-
-  .lenis.lenis-stopped {
-    overflow: hidden;
-  }
-
-  .lenis.lenis-scrolling iframe {
-    pointer-events: none;
+  html {
+    scroll-behavior: auto;
   }
 
   body {
@@ -37,6 +28,11 @@
     color: #ffffff;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Global Accessibility: Ensure all focusable elements have a visible ring */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-background;
   }
 
   h1,
@@ -47,6 +43,7 @@
     font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [role="switch"]:not([aria-disabled="true"]),
@@ -106,18 +103,22 @@
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 9999px;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.08);
     border-radius: 9999px;
     transition: background 0.2s ease;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(229, 9, 20, 0.5);
   }
+
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
@@ -150,14 +151,17 @@
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 @keyframes marquee {
   0% {
     transform: translateX(0);
   }
+
   100% {
     transform: translateX(-50%);
   }
@@ -172,4 +176,9 @@
 
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+@keyframes slideRight {
+  0% { transform: translateX(-150%); }
+  100% { transform: translateX(350%); }
 }

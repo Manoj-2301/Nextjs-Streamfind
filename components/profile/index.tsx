@@ -6,42 +6,26 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings, UserReview } from '@/context/RatingContext';
-import { searchMovies, getMovieAdditionalDetails, MovieAdditionalDetails } from '@/services/tmdbService';
+import { getMovieAdditionalDetails, MovieAdditionalDetails } from '@/services/tmdbService';
 import { Movie } from '@/types';
-import {  storage , app } from '@/lib/firebase';
+import { app } from '@/lib/firebase';
 import { doc, setDoc, onSnapshot, collection, query } from 'firebase/firestore';
 import { updateProfile, verifyBeforeUpdateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  User as UserIcon, Settings, Star, Film, Tv, Award, Plus, Trash2,
+  User as UserIcon, Settings, Star, Film, Tv, Award,
   Zap, Activity, History, Shield, Bell, Lock, Globe, Share2,
-  Check, Mail, ArrowUp, ArrowDown, Search, Heart, LogOut, CheckCircle2,
-  Coffee, Trophy, Clock, Camera, X, CornerDownRight, ChevronLeft, ChevronRight
+  Check, Mail, Heart, LogOut, CheckCircle2,
+  Coffee, Trophy, Clock, Camera, X, CornerDownRight, ChevronLeft, ChevronRight,
+  CreditCard, HelpCircle, ShieldCheck
 } from 'lucide-react';
-import {
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip
-} from 'recharts';
-import { computeRadarData, getUserActivities, clearUserActivities, UserActivity } from '@/lib/genreTracker';
+import ProfileSettingsPanel from '../profile-settings';
 
-interface ProfileSettings {
-  bio: string;
-  favoriteGenres: string[];
-  subscriptions: string[];
-  notifyNewRelease: boolean;
-  notifyFavGenres: boolean;
-  notifyLeavingSoon: boolean;
-  isPublic: boolean;
-  avatarFrame: 'none' | 'neon' | 'gold' | 'ghost';
-  top10: Movie[];
-  autoFilter?: boolean;
-  photoURL?: string;
-  email?: string;
-  displayName?: string;
-}
+import { revalidatePage } from '@/app/actions/revalidate';
+import { ProfileSettings } from '@/types';
 
 const AVAILABLE_GENRES = [
   'Sci-Fi', 'Action', 'Drama', 'Thriller', 'Comedy', 'Horror', 'Romance', 'Mystery', 'Adventure', 'Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'
@@ -52,12 +36,12 @@ const STREAMING_PLATFORMS = [
   { id: 'disney', name: "Disney+", logo: "D", color: "bg-blue-600" },
   { id: 'prime', name: "Prime Video", logo: "P", color: "bg-cyan-500" },
   { id: 'hbo', name: "HBO Max", logo: "H", color: "bg-purple-600" },
-  { id: 'hotstar', name: "Hotstar", logo: "H", color: "bg-green-600" },
+  { id: 'hotstar', name: "Hotstar", logo: "H", color: "bg-blue-500" },
   { id: 'jiocinema', name: "JioCinema", logo: "J", color: "bg-pink-600" },
   { id: 'sonyliv', name: "SonyLIV", logo: "S", color: "bg-yellow-500" },
   { id: 'aha', name: "Aha", logo: "A", color: "bg-orange-500" },
   { id: 'zee5', name: "Zee5", logo: "Z", color: "bg-indigo-500" },
-  { id: 'apple', name: "Apple TV", logo: "A", color: "bg-slate-700" },
+  { id: 'apple', name: "Apple TV+", logo: "A", color: "bg-slate-700" },
 ];
 
 const frames = [
@@ -89,14 +73,6 @@ export default function ProfileComponent() {
   useEffect(() => {
     setIsMounted(true);
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('streamfind_cleared_timeline_ids');
-      if (stored) {
-        try {
-          setClearedTimelineIds(JSON.parse(stored));
-        } catch (e) {
-          console.error("Error parsing cleared timeline IDs:", e);
-        }
-      }
     }
   }, []);
 
@@ -113,6 +89,8 @@ export default function ProfileComponent() {
     top10: [],
     autoFilter: false,
     photoURL: '',
+    weeklyDigest: true,
+    watchRegion: 'IN',
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -130,8 +108,6 @@ export default function ProfileComponent() {
   const [reauthAction, setReauthAction] = useState<'email' | 'password' | 'both' | null>(null);
   const [modalError, setModalError] = useState('');
   const [modalSuccess, setModalSuccess] = useState('');
-  const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
-  const [showActivityPopup, setShowActivityPopup] = useState(false);
   const [isShareEnabled, setIsShareEnabled] = useState(true);
   const [systemAchievements, setSystemAchievements] = useState<{ id: string; label: string; val: string; icon: string }[]>([]);
 
@@ -154,38 +130,6 @@ export default function ProfileComponent() {
   // Dynamic Director & Critic insights from TMDB for Rated Movies
   const [additionalDetails, setAdditionalDetails] = useState<Record<number, MovieAdditionalDetails>>({});
 
-  // Carousel gesture drag settings for Director's Notes
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const scrollLeft = useRef(0);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!carouselRef.current) return;
-    isDragging.current = true;
-    startX.current = e.pageX - carouselRef.current.offsetLeft;
-    scrollLeft.current = carouselRef.current.scrollLeft;
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current || !carouselRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - carouselRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; // scroll speed multiplier
-    carouselRef.current.scrollLeft = scrollLeft.current - walk;
-  };
-
-  const handleMouseUp = () => {
-    isDragging.current = false;
-  };
-
-  const scrollCarousel = (direction: 'left' | 'right') => {
-    if (carouselRef.current) {
-      const { scrollLeft, clientWidth } = carouselRef.current;
-      const scrollTo = direction === 'left' ? scrollLeft - clientWidth * 0.8 : scrollLeft + clientWidth * 0.8;
-      carouselRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
-    }
-  };
 
   useEffect(() => {
     if (userReviews.length === 0) return;
@@ -239,11 +183,6 @@ export default function ProfileComponent() {
     }
   };
 
-
-  // TMDB Movie Curation Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Movie[]>([]);
-  const [showSearch, setShowSearch] = useState(false);
 
   // Image Upload
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -463,7 +402,7 @@ export default function ProfileComponent() {
           favoriteGenres: data.favoriteGenres || prev.favoriteGenres,
           subscriptions: data.subscriptions || prev.subscriptions,
           top10: data.top10 || prev.top10,
-          avatarFrame: data.avatarFrame || data.frameId || prev.avatarFrame,
+          avatarFrame: (data.avatarFrame || data.frameId || prev.avatarFrame) as ProfileSettings['avatarFrame'],
           bio: data.bio || prev.bio,
           autoFilter: data.autoFilter !== undefined ? data.autoFilter : prev.autoFilter,
           photoURL: data.photoURL || prev.photoURL,
@@ -591,7 +530,7 @@ export default function ProfileComponent() {
 
   const handleToggleSub = async (platformName: string) => {
     if (!user) return;
-    let updatedSubs = [...profile.subscriptions];
+    let updatedSubs = [...(profile.subscriptions || [])];
     if (updatedSubs.includes(platformName)) {
       updatedSubs = updatedSubs.filter(s => s !== platformName);
     } else {
@@ -602,34 +541,71 @@ export default function ProfileComponent() {
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
       await setDoc(docRef, { subscriptions: updatedSubs }, { merge: true });
       toast.success(updatedSubs.includes(platformName) ? `Subscribed to ${platformName}` : `Unsubscribed from ${platformName}`);
+      router.refresh();
+      // Instantly trigger server-side revalidation of home and browse pages
+      revalidatePage('/');
+      revalidatePage('/browse');
     } catch (err) {
       console.error("Error toggling subscriptions:", err);
       toast.error("Failed to update subscription");
     }
   };
 
-  const handleTogglePref = async (field: 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter' | 'notifyFavGenres') => {
+  const handleTogglePref = async (field: 
+    | 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter'
+    | 'notifyFavGenres' | 'weeklyDigest'
+    | 'notifyNewEpisodes' | 'notifyNewSeasons'
+    | 'notifyPlatformAdded' | 'notifyNewFeatures'
+    | 'notifyWatchHistoryRecs' | 'notifySimilarContent'
+    | 'notifyTrendingGenres'
+    | 'channelEmail' | 'channelPush' | 'channelBrowser'
+  ) => {
     if (!user) return;
     try {
+      // Read the effective current value — match the UI default of `true` for undefined fields
+      const currentValue = (profile[field] as boolean | undefined) ?? true;
+      const newValue = !currentValue;
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { [field]: !profile[field] }, { merge: true });
-      toast.success("Preference updated successfully");
+      await setDoc(docRef, { [field]: newValue }, { merge: true });
+      setProfile(prev => ({ ...prev, [field]: newValue }));
+      toast.success("Preference updated");
+      router.refresh();
+      // Instantly trigger server-side revalidation of home and browse pages
+      revalidatePage('/');
+      revalidatePage('/browse');
     } catch (err) {
       console.error("Error updating preference:", err);
       toast.error("Failed to update preference");
     }
   };
 
+  const handleRegionChange = async (region: string) => {
+    if (!user) return;
+    try {
+      const docRef = doc(getFirestore(app), `users/${user.uid}`);
+      await setDoc(docRef, { watchRegion: region }, { merge: true });
+      setProfile(prev => ({ ...prev, watchRegion: region }));
+      toast.success(`Region updated to ${region}`);
+      router.refresh();
+      // Instantly trigger server-side revalidation of home and browse pages
+      revalidatePage('/');
+      revalidatePage('/browse');
+    } catch (err) {
+      console.error("Error updating region:", err);
+      toast.error("Failed to update region");
+    }
+  };
+
   const handleToggleGenre = async (genre: string) => {
     if (!user) return;
-    let updatedGenres = [...profile.favoriteGenres];
+    let updatedGenres = [...(profile.favoriteGenres || [])];
     let isFirstGenreSelection = false;
 
     if (updatedGenres.includes(genre)) {
       updatedGenres = updatedGenres.filter(g => g !== genre);
     } else {
       updatedGenres.push(genre);
-      if (profile.favoriteGenres.length === 0) {
+      if (!profile.favoriteGenres || profile.favoriteGenres.length === 0) {
         isFirstGenreSelection = true;
       }
     }
@@ -654,68 +630,6 @@ export default function ProfileComponent() {
     } catch (err) {
       console.error("Error toggling genre:", err);
       toast.error("Failed to update favorite genres");
-    }
-  };
-
-  const handleSearchChange = async (q: string) => {
-    setSearchQuery(q);
-    if (q.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const results = await searchMovies(q);
-    setSearchResults(results.slice(0, 5));
-  };
-
-  const handleAddTopMovie = async (movie: Movie) => {
-    if (!user || profile.top10.length >= 5) return;
-    if (profile.top10.some(m => m.id === movie.id)) return;
-
-    const updatedTop10 = [...profile.top10, movie];
-    const sanitizedTop10 = JSON.parse(JSON.stringify(updatedTop10));
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { top10: sanitizedTop10 }, { merge: true });
-      setSearchQuery('');
-      setSearchResults([]);
-      setShowSearch(false);
-      toast.success(`${movie.title} added to Top 5`);
-    } catch (err) {
-      console.error("Error adding to Top 5:", err);
-      toast.error("Failed to add movie to Top 5");
-    }
-  };
-
-  const handleRemoveTopMovie = async (movieId: number) => {
-    if (!user) return;
-    const updatedTop10 = profile.top10.filter(m => m.id !== movieId);
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
-      toast.success("Removed movie from Top 5");
-    } catch (err) {
-      console.error("Error removing from Top 5:", err);
-      toast.error("Failed to remove movie");
-    }
-  };
-
-  const handleMoveTopMovie = async (index: number, direction: 'up' | 'down') => {
-    if (!user) return;
-    const updatedTop10 = [...profile.top10];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= updatedTop10.length) return;
-
-    const temp = updatedTop10[index];
-    updatedTop10[index] = updatedTop10[targetIndex];
-    updatedTop10[targetIndex] = temp;
-
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
-      toast.success("Reordered Top 5");
-    } catch (err) {
-      console.error("Error reordering Top 5:", err);
-      toast.error("Failed to reorder movies");
     }
   };
 
@@ -755,7 +669,7 @@ export default function ProfileComponent() {
     ? (userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length).toFixed(1)
     : "0.0";
 
-  const primaryFavGenre = profile.favoriteGenres[0] || 'Default';
+  const primaryFavGenre = profile.favoriteGenres?.[0] || 'Default';
   const getAuraColor = (genre: string) => {
     switch (genre) {
       case 'Sci-Fi': return 'from-purple-900/40 to-background';
@@ -767,84 +681,8 @@ export default function ProfileComponent() {
     }
   };
 
-  const radarData = useMemo(() => {
-    return computeRadarData(watchlist);
-  }, [watchlist]);
 
-  const watchHistory = useMemo(() => {
-    const events = [
-      ...watchlist.map(m => ({
-        id: `watchlist-${m.id}`,
-        title: m.title,
-        action: "Added to Watchlist",
-        time: "Watchlist Item",
-        type: "watch"
-      })),
-      ...userReviews.map(r => ({
-        id: `review-${r.movieId}`,
-        title: r.movieTitle,
-        action: `Rated ${r.rating}/5`,
-        time: "Recent Critique",
-        type: "rate"
-      }))
-    ];
-    return events.filter(e => !clearedTimelineIds.includes(e.id)).slice(0, 4);
-  }, [watchlist, userReviews, clearedTimelineIds]);
-
-  const recentActivities = useMemo(() => {
-    if (!isMounted) return [];
-    // If timeline cleared, we return empty or clear history dynamically. We'll show live local storage activities.
-    return getUserActivities();
-  }, [isMounted, watchlist, userReviews, clearedTimelineIds, showActivityPopup]);
-
-  const topTen = profile.top10.slice(0, 5);
   const currentFrame = frames.find(f => f.id === profile.avatarFrame) || frames[0];
-
-  const badges = systemAchievements.map(ach => {
-    let unlocked = false;
-    const numMatch = ach.val.match(/\d+(\.\d+)?/);
-    const num = numMatch ? parseFloat(numMatch[0]) : 0;
-    
-    const valLower = ach.val.toLowerCase();
-    const labelLower = ach.label.toLowerCase();
-    const combinedStr = `${valLower} ${labelLower}`;
-
-    if (combinedStr.includes('lvl') || combinedStr.includes('level')) {
-       unlocked = level >= num;
-    } else if (combinedStr.includes('mov') || combinedStr.includes('watch')) {
-       unlocked = watchCount >= num;
-    } else if (combinedStr.includes('x') || combinedStr.includes('streak') || combinedStr.includes('rate')) {
-       unlocked = ratingCount >= num;
-    } else {
-       unlocked = totalScore >= num;
-    }
-
-    let IconComp: any = Award;
-    let color = "text-white/40";
-    let isCustomIcon = ach.icon.startsWith('http');
-    
-    if (unlocked && !isCustomIcon) {
-      if (ach.icon === 'Trophy') color = "text-brand";
-      else if (ach.icon === 'Zap') color = "text-cyan-400";
-      else if (ach.icon === 'Award') color = "text-purple-400";
-      else color = "text-orange-400";
-    }
-
-    if (ach.icon === 'Trophy') IconComp = Trophy;
-    else if (ach.icon === 'Zap') IconComp = Zap;
-    else if (ach.icon === 'Award') IconComp = Award;
-    else if (ach.icon === 'Coffee') IconComp = Coffee;
-    else if (ach.icon === 'Clock') IconComp = Clock;
-
-    return {
-      icon: isCustomIcon ? ach.icon : IconComp,
-      isCustomIcon,
-      title: ach.label,
-      desc: ach.val,
-      unlocked: unlocked,
-      color: color
-    };
-  });
 
   // Wait for Firebase auth to finish initializing before deciding if user is logged in.
   // Without this guard, navigating back from a shared link (/profile?uid=XYZ) to /profile
@@ -891,8 +729,9 @@ export default function ProfileComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white selection:bg-brand/30">
-      {/* 1. Identity & Visuals: Aura Header */}
+    <>
+      <div className="min-h-screen bg-background text-white selection:bg-brand/30">
+        {/* 1. Identity & Visuals: Aura Header */}
       <div className={`min-h-0 lg:min-h-[55vh] lg:h-auto flex flex-col justify-end relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${getAuraColor(primaryFavGenre)}`}>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
@@ -987,7 +826,7 @@ export default function ProfileComponent() {
 
                     <div className="flex flex-wrap gap-2 mt-6 justify-center lg:justify-start">
                       {AVAILABLE_GENRES.map((genre) => {
-                        const isActive = profile.favoriteGenres.includes(genre);
+                        const isActive = (profile.favoriteGenres || []).includes(genre);
                         return (
                           <span
                             key={genre}
@@ -1043,11 +882,11 @@ export default function ProfileComponent() {
       </div>
 
       {/* Main Stats & Analytics Grid */}
-      <div className="container mx-auto max-w-7xl px-6 lg:px-12 py-12 relative z-30 -mt-6 lg:-mt-10">
+      <div className="container mx-auto max-w-7xl px-6 lg:px-12 pt-12 pb-4 relative z-30 -mt-6 lg:-mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
           {/* 2. Stats & Analytics ("The Reel") */}
-          <div className="lg:col-span-8 space-y-8">
+          <div className="lg:col-span-12 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 { icon: Film, label: "Hours Watched", value: totalHours, unit: "HR", color: "text-blue-400" },
@@ -1070,378 +909,31 @@ export default function ProfileComponent() {
               ))}
             </div>
 
-            {/* Genre Radar Chart */}
-            <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 md:p-12 overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between mb-10">
-                <div>
-                  <h3 className="text-2xl font-black uppercase italic tracking-tight">Genre <span className="text-brand">Radar</span></h3>
-                  <p className="text-white/40 text-xs font-medium mt-1">Your cinematic taste distribution</p>
-                </div>
-                <div className="px-4 py-2 bg-brand/10 rounded-xl border border-brand/20 text-[10px] text-brand font-black uppercase">
-                  Updated Today
-                </div>
-              </div>
-
-              <div className="h-[350px] w-full">
-                {isMounted ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                      <PolarGrid stroke="#ffffff10" />
-                      <PolarAngleAxis dataKey="genre" tick={{ fill: '#ffffff40', fontSize: 10, fontWeight: 800 }} />
-                      <Radar
-                        name="Your Stats"
-                        dataKey="A"
-                        stroke="#e50914"
-                        fill="#e50914"
-                        fillOpacity={0.6}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #ffffff10', borderRadius: '12px' }}
-                        itemStyle={{ color: '#fff', fontSize: '10px', textTransform: 'uppercase', fontWeight: 800 }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">Loading Radar...</div>
-                )}
-              </div>
-            </div>
-
-            {/* 3. Content Curation: Personal Top 10 */}
-            <div className="space-y-8 pt-8">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-black uppercase italic tracking-tight">The <span className="text-brand">Pinnacle</span> <span className="text-white/20 text-sm ml-2">MY TOP 5</span></h3>
-                {isOwner && (
-                  <button
-                    onClick={() => setShowSearch(!showSearch)}
-                    className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline px-4 py-2 bg-brand/10 rounded-full transition-colors"
-                  >
-                    {showSearch ? "Close Search" : "Manage Slot"}
-                  </button>
-                )}
-              </div>
-
-              {showSearch && (
-                <div className="glass border border-brand/20 p-5 rounded-3xl relative z-40 mb-6">
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                    <input
-                      type="text"
-                      placeholder="Type movie title to add to your Top 5 masterpieces..."
-                      value={searchQuery}
-                      onChange={(e) => handleSearchChange(e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 rounded-xl pl-12 pr-4 py-4 text-sm text-white focus:outline-none focus:border-brand/40"
-                    />
-                  </div>
-
-                  {searchResults.length > 0 && (
-                    <div className="bg-surface/95 border border-white/10 rounded-2xl mt-4 overflow-hidden shadow-2xl z-50">
-                      {searchResults.map((movie) => (
-                        <div
-                          key={movie.id}
-                          className="flex items-center justify-between p-3 border-b border-white/5 hover:bg-white/5 transition-all"
-                        >
-                          <div className="flex items-center gap-4">
-                            <img src={movie.posterUrl} className="w-10 h-14 object-cover rounded shadow" />
-                            <div>
-                              <h4 className="text-sm font-black text-white tracking-wide uppercase line-clamp-1">{movie.title}</h4>
-                              <p className="text-[10px] text-white/40 mt-1">{movie.year} • {movie.genre.slice(0, 2).join(', ')}</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleAddTopMovie(movie)}
-                            disabled={profile.top10.length >= 5}
-                            className="w-10 h-10 rounded-full bg-brand/10 border border-brand/35 flex items-center justify-center text-brand hover:bg-brand hover:text-white transition-all disabled:opacity-20"
-                          >
-                            <Plus className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-6 overflow-x-auto pb-6 snap-x no-scrollbar">
-                {topTen.map((movie, idx) => (
-                  <motion.div
-                    key={movie.id}
-                    whileHover={{ scale: 1.05 }}
-                    className="relative shrink-0 w-48 aspect-[2/3] rounded-3xl overflow-hidden shadow-2xl snap-center group border border-white/5"
-                  >
-                    <div className="absolute top-3 left-3 w-8 h-8 bg-brand rounded-xl flex items-center justify-center text-xs font-black z-10 shadow-lg border border-white/20">
-                      {idx + 1}
-                    </div>
-                    <img src={movie.posterUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={movie.title} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                      <p className="text-[10px] font-bold text-white line-clamp-1">{movie.title}</p>
-                      {isOwner && (
-                        <div className="flex gap-1.5 mt-3 border-t border-white/10 pt-3">
-                          <button onClick={() => handleMoveTopMovie(idx, 'up')} disabled={idx === 0} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowUp className="w-3 h-3 text-white" /></button>
-                          <button onClick={() => handleMoveTopMovie(idx, 'down')} disabled={idx === topTen.length - 1} className="flex-1 py-1.5 rounded bg-white/5 hover:bg-brand flex items-center justify-center disabled:opacity-20"><ArrowDown className="w-3 h-3 text-white" /></button>
-                          <button onClick={() => handleRemoveTopMovie(movie.id)} className="p-1.5 rounded bg-red-950/40 border border-red-500/20 hover:bg-brand flex items-center justify-center"><Trash2 className="w-3 h-3 text-red-400 hover:text-white" /></button>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-
-                {/* Empty Slots */}
-                {isOwner && Array.from({ length: 5 - topTen.length }).map((_, emptyIdx) => (
-                  <div
-                    key={`empty-${emptyIdx}`}
-                    onClick={() => setShowSearch(true)}
-                    className="shrink-0 w-48 aspect-[2/3] rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center text-center p-6 gap-3 group hover:border-brand/30 transition-colors cursor-pointer"
-                  >
-                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center group-hover:bg-brand/10">
-                      <Plus className="w-6 h-6 text-white/20 group-hover:text-brand" />
-                    </div>
-                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Add Masterpiece<br />Slot #{topTen.length + emptyIdx + 1}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Account Actions — below TOP 5 in left column, sits level with Binge Badges on the right */}
-            {isOwner && (
-              <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl backdrop-blur-md">
-                <div className="flex items-center gap-3 mb-6">
-                  <Lock className="w-5 h-5 text-white/30" />
-                  <h3 className="text-sm font-black uppercase tracking-widest">Account Actions</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Reset Password */}
-                  <button
-                    onClick={async () => {
-                      if (!user?.email) return;
-                      try {
-                        const { sendPasswordResetEmail } = await import('firebase/auth');
-                        const { auth } = await import('@/lib/firebase');
-                        await sendPasswordResetEmail(auth, user.email);
-                        toast.success(`Password reset email sent to ${user.email}. Check your inbox!`);
-                      } catch (err: any) {
-                        toast.error('Failed to send reset email. Please try again.');
-                        console.error(err);
-                      }
-                    }}
-                    className="group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-brand/30 hover:bg-brand/5 transition-all text-left"
-                  >
-                    <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-brand/10 group-hover:border-brand/20 transition-all shrink-0">
-                      <Lock className="w-5 h-5 text-white/40 group-hover:text-brand transition-colors" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tight text-white group-hover:text-brand transition-colors">Reset Password</p>
-                      <p className="text-[10px] text-white/30 font-medium mt-0.5">Send a reset link to your email</p>
-                    </div>
-                  </button>
-
-                  {/* Sign Out */}
-                  <button
-                    onClick={() => setIsSignOutModalOpen(true)}
-                    className="group flex items-center gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-red-500/30 hover:bg-red-500/5 transition-all text-left"
-                  >
-                    <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-red-500/10 group-hover:border-red-500/20 transition-all shrink-0">
-                      <LogOut className="w-5 h-5 text-white/40 group-hover:text-red-400 transition-colors" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tight text-white group-hover:text-red-400 transition-colors">Sign Out</p>
-                      <p className="text-[10px] text-white/30 font-medium mt-0.5">End your current session</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
+          </div>
           </div>
 
-          {/* Right Column: Cards & History */}
-          <div className="lg:col-span-4 space-y-8">
+        {/* Settings Tabs Panel */}
+        {isOwner && (
+          <ProfileSettingsPanel
+            user={user}
+            profile={profile}
+            setProfile={setProfile}
+            isOwner={isOwner}
+            watchlist={watchlist}
+            userReviews={userReviews}
+            handleTogglePref={handleTogglePref}
+            handleRegionChange={handleRegionChange}
+            handleToggleSub={handleToggleSub}
+            additionalDetails={additionalDetails}
+            handleToggleLike={handleToggleLike}
+            handleShareNote={handleShareNote}
+            onSignOut={() => setIsSignOutModalOpen(true)}
+            systemAchievements={systemAchievements}
+          />
+        )}
+      </div>
 
-            {/* 4. Integration & Subscription Manager */}
-            <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl backdrop-blur-md">
-              <div className="flex items-center gap-3 mb-8">
-                <Shield className="w-5 h-5 text-brand" />
-                <h3 className="text-sm font-black uppercase tracking-widest">Subscription DNA</h3>
-              </div>
-
-              <div className="space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-2" data-lenis-prevent>
-                {STREAMING_PLATFORMS.map((sub) => {
-                  const isActive = profile.subscriptions.includes(sub.name);
-                  return (
-                    <div key={sub.id} className="flex items-center justify-between group">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 ${sub.color} rounded-xl flex items-center justify-center font-black text-lg transition-transform group-hover:scale-110`}>
-                          {sub.logo}
-                        </div>
-                        <span className="text-sm font-bold text-white/70 group-hover:text-white transition-colors">{sub.name}</span>
-                      </div>
-                      {isOwner ? (
-                        <button
-                          onClick={() => handleToggleSub(sub.name)}
-                          className={`w-12 h-6 rounded-full relative transition-all duration-300 cursor-pointer ${isActive ? 'bg-brand' : 'bg-white/10'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
-                        </button>
-                      ) : (
-                        <div
-                          className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isActive ? 'bg-brand' : 'bg-white/10'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isActive ? 'left-7' : 'left-1'}`} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {isOwner && (
-                <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
-                  <div className="flex items-center justify-between text-[10px] font-black uppercase text-white/30 tracking-widest">
-                    <span>Global Preferences</span>
-                    <Settings className="w-3 h-3" />
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-bold text-white/70">
-                    <span>Auto-filter by my subs</span>
-                    <button
-                      onClick={() => handleTogglePref('autoFilter')}
-                      className={`w-10 h-5 rounded-full relative transition-all cursor-pointer ${profile.autoFilter ? 'bg-brand' : 'bg-white/10'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${profile.autoFilter ? 'left-6' : 'left-1'}`} />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notification Center */}
-            {isOwner && (
-              <div className="bg-brand/5 border border-brand/20 rounded-[40px] p-8 shadow-2xl">
-                <div className="flex items-center gap-3 mb-6">
-                  <Bell className="w-5 h-5 text-brand" />
-                  <h3 className="text-sm font-black uppercase tracking-widest text-brand">Vigilance Hub</h3>
-                </div>
-                <div className="flex flex-col gap-6">
-                  {[
-                    { key: 'notifyNewRelease', label: "New Release", desc: "Get alerted when any new movie epic drops." },
-                    { key: 'notifyFavGenres', label: "Your Favorite Genres", desc: "Get alerts matching your favorite genres selected above." },
-                    { key: 'notifyLeavingSoon', label: "Leaving Platform", desc: "Don't miss movies exiting your subs." }
-                  ].map((item) => (
-                    <div
-                      key={item.key}
-                      className="flex gap-4 items-center justify-between transition-all duration-300"
-                    >
-                      <div>
-                        <p className="text-xs font-black text-white uppercase">{item.label}</p>
-                        <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
-                      </div>
-                      <button
-                        onClick={() => handleTogglePref(item.key as any)}
-                        className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
-                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(255,40,78,0.4)]'
-                            : 'bg-white/5 border-white/10 hover:border-white/20'
-                          }`}
-                      >
-                        <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${profile[item.key as 'notifyNewRelease' | 'notifyLeavingSoon' | 'notifyFavGenres']
-                            ? 'left-[23px]'
-                            : 'left-[3px]'
-                          }`} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 3. Watch History Timeline */}
-            <div className="bg-surface/30 border border-white/5 rounded-[40px] p-8 shadow-2xl">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <History className="w-5 h-5 text-white/30" />
-                  <h3 className="text-xs font-black uppercase tracking-widest">Timeline</h3>
-                </div>
-                {isOwner && (
-                  <button 
-                    onClick={() => {
-                      const idsToClear = [
-                        ...watchlist.map(m => `watchlist-${m.id}`),
-                        ...userReviews.map(r => `review-${r.movieId}`)
-                      ];
-                      setClearedTimelineIds(idsToClear);
-                      localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
-                      clearUserActivities();
-                    }}
-                    className="text-[10px] font-black text-white/20 hover:text-white transition-colors"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-
-              <div className="max-h-[200px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
-                <div className="space-y-8 relative">
-                  <div className="absolute left-2.5 top-0 bottom-4 w-px bg-white/5" />
-                  {watchHistory.length === 0 ? (
-                    <div className="py-6 text-center text-white/25 text-[10px] uppercase font-bold tracking-wider">
-                      Timeline empty. Save ratings/watchlist.
-                    </div>
-                  ) : (
-                    watchHistory.map((item) => (
-                      <div key={item.id} className="relative pl-10 group">
-                        <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-surface border border-white/10 flex items-center justify-center z-10 transition-colors group-hover:border-brand">
-                          <div className="w-1.5 h-1.5 bg-white/20 rounded-full group-hover:bg-brand" />
-                        </div>
-                        <p className="text-[10px] font-black text-brand uppercase tracking-tight">{item.action}</p>
-                        <p className="text-sm font-bold text-white/80 mt-1">{item.title}</p>
-                        <p className="text-[10px] text-white/30 mt-1 font-medium">{item.time}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {isOwner && (
-                <button 
-                  onClick={() => setShowActivityPopup(true)}
-                  className="w-full mt-8 py-3 bg-white/5 hover:bg-brand/10 hover:text-brand rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/20 transition-all"
-                >
-                  Show Recent Activity
-                </button>
-              )}
-            </div>
-
-            {/* Binge Badges / Achievements */}
-            <div className="p-8 bg-surface/30 border border-white/5 rounded-[40px] shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xs font-black uppercase tracking-widest">Binge Badges</h3>
-                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / {badges.length} Unlocked</span>
-              </div>
-              <div className="max-h-[257px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
-                <div className="space-y-4">
-                  {badges.map((badge) => (
-                    <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform flex items-center justify-center w-11 h-11 ${badge.color}`}>
-                          {badge.isCustomIcon ? (
-                            <img src={badge.icon as string} alt={badge.title} className="w-5 h-5 object-contain" />
-                          ) : (
-                            <badge.icon className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-white uppercase">{badge.title}</p>
-                          <p className="text-[10px] text-white/30 font-medium">{badge.desc}</p>
-                        </div>
-                      </div>
-                      {badge.unlocked && <CheckCircle2 className="w-4 h-4 text-brand" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Edit Profile Modal */}
+      {/* Edit Profile Modal */}
         <AnimatePresence>
           {isOwner && isEditModalOpen && (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
@@ -1514,15 +1006,32 @@ export default function ProfileComponent() {
                     <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Avatar Frame</label>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {frames.map((f) => (
-                          <button
-                            key={f.id}
-                            onClick={() => setEditFrameId(f.id as any)}
-                            className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all ${editFrameId === f.id ? 'bg-brand border-brand text-white shadow-lg shadow-brand/20' : 'bg-black/20 border-white/5 text-white/40 hover:border-white/20'}`}
-                          >
-                            {f.name}
-                          </button>
-                        ))}
+                        {frames.map((f) => {
+                          const isPremiumFrame = f.id !== 'none';
+                          const isLocked = isPremiumFrame && profile.plan !== 'premium';
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => {
+                                if (isLocked) {
+                                  toast.error("Upgrade to Premium to unlock!"); router.push('/profile?tab=payment');
+                                  return;
+                                }
+                                setEditFrameId(f.id as any);
+                              }}
+                              className={`p-4 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all relative ${
+                                editFrameId === f.id 
+                                  ? 'bg-brand border-brand text-white shadow-lg shadow-brand/20' 
+                                  : 'bg-black/20 border-white/5 text-white/40 hover:border-white/20'
+                              } ${isLocked ? 'opacity-60 cursor-not-allowed grayscale' : ''}`}
+                            >
+                              {f.name}
+                              {isLocked && (
+                                <Lock className="w-3 h-3 absolute top-2 right-2 text-white/40" />
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1682,225 +1191,9 @@ export default function ProfileComponent() {
           )}
         </AnimatePresence>
 
-        {/* 5. Social: Personal Reviews/Feed */}
-        <div className="mt-12 space-y-12">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
-              <Star className="w-6 h-6 text-brand" />
-            </div>
-            <h2 className="text-4xl font-black uppercase italic tracking-tighter">Director&apos;s <span className="text-brand">Notes</span></h2>
-          </div>
-
-          <div className="relative">
-            {userReviews.length === 0 ? (
-              <div className="py-16 bg-surface/30 border border-dashed border-white/10 rounded-[40px] text-center text-white/30 flex flex-col items-center justify-center gap-4">
-                <Film className="w-12 h-12 text-white/10" />
-                <p className="text-sm uppercase font-black tracking-widest leading-relaxed">No custom written notes submitted yet.<br />Leave reviews on details pages to fill your diary!</p>
-              </div>
-            ) : (
-              <div className="relative group/carousel">
-                {/* Carousel Container */}
-                <div
-                  ref={carouselRef}
-                  className="flex gap-6 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-6 scroll-smooth cursor-grab active:cursor-grabbing select-none"
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  {userReviews.map((review) => (
-                    <div
-                      key={review.movieId}
-                      className="w-full sm:w-[500px] md:w-[650px] shrink-0 snap-start p-8 bg-surface/30 border border-white/5 rounded-[32px] hover:bg-surface/40 transition-colors group flex flex-col md:flex-row gap-6"
-                    >
-                      <div className="w-16 md:w-20 shrink-0 h-24 md:h-28 bg-white/5 rounded-xl overflow-hidden shadow-md">
-                        <img
-                          src={review.moviePoster || 'https://placehold.co/200x300?text=No+Image'}
-                          className="w-full h-full object-cover"
-                          alt={review.movieTitle}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <p className="text-sm font-black uppercase text-white/80">{review.movieTitle}</p>
-                              <div className="flex gap-1 mt-1.5">
-                                {Array.from({ length: 5 }).map((_, s) => (
-                                  <Star
-                                    key={s}
-                                    className={`w-3 h-3 ${s < review.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-black text-white/20 uppercase tracking-widest shrink-0">Critique</span>
-                          </div>
-                          <p className="text-white/60 text-sm leading-relaxed font-medium italic">
-                            {review.reviewText ? `"${review.reviewText}"` : "Rated only, no written critique submitted."}
-                          </p>
-
-                          {additionalDetails[review.movieId] && (
-                            <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
-                              {additionalDetails[review.movieId].director && (
-                                <div className="p-4 rounded-2xl bg-brand/5 border border-brand/20">
-                                  <p className="text-[10px] font-black uppercase text-brand tracking-widest mb-1">Director's Note</p>
-                                  <p className="text-white/80 text-xs italic font-medium">
-                                    Directed by <span className="text-white font-bold">{additionalDetails[review.movieId].director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
-                                  </p>
-                                </div>
-                              )}
-                              {additionalDetails[review.movieId].topCriticReview && (
-                                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <p className="text-[10px] font-black uppercase text-white/40 tracking-widest">Top Critic Insight</p>
-                                    <span className="text-[9px] font-black text-brand uppercase tracking-widest">By {additionalDetails[review.movieId].topCriticReview!.author}</span>
-                                  </div>
-                                  <p className="text-white/60 text-xs italic leading-relaxed line-clamp-3">
-                                    "{additionalDetails[review.movieId].topCriticReview!.content}"
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-8">
-                          {isOwner && (
-                            <button
-                              onClick={() => handleToggleLike(review.movieId, !!review.liked)}
-                              className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
-                            >
-                              <Heart className={`w-4 h-4 transition-colors ${review.liked ? 'text-brand fill-brand' : 'text-white/20'}`} />
-                              <span className={review.liked ? 'text-brand' : 'text-white/40'}>
-                                {review.liked ? 'Liked' : 'Like'}
-                              </span>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleShareNote(review.movieId, review.movieTitle)}
-                            className="flex items-center gap-2 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
-                          >
-                            <Share2 className="w-4 h-4" /> Share Note
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Navigation Buttons (Visible on hover, if there are multiple items) */}
-                {userReviews.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => scrollCarousel('left')}
-                      className="absolute left-[-20px] top-1/2 -translate-y-1/2 p-3 rounded-full glass hover:bg-brand hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl z-10"
-                    >
-                      <ChevronLeft className="w-5 h-5 text-white" />
-                    </button>
-                    <button
-                      onClick={() => scrollCarousel('right')}
-                      className="absolute right-[-20px] top-1/2 -translate-y-1/2 p-3 rounded-full glass hover:bg-brand hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl z-10"
-                    >
-                      <ChevronRight className="w-5 h-5 text-white" />
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* Recent Activity Popup Modal */}
       <AnimatePresence>
-        {showActivityPopup && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-lg bg-surface border border-white/10 rounded-[32px] overflow-hidden shadow-2xl relative"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Recent Activity Log</h3>
-                  <p className="text-[10px] text-white/40 uppercase font-bold tracking-wider mt-1">Real-time user engagement timeline</p>
-                </div>
-                <button
-                  onClick={() => setShowActivityPopup(false)}
-                  className="p-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-full transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar" data-lenis-prevent>
-                {recentActivities.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <Activity className="w-8 h-8 text-white/10 mx-auto mb-3" />
-                    <p className="text-xs text-white/40 uppercase font-black tracking-widest">No activities logged yet</p>
-                    <p className="text-[10px] text-white/20 uppercase font-bold mt-1">Try searching, filtering, adding to watchlist, or rating movies!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {recentActivities.map((act) => {
-                      const timeStr = new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      const dateStr = new Date(act.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
-                      return (
-                        <div key={act.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-start justify-between gap-4 hover:border-brand/30 transition-colors">
-                          <div className="flex gap-3 items-start">
-                            <div className="p-2 bg-brand/10 text-brand rounded-xl mt-0.5">
-                              <Activity className="w-3.5 h-3.5" />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-black text-brand uppercase tracking-widest">{act.action}</span>
-                              <p className="text-xs font-bold text-white/90 mt-1">{act.detail}</p>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-[10px] font-black text-white/30 uppercase tracking-tight">{timeStr}</p>
-                            <p className="text-[8px] font-bold text-white/10 uppercase tracking-widest mt-0.5">{dateStr}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="p-6 border-t border-white/5 bg-black/40 flex justify-between gap-4">
-                <button
-                  onClick={() => {
-                    const idsToClear = [
-                      ...watchlist.map(m => `watchlist-${m.id}`),
-                      ...userReviews.map(r => `review-${r.movieId}`)
-                    ];
-                    setClearedTimelineIds(idsToClear);
-                    localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
-                    clearUserActivities();
-                    setShowActivityPopup(false);
-                    toast.success("Activity history cleared");
-                  }}
-                  className="px-4 py-2 border border-white/10 hover:border-red-500/30 hover:text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/40 transition-colors"
-                >
-                  Clear History
-                </button>
-                <button
-                  onClick={() => setShowActivityPopup(false)}
-                  className="px-6 py-2 bg-brand text-black hover:bg-brand/90 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
-                >
-                  Done
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* Sign Out Modal */}
         {isSignOutModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
@@ -1958,6 +1251,6 @@ export default function ProfileComponent() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

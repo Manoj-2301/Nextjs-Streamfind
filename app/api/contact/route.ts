@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { escapeHtml } from '@/lib/utils';
 
 // ─── Nodemailer transporter ───────────────────────────────
 function createTransporter() {
@@ -62,9 +63,28 @@ function emailShell(content: string, footerText: string) {
 </html>`;
 }
 
+// ─── Rate Limiting State ──────────────────────────────────
+const rateLimitCache = new Map<string, number[]>();
+const MAX_REQUESTS = 3;
+const WINDOW_MS = 60 * 1000; // 1 minute
+
 // ─── POST /api/contact ────────────────────────────────────
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const now = Date.now();
+    
+    if (ip !== 'unknown') {
+      const timestamps = rateLimitCache.get(ip) || [];
+      const windowTimestamps = timestamps.filter(t => now - t < WINDOW_MS);
+      
+      if (windowTimestamps.length >= MAX_REQUESTS) {
+        return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+      }
+      
+      windowTimestamps.push(now);
+      rateLimitCache.set(ip, windowTimestamps);
+    }
     const { firstName, lastName, email, message } = await request.json();
 
     if (!firstName || !email || !message) {
@@ -93,7 +113,7 @@ export async function POST(request: Request) {
               Name
             </p>
             <p style="margin:0;font-size:14px;color:#ffffff;">
-              ${firstName} ${lastName || ''}
+              ${escapeHtml(firstName)} ${escapeHtml(lastName || '')}
             </p>
           </td>
         </tr>
@@ -106,7 +126,7 @@ export async function POST(request: Request) {
               Email Address
             </p>
             <p style="margin:0;font-size:14px;color:#ffffff;">
-              ${email}
+              ${escapeHtml(email)}
             </p>
           </td>
         </tr>
@@ -119,7 +139,7 @@ export async function POST(request: Request) {
               Message
             </p>
             <div style="background-color:#111111;border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:16px 20px;">
-              <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;white-space:pre-wrap;">${message}</p>
+              <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;white-space:pre-wrap;">${escapeHtml(message)}</p>
             </div>
           </td>
         </tr>

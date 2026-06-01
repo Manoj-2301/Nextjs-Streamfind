@@ -5,7 +5,7 @@ import { Play, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
+import { resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
@@ -21,9 +21,10 @@ const localizeTmdbUrl = (url: string, countryCode: string): string => {
 
 interface HeroSectionProps {
   movies: Movie[];
+  affiliateLinks?: AffiliateLinks;
 }
 
-export default function HeroSection({ movies }: HeroSectionProps) {
+export default function HeroSection({ movies, affiliateLinks = {} }: HeroSectionProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
@@ -32,14 +33,8 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
-  const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
   useEffect(() => {
-    getAffiliateLinks()
-      .then(links => {
-        setAffiliateLinks(links);
-      })
-      .catch(err => console.error('Error fetching affiliate links in HeroSection:', err));
 
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
@@ -86,11 +81,19 @@ export default function HeroSection({ movies }: HeroSectionProps) {
       console.error('Error detecting country locally:', e);
     }
 
+    const cached = sessionStorage.getItem('sf_country');
+    if (cached) {
+      setUserCountryCode(cached);
+      return;
+    }
+
     fetch('/api/country')
       .then(res => res.json())
       .then(data => {
         if (data && data.country) {
-          setUserCountryCode(data.country.toUpperCase());
+          const code = data.country.toUpperCase();
+          sessionStorage.setItem('sf_country', code);
+          setUserCountryCode(code);
         }
       })
       .catch(err => console.error('Error fetching country from API:', err));
@@ -130,46 +133,38 @@ export default function HeroSection({ movies }: HeroSectionProps) {
     return () => clearInterval(interval);
   }, [currentIndex, isPlayingTrailer, paginate]);
 
-  const [userHasInteracted, setUserHasInteracted] = useState(false);
-
   useEffect(() => {
-    const handleInteraction = () => {
-      setUserHasInteracted(true);
-      ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
-        window.removeEventListener(e, handleInteraction)
-      );
+    const handleVisibilityChange = () => {
+      // If the user comes back to the tab and the trailer was supposed to be playing,
+      // briefly reset it to force YouTube to autoplay again (since YouTube pauses background tabs)
+      if (!document.hidden && isPlayingTrailer) {
+        setIsPlayingTrailer(false);
+      }
     };
 
-    ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
-      window.addEventListener(e, handleInteraction, { once: true, passive: true })
-    );
-
-    return () => {
-      ['mousemove', 'scroll', 'keydown', 'touchstart'].forEach(e => 
-        window.removeEventListener(e, handleInteraction)
-      );
-    };
-  }, []);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isPlayingTrailer]);
 
   // Trailer countdown logic
   useEffect(() => {
-    if (isPlayingTrailer || !userHasInteracted) return;
+    if (isPlayingTrailer) return;
 
     // Clear existing timer
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    // Only start timer if in view
-    if (isInView) {
+    // Only start timer if in view and movie has a trailer
+    if (isInView && movies[currentIndex]?.trailerYoutubeId) {
       timerRef.current = setTimeout(() => {
         setIsPlayingTrailer(true);
         setHasStartedTrailerOnce(true);
-      }, 5000); // 5 seconds AFTER interaction
+      }, 3000); // 3 seconds delay like Netflix
     }
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, isInView, isPlayingTrailer]);
+  }, [currentIndex, isInView, isPlayingTrailer, movies]);
 
   // Specific user request: Pause when scroll IN, Resume when scroll OUT after it has started
   const shouldActuallyPlay = isPlayingTrailer && (!isInView || !hasStartedTrailerOnce);
@@ -188,7 +183,13 @@ export default function HeroSection({ movies }: HeroSectionProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [paginate]);
 
-  if (!movies || movies.length === 0) {
+  useEffect(() => {
+    if (movies.length > 0 && currentIndex >= movies.length) {
+      setCurrentIndex(0);
+    }
+  }, [movies.length, currentIndex]);
+
+  if (!movies || movies.length === 0 || !movies[currentIndex]) {
     return (
       <div className="w-full h-[75vh] md:h-[90vh] bg-black flex items-center justify-center">
         <Loader2 className="w-12 h-12 text-brand animate-spin" />
@@ -199,14 +200,14 @@ export default function HeroSection({ movies }: HeroSectionProps) {
   const movie = movies[currentIndex];
 
   // Select the primary watch platform for the CTA button
-  const primaryPlatform = movie.platforms?.[0];
+  const primaryPlatform = movie?.platforms?.[0];
 
   // Fallback handled safely below by conditionally rendering the button.
 
   const getPartnerStyles = (platform: Platform) => {
     const isPartner = platform.isSponsored || (platform as any).isPartner;
     const platformName = platform.name.toLowerCase();
-    
+
     if (platformName.includes('netflix')) {
       return `bg-[#E50914] text-white hover:bg-[#B80710] border-none ${isPartner ? 'shadow-[0_0_20px_rgba(229,9,20,0.4)] animate-pulse' : ''}`;
     }
@@ -296,10 +297,10 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                   transition={{ duration: 1 }}
                   className="absolute inset-0"
                 >
-                  <OptimizedIframe
+                  <iframe
                     className="w-full h-full scale-110 md:scale-125 pointer-events-none"
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
+                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=0&background=1`
                       : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                     }
                     title={movie.title}
@@ -335,7 +336,7 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                 {movie.description}
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 flex-wrap">
                 {primaryPlatform && (
                   <a
                     href={resolveWatchUrl(
@@ -356,6 +357,9 @@ export default function HeroSection({ movies }: HeroSectionProps) {
                     </motion.button>
                   </a>
                 )}
+
+
+
                 <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -380,6 +384,8 @@ export default function HeroSection({ movies }: HeroSectionProps) {
             onClick={() => {
               setDirection(i > currentIndex ? 1 : -1);
               setCurrentIndex(i);
+              setIsPlayingTrailer(false);
+              setHasStartedTrailerOnce(false);
             }}
             className="p-3"
           >
