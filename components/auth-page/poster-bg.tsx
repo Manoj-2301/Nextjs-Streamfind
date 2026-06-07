@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Static seed posters (used while fetching, and as fallback)
 // These are popular TMDB poster paths
@@ -37,7 +37,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-export default function AuthPosterBg() {
+export default React.memo(function AuthPosterBg() {
   const [posters, setPosters] = useState<string[]>(SEED_POSTERS);
 
   useEffect(() => {
@@ -105,4 +105,4 @@ export default function AuthPosterBg() {
       `}</style>
     </div>
   );
-}
+});
