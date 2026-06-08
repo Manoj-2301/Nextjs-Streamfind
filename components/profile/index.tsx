@@ -219,12 +219,25 @@ export default function ProfileComponent() {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file || !user) return;
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Image must be smaller than 5MB");
       return;
+    }
+
+    if (file.type === 'image/svg+xml') {
+      try {
+        const { sanitizeSvg } = await import('@/lib/sanitizeSvg');
+        const text = await file.text();
+        const cleanSvg = sanitizeSvg(text);
+        file = new File([cleanSvg], file.name, { type: 'image/svg+xml' });
+      } catch (err) {
+        console.error("Error sanitizing SVG:", err);
+        toast.error("Failed to process SVG image securely.");
+        return;
+      }
     }
 
     setIsUploadingImage(true);

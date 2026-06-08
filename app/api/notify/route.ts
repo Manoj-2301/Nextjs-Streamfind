@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import nodemailer from 'nodemailer';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 
 // 1. Initialize Firebase Config on Serverless Environment
@@ -52,6 +53,11 @@ export async function POST(request: Request) {
 
 async function handleDispatch(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    if (!checkRateLimit(ip, 5, 60000)) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const secret = searchParams.get('secret') || request.headers.get('Authorization')?.split(' ')[1];
 

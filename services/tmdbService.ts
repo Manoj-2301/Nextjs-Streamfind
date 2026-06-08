@@ -649,19 +649,14 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
     // Sort by popularity descending
     uniqueResults.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
 
-    const moviesWithDetails = await Promise.all(
-      uniqueResults
-        .slice(0, 10)
-        .map(async (item: any) => {
-          try {
-            const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
-            return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-          } catch (e) {
-            return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-          }
-        })
-    );
-    return moviesWithDetails;
+    // Return basic mapped results without fetching expensive details for every single item
+    const fastResults = uniqueResults
+      .slice(0, 10)
+      .map((item: any) => {
+        return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
+      });
+      
+    return fastResults;
   } catch (error) {
     console.error('Error searching movies:', error);
     return [];
@@ -1150,7 +1145,12 @@ export const getNowPlayingMovies = async (profile?: ProfileSettings, options?: R
 
 export const getCastDetails = async (id: number): Promise<CastMember> => {
   try {
-    const data = await fetchFromTmdb(`person/${id}`);
+    const data = await fetchFromTmdb(`person/${id}?append_to_response=images`);
+    
+    const images = data.images?.profiles 
+      ? data.images.profiles.map((p: any) => `${PROFILE_IMAGE_BASE_URL}${p.file_path}`)
+      : [];
+
     return {
       id: data.id,
       name: data.name,
@@ -1158,7 +1158,8 @@ export const getCastDetails = async (id: number): Promise<CastMember> => {
       imageUrl: data.profile_path ? `${PROFILE_IMAGE_BASE_URL}${data.profile_path}` : 'https://placehold.co/500x750?text=No+Image',
       biography: data.biography,
       birthday: data.birthday,
-      placeOfBirth: data.place_of_birth
+      placeOfBirth: data.place_of_birth,
+      images
     };
   } catch (error) {
     console.error('Error fetching cast details:', error);

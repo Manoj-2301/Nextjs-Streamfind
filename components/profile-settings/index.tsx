@@ -99,6 +99,14 @@ export default function ProfileSettingsPanel({
   const [invoices, setInvoices] = useState<any[]>([]);
   const [renewalDate, setRenewalDate] = useState<string>('N/A');
   const [isUpgrading, setIsUpgrading] = useState(false);
+  
+  const signOutTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -820,7 +828,8 @@ export default function ProfileSettingsPanel({
                               logSecurityEvent(user?.uid, 'All Sessions Terminated', 'All refresh tokens revoked via Firebase Admin.', 'bg-red-500');
                               toast.dismiss(t);
                               toast.success('All sessions terminated. Signing you out…');
-                              setTimeout(() => onSignOut?.(), 1500);
+                              if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+                              signOutTimerRef.current = setTimeout(() => onSignOut?.(), 1500);
                             } catch {
                               toast.dismiss(t);
                               toast.error('Failed to terminate sessions.');
@@ -2113,7 +2122,8 @@ export default function ProfileSettingsPanel({
                       
                       if (!keepCurrentDevice) {
                         toast.success('All sessions revoked. Signing you out…');
-                        setTimeout(() => onSignOut?.(), 1500);
+                        if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+                        signOutTimerRef.current = setTimeout(() => onSignOut?.(), 1500);
                       } else {
                         toast.success(`Revoked ${revokedCount} session(s).`);
                       }

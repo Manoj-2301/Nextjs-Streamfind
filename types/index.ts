@@ -16,6 +16,7 @@ export interface CastMember {
   biography?: string;
   birthday?: string;
   placeOfBirth?: string;
+  images?: string[];
 }
 
 export interface Movie {

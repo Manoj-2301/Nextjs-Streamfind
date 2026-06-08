@@ -45,7 +45,7 @@ export default function GlobalSearch() {
       } finally {
         setIsSearching(false);
       }
-    }, 300);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [query]);
