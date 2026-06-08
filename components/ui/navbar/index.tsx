@@ -62,6 +62,7 @@ export default function Navbar() {
       <div className="hidden min-[931px]:flex items-center gap-1 p-1.5 bg-white/5 border border-white/5 rounded-2xl shadow-inner">
         {[
           { path: '/', label: 'Home' },
+          { path: '/in-theaters', label: 'Theaters' },
           { path: '/browse', label: 'Browse' },
           { path: '/watchlist', label: 'Watchlist', count: watchlist.length },
           { path: '/search', label: 'Search' },
@@ -251,6 +252,13 @@ export default function Navbar() {
               className={getMobileLinkClass('/browse')}
             >
               Browse
+            </Link>
+            <Link
+              href="/in-theaters"
+              onClick={() => setIsMenuOpen(false)}
+              className={getMobileLinkClass('/in-theaters')}
+            >
+              Theaters
             </Link>
             <Link
               href="/watchlist"

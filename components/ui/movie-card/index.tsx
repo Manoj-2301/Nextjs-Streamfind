@@ -19,9 +19,14 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
   const [imgError, setImgError] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
 
-  // Collect available image URLs to try
-  const possibleUrls = [movie.posterUrl, movie.backdropUrl].filter(Boolean) as string[];
+  // Collect available image URLs to try, and downsize poster from w500 to w342 for the card thumbnail
+  const possibleUrls = [
+    movie.posterUrl?.replace('/w500/', '/w342/'),
+    movie.backdropUrl?.replace('/w1280/', '/w780/')
+  ].filter(Boolean) as string[];
   const currentPoster = possibleUrls[posterIndex];
+
+  const BLUR_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
   const handleImgError = () => {
     if (posterIndex < possibleUrls.length - 1) {
@@ -78,6 +83,8 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
             onError={handleImgError}
             sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             priority={priority}
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
           />
         )}
 

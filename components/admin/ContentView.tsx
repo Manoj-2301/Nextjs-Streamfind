@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trash2, Plus, Edit2, Play, Save, X, ExternalLink, Calendar, Star, TrendingUp, Tag, Globe, Settings, AlertTriangle, MoreVertical, Search, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
 import { AdminUser, AdminRating, FeaturedCuration } from './types';
@@ -294,8 +295,7 @@ export default function ContentView({
     >
       <div className="w-10 h-14 bg-black rounded-lg shrink-0 overflow-hidden relative">
         {(item.poster_path || item.backdrop_path) ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={`https://image.tmdb.org/t/p/w200${item.poster_path || item.backdrop_path}`} className="w-full h-full object-cover" alt="poster" />
+          <Image fill sizes="100px" src={`https://image.tmdb.org/t/p/w200${item.poster_path || item.backdrop_path}`} className="object-cover" alt="poster" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-white/20"><ImageIcon className="w-5 h-5" /></div>
         )}
@@ -428,9 +428,8 @@ export default function ContentView({
               <>
                 <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-6">
                   <div className="w-24 h-36 mx-auto sm:mx-0 bg-surface border border-white/10 rounded-2xl overflow-hidden relative group shrink-0 shadow-2xl shadow-brand/10">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     {curations[0].movieImage ? (
-                      <img src={curations[0].movieImage.startsWith('http') ? curations[0].movieImage : `https://image.tmdb.org/t/p/w200${curations[0].movieImage}`} className="w-full h-full object-cover" alt="Cover" />
+                      <Image fill sizes="(max-width: 768px) 150px, 300px" src={curations[0].movieImage.startsWith('http') ? curations[0].movieImage : `https://image.tmdb.org/t/p/w200${curations[0].movieImage}`} className="object-cover" alt="Cover" />
                     ) : (
                       <div className="w-full h-full bg-surface/50" />
                     )}
@@ -585,8 +584,7 @@ export default function ContentView({
                     <div className="p-4 bg-brand/5 border border-brand/20 rounded-2xl flex items-center gap-4">
                       <div className="w-12 h-16 bg-black rounded-lg shrink-0 overflow-hidden relative">
                         {editingCuration.movieImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={editingCuration.movieImage.startsWith('http') ? editingCuration.movieImage : `https://image.tmdb.org/t/p/w200${editingCuration.movieImage}`} className="w-full h-full object-cover" alt="poster" />
+                          <Image fill sizes="100px" src={editingCuration.movieImage.startsWith('http') ? editingCuration.movieImage : `https://image.tmdb.org/t/p/w200${editingCuration.movieImage}`} className="object-cover" alt="poster" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-brand/20"><ImageIcon className="w-6 h-6" /></div>
                         )}

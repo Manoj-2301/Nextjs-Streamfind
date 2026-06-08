@@ -71,8 +71,10 @@ export async function GET(
     });
     query.set('api_key', apiKey);
     const targetUrl = `https://api.themoviedb.org/3/${path}?${query.toString()}`;
+    console.log('[TMDB PROXY] Fetching:', targetUrl);
 
-    const response = await fetch(targetUrl, { next: { revalidate: 3600 } });
+    // Disable caching to prevent stale 404s or 401s from persisting
+    const response = await fetch(targetUrl, { cache: 'no-store' });
     if (!response.ok) {
       const responseText = await response.text().catch(() => '');
       return NextResponse.json(

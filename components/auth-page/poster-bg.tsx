@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 // Static seed posters (used while fetching, and as fallback)
 // These are popular TMDB poster paths
@@ -80,14 +81,19 @@ export default React.memo(function AuthPosterBg() {
           >
             {/* Double the column so it loops seamlessly */}
             {[...col, ...col].map((poster, pi) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={`${ci}-${pi}`}
-                src={`https://image.tmdb.org/t/p/w300${poster}`}
-                alt=""
-                draggable={false}
-                className="w-full rounded-xl object-cover aspect-[2/3]"
-              />
+              <div key={`${ci}-${pi}`} className="relative w-full rounded-xl aspect-[2/3] overflow-hidden">
+                <Image
+                  src={`https://image.tmdb.org/t/p/w300${poster}`}
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 150px, 300px"
+                  draggable={false}
+                  className="object-cover"
+                  placeholder="blur"
+                  blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                  unoptimized
+                />
+              </div>
             ))}
           </div>
         );

@@ -12,6 +12,7 @@ import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
+import { getNowPlayingMovies } from '@/services/tmdbService';
 
 const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), { 
   ssr: true,
@@ -24,19 +25,22 @@ interface HomeProps {
   initialUpcoming?: Movie[];
   initialSciFi?: Movie[];
   initialPopular?: Movie[];
+  initialNowPlaying?: Movie[];
 }
 
 export default function Home({
   initialTrending = [],
   initialUpcoming = [],
   initialSciFi = [],
-  initialPopular = []
+  initialPopular = [],
+  initialNowPlaying = []
 }: HomeProps) {
   const router = useRouter();
   const [trending, setTrending] = useState<Movie[]>(initialTrending);
   const [upcoming, setUpcoming] = useState<Movie[]>(initialUpcoming);
   const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
   const [recommendations, setRecommendations] = useState<Movie[]>(initialPopular);
+  const [nowPlaying, setNowPlaying] = useState<Movie[]>(initialNowPlaying);
   const [recSource, setRecSource] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(initialTrending.length === 0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -103,6 +107,9 @@ export default function Home({
     // Wait until the authenticated user's profile has been fetched from Firestore
     if (!profileReady) return;
 
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
     const loadData = async () => {
       // First load with no data: show full spinner. Re-fetches: show subtle refreshing bar.
       const hasData = trending.length > 0 || heroFallback.length > 0;
@@ -113,25 +120,28 @@ export default function Home({
       }
       try {
         // Always fetch fresh data when profile preferences change
-        const [trendingData, upcomingData, sciFiData] = await Promise.all([
-          getTrendingMovies(profile || undefined),
-          getUpcomingMovies(profile || undefined),
-          getMoviesByGenre(878, profile || undefined) // 878 is Sci-Fi genre ID in TMDB
+        const [trendingData, upcomingData, sciFiData, nowPlayingData] = await Promise.all([
+          getTrendingMovies(profile || undefined, { signal }),
+          getUpcomingMovies(profile || undefined, { signal }),
+          getMoviesByGenre(878, profile || undefined, { signal }), // 878 is Sci-Fi genre ID in TMDB
+          getNowPlayingMovies(profile || undefined, { signal })
         ]);
 
         setTrending(trendingData);
         setUpcoming(upcomingData);
         setSciFi(sciFiData);
+        setNowPlaying(nowPlayingData);
         
         console.log("CLIENT FETCH RESULTS:", {
           trendingCount: trendingData.length,
           upcomingCount: upcomingData.length,
-          sciFiCount: sciFiData.length
+          sciFiCount: sciFiData.length,
+          nowPlayingCount: nowPlayingData.length
         });
 
         // If filters narrowed results to 0, fetch unfiltered popular content for the hero
         if (trendingData.length === 0) {
-          const fallbackData = await getPopularMovies(undefined);
+          const fallbackData = await getPopularMovies(undefined, { signal });
           setHeroFallback(fallbackData.slice(0, 5));
         } else {
           setHeroFallback(trendingData.slice(0, 5));
@@ -164,7 +174,7 @@ export default function Home({
             setRecSource("your watchlist");
           }
         } else {
-          const popularData = await getPopularMovies(profile || undefined);
+          const popularData = await getPopularMovies(profile || undefined, { signal });
           setRecommendations(popularData);
           setRecSource(null);
         }
@@ -200,14 +210,21 @@ export default function Home({
            setFeaturedPartner(null);
         }
 
-      } catch (error) {
+      } catch (error: any) {
+        if (error.name === 'AbortError') return;
         console.error('Error loading home data:', error);
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (!signal.aborted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     };
     loadData();
+
+    return () => {
+      abortController.abort('Component unmounted');
+    };
   }, [watchlist.length, profileReady, filterKey]);
   if (isLoading && trending.length === 0 && heroFallback.length === 0) {
     return (
@@ -219,6 +236,7 @@ export default function Home({
   const filteredUpcoming = upcoming;
   const filteredSciFi = sciFi;
   const filteredRecs = recommendations;
+  const filteredNowPlaying = nowPlaying;
 
   // Hero always uses the best available: filtered trending, or fallback popular content
   const featuredMovies = filteredTrending.length > 0
@@ -249,6 +267,13 @@ export default function Home({
 
         {filteredUpcoming.length > 0 && (
           <ScrollableRow title="Upcoming Movies" movies={filteredUpcoming} />
+        )}
+
+        {filteredNowPlaying.length > 0 && (
+          <ScrollableRow 
+            title="Theaters" 
+            movies={filteredNowPlaying} 
+          />
         )}
 
         <ScrollableRow title="Trending Now" movies={filteredTrending} />

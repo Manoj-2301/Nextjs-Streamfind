@@ -125,7 +125,7 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
 
 let genresMap: Record<number, string> = {};
 
-const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
+const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Promise<any> => {
   const isServer = typeof window === 'undefined';
   let url = '';
 
@@ -142,7 +142,8 @@ const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
     url = `/api/tmdb/${finalPathAndParams}`;
   }
 
-  const response = await fetch(url, isServer ? { next: { revalidate: 3600 } } : undefined);
+  const fetchOptions = isServer ? { next: { revalidate: 3600 }, ...options } : { ...options };
+  const response = await fetch(url, fetchOptions);
   if (!response.ok) {
     let errorMsg = `Failed to fetch from TMDB: ${response.statusText}`;
     try {
@@ -161,12 +162,12 @@ const fetchFromTmdb = async (pathAndParams: string): Promise<any> => {
   return response.json();
 };
 
-const fetchGenres = async () => {
+const fetchGenres = async (options?: RequestInit) => {
   if (Object.keys(genresMap).length > 0) return;
   try {
     const [movieGenres, tvGenres] = await Promise.all([
-      fetchFromTmdb('genre/movie/list'),
-      fetchFromTmdb('genre/tv/list')
+      fetchFromTmdb('genre/movie/list', options),
+      fetchFromTmdb('genre/tv/list', options)
     ]);
     movieGenres.genres.forEach((g: any) => {
       genresMap[g.id] = g.name;
@@ -398,8 +399,8 @@ export const applyProfileFilters = (profile?: ProfileSettings) => {
   return queryStr ? `&${queryStr}` : '';
 };
 
-export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movie[]> => {
-  await fetchGenres();
+export const getTrendingMovies = async (profile?: ProfileSettings, options?: RequestInit): Promise<Movie[]> => {
+  await fetchGenres(options);
   try {
     const filterStr = applyProfileFilters(profile);
     const contentType = profile?.prefContentType || 'both';
@@ -412,8 +413,8 @@ export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movi
 
     if (filterStr) {
       const [movieData, tvData] = await Promise.all([
-        shouldFetchMovie ? fetchFromTmdb(`discover/movie?sort_by=popularity.desc${filterStr}`) : Promise.resolve({ results: [] }),
-        shouldFetchTv ? fetchFromTmdb(`discover/tv?sort_by=popularity.desc${filterStr}`) : Promise.resolve({ results: [] })
+        shouldFetchMovie ? fetchFromTmdb(`discover/movie?sort_by=popularity.desc${filterStr}`, options) : Promise.resolve({ results: [] }),
+        shouldFetchTv ? fetchFromTmdb(`discover/tv?sort_by=popularity.desc${filterStr}`, options) : Promise.resolve({ results: [] })
       ]);
       movieResults = (movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
       tvResults = (tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }));
@@ -425,7 +426,7 @@ export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movi
         endpoint = 'trending/tv/day';
       }
       
-      const data = await fetchFromTmdb(endpoint);
+      const data = await fetchFromTmdb(endpoint, options);
       if (contentType === 'movies') {
         movieResults = (data.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
       } else if (contentType === 'tv') {
@@ -445,7 +446,7 @@ export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movi
       itemsToProcess.map(async (item) => {
         try {
           const isTv = item.media_type === 'tv';
-          const detailData = await fetchFromTmdb(`${isTv ? 'tv' : 'movie'}/${item.id}?append_to_response=videos,watch/providers,images`);
+          const detailData = await fetchFromTmdb(`${isTv ? 'tv' : 'movie'}/${item.id}?append_to_response=videos,watch/providers,images`, options);
           const mapped = isTv ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
 
           return {
@@ -462,8 +463,10 @@ export const getTrendingMovies = async (profile?: ProfileSettings): Promise<Movi
       })
     );
     return moviesWithTrailers;
-  } catch (error) {
-    console.error('Error fetching trending movies:', error);
+  } catch (error: any) {
+    if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
+      console.error('Error fetching trending movies:', error);
+    }
     return [];
   }
 };
@@ -665,8 +668,8 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
   }
 };
 
-export const getMoviesByGenre = async (genreId: number, profile?: ProfileSettings): Promise<Movie[]> => {
-  await fetchGenres();
+export const getMoviesByGenre = async (genreId: number, profile?: ProfileSettings, options?: RequestInit): Promise<Movie[]> => {
+  await fetchGenres(options);
   try {
     let tvGenreId = genreId;
     if (genreId === 28 || genreId === 12) {
@@ -681,8 +684,8 @@ export const getMoviesByGenre = async (genreId: number, profile?: ProfileSetting
     const shouldFetchTv = (!profile || profile.prefContentType !== 'movies') && genreId !== 10770;
 
     const [movieData, tvData] = await Promise.all([
-      shouldFetchMovie ? fetchFromTmdb(`discover/movie?with_genres=${genreId}${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] }),
-      shouldFetchTv ? fetchFromTmdb(`discover/tv?with_genres=${tvGenreId}${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] })
+      shouldFetchMovie ? fetchFromTmdb(`discover/movie?with_genres=${genreId}${applyProfileFilters(profile)}`, options) : Promise.resolve({ results: [] }),
+      shouldFetchTv ? fetchFromTmdb(`discover/tv?with_genres=${tvGenreId}${applyProfileFilters(profile)}`, options) : Promise.resolve({ results: [] })
     ]);
 
     const combined = [
@@ -694,7 +697,7 @@ export const getMoviesByGenre = async (genreId: number, profile?: ProfileSetting
     const itemsWithDetails = await Promise.all(
       combined.slice(0, 10).map(async (item: any) => {
         try {
-          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
+          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`, options);
           return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
         } catch (e) {
           return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
@@ -702,8 +705,10 @@ export const getMoviesByGenre = async (genreId: number, profile?: ProfileSetting
       })
     );
     return itemsWithDetails;
-  } catch (error) {
-    console.error('Error fetching items by genre:', error);
+  } catch (error: any) {
+    if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
+      console.error('Error fetching items by genre:', error);
+    }
     return [];
   }
 };
@@ -1040,28 +1045,33 @@ export const getRecommendations = async (movieId: number, type?: 'movie' | 'tv')
   }
 };
 
-export const getPopularMovies = async (profile?: ProfileSettings): Promise<Movie[]> => {
-  await fetchGenres();
+export const getPopularMovies = async (profile?: ProfileSettings, options?: RequestInit): Promise<Movie[]> => {
+  await fetchGenres(options);
   try {
+    const filterStr = applyProfileFilters(profile);
     const contentType = profile?.prefContentType || 'both';
+    
+    let movieResults: any[] = [];
+    let tvResults: any[] = [];
+
     const shouldFetchMovie = contentType !== 'tv';
     const shouldFetchTv = contentType !== 'movies';
 
     const [movieData, tvData] = await Promise.all([
-      shouldFetchMovie ? fetchFromTmdb(`discover/movie?sort_by=popularity.desc${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] }),
-      shouldFetchTv ? fetchFromTmdb(`discover/tv?sort_by=popularity.desc${applyProfileFilters(profile)}`) : Promise.resolve({ results: [] })
+      shouldFetchMovie ? fetchFromTmdb(`discover/movie?sort_by=popularity.desc${filterStr}`, options) : Promise.resolve({ results: [] }),
+      shouldFetchTv ? fetchFromTmdb(`discover/tv?sort_by=popularity.desc${filterStr}`, options) : Promise.resolve({ results: [] })
     ]);
 
-    const combined = [
-      ...(movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' })),
-      ...(tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }))
-    ];
+    movieResults = (movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
+    tvResults = (tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }));
+    
+    const combined = [...movieResults, ...tvResults];
     combined.sort((a, b) => b.popularity - a.popularity);
 
     const itemsWithDetails = await Promise.all(
       combined.slice(0, 20).map(async (item: any) => {
         try {
-          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
+          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`, options);
           return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
         } catch (e) {
           return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
@@ -1069,20 +1079,22 @@ export const getPopularMovies = async (profile?: ProfileSettings): Promise<Movie
       })
     );
     return itemsWithDetails;
-  } catch (error) {
-    console.error('Error fetching popular items:', error);
+  } catch (error: any) {
+    if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
+      console.error('Error fetching popular items:', error);
+    }
     return [];
   }
 };
 
-export const getUpcomingMovies = async (profile?: ProfileSettings): Promise<Movie[]> => {
+export const getUpcomingMovies = async (profile?: ProfileSettings, options?: RequestInit): Promise<Movie[]> => {
   const contentType = profile?.prefContentType || 'both';
   if (contentType === 'tv') return [];
-  await fetchGenres();
+  await fetchGenres(options);
   try {
     const today = new Date().toISOString().split('T')[0];
     const futureDate = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const data = await fetchFromTmdb(`discover/movie?primary_release_date.gte=${today}&primary_release_date.lte=${futureDate}&sort_by=popularity.desc${applyProfileFilters(profile)}`);
+    const data = await fetchFromTmdb(`discover/movie?primary_release_date.gte=${today}&primary_release_date.lte=${futureDate}&sort_by=popularity.desc${applyProfileFilters(profile)}`, options);
 
     // We only have movies in upcoming, no TV shows
     const itemsToProcess = data.results.slice(0, 20);
@@ -1090,7 +1102,7 @@ export const getUpcomingMovies = async (profile?: ProfileSettings): Promise<Movi
     const moviesWithTrailers = await Promise.all(
       itemsToProcess.map(async (item: any) => {
         try {
-          const detailData = await fetchFromTmdb(`movie/${item.id}?append_to_response=videos,watch/providers,images`);
+          const detailData = await fetchFromTmdb(`movie/${item.id}?append_to_response=videos,watch/providers,images`, options);
           return mapTmdbMovie(detailData);
         } catch (e) {
           return mapTmdbMovie(item);
@@ -1098,8 +1110,40 @@ export const getUpcomingMovies = async (profile?: ProfileSettings): Promise<Movi
       })
     );
     return moviesWithTrailers;
-  } catch (error) {
-    console.error('Error fetching upcoming movies:', error);
+  } catch (error: any) {
+    if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
+      console.error('Error fetching upcoming movies:', error);
+    }
+    return [];
+  }
+};
+
+export const getNowPlayingMovies = async (profile?: ProfileSettings, options?: RequestInit): Promise<Movie[]> => {
+  const contentType = profile?.prefContentType || 'both';
+  if (contentType === 'tv') return [];
+  await fetchGenres(options);
+  try {
+    const region = profile?.watchRegion || 'IN'; // Default to India as requested
+    const filters = applyProfileFilters(profile);
+    const data = await fetchFromTmdb(`movie/now_playing?page=1&region=${region}${filters}`, options);
+
+    const itemsToProcess = data.results.slice(0, 20);
+
+    const moviesWithTrailers = await Promise.all(
+      itemsToProcess.map(async (item: any) => {
+        try {
+          const detailData = await fetchFromTmdb(`movie/${item.id}?append_to_response=videos,watch/providers,images`, options);
+          return mapTmdbMovie(detailData);
+        } catch (e) {
+          return mapTmdbMovie(item);
+        }
+      })
+    );
+    return moviesWithTrailers;
+  } catch (error: any) {
+    if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
+      console.error('Error fetching now playing movies:', error);
+    }
     return [];
   }
 };

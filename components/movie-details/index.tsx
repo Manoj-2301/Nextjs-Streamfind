@@ -621,7 +621,18 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const currentYear = new Date().getFullYear();
   const isUpcomingOrNew = movie ? movie.year >= currentYear : false;
-  const hideWatchSection = isUpcomingOrNew && !primaryPlatform;
+  
+  // Check if movie is currently in theaters (released in the last 60 days or in the future)
+  const isRunningInTheaters = (() => {
+    if (!movie || !movie.releaseDate || movie.type === 'tv') return false;
+    const releaseTime = new Date(movie.releaseDate).getTime();
+    const now = new Date().getTime();
+    const daysSinceRelease = (now - releaseTime) / (1000 * 3600 * 24);
+    // Let's assume a movie is in theaters if it released within the last 60 days or is upcoming
+    return daysSinceRelease > -365 && daysSinceRelease < 60;
+  })();
+
+  const hideWatchSection = isUpcomingOrNew && !primaryPlatform && !isRunningInTheaters;
 
   return (
     <div className="pb-20">
@@ -728,6 +739,19 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
             </div>
 
             <div className="mt-6 md:mt-8 flex flex-col gap-3 md:gap-4">
+              {isRunningInTheaters && (
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent(movie.title + " movie showtimes near me")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full"
+                >
+                  <button className="w-full py-2.5 md:py-3.5 rounded-md font-black tracking-widest transition-all uppercase text-xs md:text-[13px] bg-brand text-black hover:bg-brand/80 shadow-[0_4px_20px_rgba(219,35,96,0.3)] flex items-center justify-center gap-2">
+                    🎟️ Get Tickets & Showtimes
+                  </button>
+                </a>
+              )}
+
               {!hideWatchSection && primaryPlatform ? (
                 <a
                   href={resolveWatchUrl(
@@ -742,7 +766,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                     WATCH ON {primaryPlatform.name}
                   </button>
                 </a>
-              ) : !hideWatchSection ? (
+              ) : !hideWatchSection && !isRunningInTheaters ? (
                 <button disabled className="w-full py-2.5 md:py-3.5 rounded-md font-black tracking-widest uppercase text-xs md:text-[13px] bg-white/5 text-white/30 border border-white/5 cursor-not-allowed">
                   UNAVAILABLE TO STREAM
                 </button>
