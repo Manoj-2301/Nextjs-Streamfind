@@ -36,7 +36,7 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
   const topRegions = ['US', 'IN', 'GB', 'CA', 'AU'];
   for (const region of Object.keys(results)) {
     if (!topRegions.includes(region)) continue;
-    
+
     const regionData = results[region];
     if (regionData && typeof regionData === 'object') {
       const regionLink = regionData.link || 'https://www.themoviedb.org';
@@ -153,7 +153,7 @@ const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Prom
       } else if (errData && errData.status_message) {
         errorMsg = `TMDB Error: ${errData.status_message}`;
       }
-    } catch (_) {}
+    } catch (_) { }
     if (response.status === 404) {
       errorMsg = 'TMDB API error: Not Found';
     }
@@ -240,7 +240,7 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
     try {
       const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
       fullLanguage = displayNames.of(fullLanguage);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   return {
@@ -283,7 +283,7 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
     try {
       const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
       fullLanguage = displayNames.of(fullLanguage);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   return {
@@ -404,7 +404,7 @@ export const getTrendingMovies = async (profile?: ProfileSettings, options?: Req
   try {
     const filterStr = applyProfileFilters(profile);
     const contentType = profile?.prefContentType || 'both';
-    
+
     let movieResults: any[] = [];
     let tvResults: any[] = [];
 
@@ -425,7 +425,7 @@ export const getTrendingMovies = async (profile?: ProfileSettings, options?: Req
       } else if (contentType === 'tv') {
         endpoint = 'trending/tv/day';
       }
-      
+
       const data = await fetchFromTmdb(endpoint, options);
       if (contentType === 'movies') {
         movieResults = (data.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
@@ -441,7 +441,7 @@ export const getTrendingMovies = async (profile?: ProfileSettings, options?: Req
     combined.sort((a, b) => b.popularity - a.popularity);
 
     const itemsToProcess = combined.slice(0, 10);
-      
+
     const moviesWithTrailers = await Promise.all(
       itemsToProcess.map(async (item) => {
         try {
@@ -518,8 +518,8 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
   return {
     ...mapTmdbTvShow(tvData),
     genre: tvData.genres?.map((g: any) => g.name) || [],
-    runtime: tvData.episode_run_time && tvData.episode_run_time.length > 0 
-      ? `${tvData.episode_run_time[0]} Min` 
+    runtime: tvData.episode_run_time && tvData.episode_run_time.length > 0
+      ? `${tvData.episode_run_time[0]} Min`
       : (tvData.number_of_seasons ? `${tvData.number_of_seasons} Season${tvData.number_of_seasons > 1 ? 's' : ''}` : 'N/A'),
     tagline: tvData.tagline,
     cast,
@@ -649,21 +649,34 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
     // Sort by popularity descending
     uniqueResults.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
 
-    const moviesWithDetails = await Promise.all(
-      uniqueResults
-        .slice(0, 10)
-        .map(async (item: any) => {
-          try {
-            const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
-            return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-          } catch (e) {
-            return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-          }
-        })
-    );
-    return moviesWithDetails;
+    // Return basic mapped results without fetching expensive details for every single item
+    const fastResults = uniqueResults
+      .slice(0, 10)
+      .map((item: any) => {
+        return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
+      });
+
+    return fastResults;
   } catch (error) {
     console.error('Error searching movies:', error);
+    return [];
+  }
+};
+
+export const searchPeople = async (query: string): Promise<CastMember[]> => {
+  if (!query) return [];
+  try {
+    const data = await fetchFromTmdb(`search/person?query=${encodeURIComponent(query)}`);
+    return (data.results || [])
+      .map((person: any) => ({
+        id: person.id,
+        name: person.name,
+        role: person.known_for_department || 'Acting',
+        imageUrl: person.profile_path ? `${PROFILE_IMAGE_BASE_URL}${person.profile_path}` : '',
+      }))
+      .slice(0, 5); // Return top 5 matches
+  } catch (error) {
+    console.error('Error searching people:', error);
     return [];
   }
 };
@@ -720,7 +733,7 @@ export const browseSearchMovies = async (query: string, page: number = 1, yearRa
   try {
     let actualQuery = query.trim();
     let exactYear: number | undefined;
-    
+
     // Check if a 4 digit year is present in the query
     const yearMatch = actualQuery.match(/\b(187[4-9]|18[8-9]\d|19\d{2}|20\d{2})\b/);
     if (yearMatch) {
@@ -822,7 +835,7 @@ export const browseSearchMovies = async (query: string, page: number = 1, yearRa
         // Local pagination
         const total = uniqueResults.length;
         totalPages = Math.ceil(total / 20);
-        
+
         dataResults = uniqueResults.slice((sanitizedPage - 1) * 20, sanitizedPage * 20);
       } else {
         // Standard flow when no person is matched
@@ -1050,7 +1063,7 @@ export const getPopularMovies = async (profile?: ProfileSettings, options?: Requ
   try {
     const filterStr = applyProfileFilters(profile);
     const contentType = profile?.prefContentType || 'both';
-    
+
     let movieResults: any[] = [];
     let tvResults: any[] = [];
 
@@ -1064,7 +1077,7 @@ export const getPopularMovies = async (profile?: ProfileSettings, options?: Requ
 
     movieResults = (movieData.results || []).map((r: any) => ({ ...r, media_type: 'movie' }));
     tvResults = (tvData.results || []).map((r: any) => ({ ...r, media_type: 'tv' }));
-    
+
     const combined = [...movieResults, ...tvResults];
     combined.sort((a, b) => b.popularity - a.popularity);
 
@@ -1150,7 +1163,12 @@ export const getNowPlayingMovies = async (profile?: ProfileSettings, options?: R
 
 export const getCastDetails = async (id: number): Promise<CastMember> => {
   try {
-    const data = await fetchFromTmdb(`person/${id}`);
+    const data = await fetchFromTmdb(`person/${id}?append_to_response=images`);
+
+    const images = data.images?.profiles
+      ? data.images.profiles.map((p: any) => `${PROFILE_IMAGE_BASE_URL}${p.file_path}`)
+      : [];
+
     return {
       id: data.id,
       name: data.name,
@@ -1158,7 +1176,8 @@ export const getCastDetails = async (id: number): Promise<CastMember> => {
       imageUrl: data.profile_path ? `${PROFILE_IMAGE_BASE_URL}${data.profile_path}` : 'https://placehold.co/500x750?text=No+Image',
       biography: data.biography,
       birthday: data.birthday,
-      placeOfBirth: data.place_of_birth
+      placeOfBirth: data.place_of_birth,
+      images
     };
   } catch (error) {
     console.error('Error fetching cast details:', error);
@@ -1294,7 +1313,7 @@ export const getWatchProviders = async (region?: string): Promise<WatchProvider[
         providersMap.set(p.provider_id, p.provider_name);
       }
     });
-    
+
     // De-duplicate by normalized lowercase/trimmed provider name to prevent duplicate keys in UI
     const uniqueByName = new Map<string, WatchProvider>();
     Array.from(providersMap.entries()).forEach(([id, name]) => {

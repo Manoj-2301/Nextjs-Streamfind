@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function GET(
   request: NextRequest,
@@ -8,6 +9,12 @@ export async function GET(
     const resolvedParams = await params;
     if (!resolvedParams.path || resolvedParams.path.length === 0) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+    }
+
+    // Security: Rate Limiting (max 600 requests per minute per IP to handle search bursts)
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    if (!checkRateLimit(ip, 600, 60000)) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
     }
 
     // Security: Validate CORS Origin
@@ -30,20 +37,20 @@ export async function GET(
     const path = resolvedParams.path.join('/');
 
     // Security: Only allow specific TMDB endpoint prefixes to prevent proxy abuse
-    const allowedPaths = [
-      /^movie\//,
-      /^tv\//,
-      /^search\//,
-      /^discover\//,
-      /^trending\//,
-      /^person\//,
-      /^genre\//,
-      /^watch\//,
-      /^watch\/providers\//
+    const allowedPrefixes = [
+      'movie/',
+      'tv/',
+      'search/',
+      'discover/',
+      'trending/',
+      'person/',
+      'genre/',
+      'watch/',
+      'watch/providers/'
     ];
 
-    const isAllowed = allowedPaths.some(regex => regex.test(path));
-    if (!isAllowed) {
+    const isAllowed = allowedPrefixes.some(prefix => path.startsWith(prefix));
+    if (!isAllowed || path.includes('..')) {
       return NextResponse.json({ error: 'Forbidden: Endpoint not allowed by proxy' }, { status: 403 });
     }
 

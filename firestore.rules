@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'mt398401@gmail.com';
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // ✅ Payment protection: users cannot modify plan, invoices, or subscriptionUpdatedAt
+      // These fields are only writable by the backend Admin SDK (Razorpay payment flow)
+      allow update: if request.auth != null 
+                     && request.auth.uid == userId
+                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'invoices', 'subscriptionUpdatedAt']);
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      allow read, write, delete: if isAdmin();
+      // Allow anyone to read public profiles (for shared links)
+      allow read: if resource.data.isPublic == true;
+
+      // ✅ ADDED: Allow admin to list/read all user documents in the collection
+      // This is needed for the admin panel users tab to function
+      allow list: if isAdmin();
+      
+      // ✅ NEW: Subcollection for active multi-device sessions
+      match /sessions/{sessionId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, write, delete: if isAdmin();
+      }
+
+      match /ratings/{movieId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write, delete: if isAdmin();
+      }
+      
+      match /watchlist/{movieId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+        // Allow anyone to read watchlist if user profile is public
+        allow read: if get(/databases/$(database)/documents/users/$(userId)).data.isPublic == true;
+      }
+
+      // ✅ NEW: Subcollection for custom watchlists
+      match /customWatchlists/{listId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+        // Allow anyone to read custom watchlists if user profile is public
+        allow read: if get(/databases/$(database)/documents/users/$(userId)).data.isPublic == true;
+        
+        match /movies/{movieId} {
+          allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+          allow read, delete: if isAdmin();
+          allow read: if get(/databases/$(database)/documents/users/$(userId)).data.isPublic == true;
+        }
+      }
+
+      // ✅ NEW: Subcollection for movie reviews
+      match /reviews/{reviewId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write, delete: if isAdmin();
+      }
+
+      // ✅ NEW: Subcollection for search history
+      match /search_history/{searchId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write, delete: if isAdmin();
+      }
+
+      // ✅ NEW: Subcollection for audit logs
+      match /audit_logs/{logId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+      }
+
+      // ✅ NEW: Subcollection for tracked upcoming releases (Release Calendar)
+      match /trackedReleases/{movieId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+      }
+
+      // ✅ NEW: Subcollection for FCM Push Notification tokens
+      match /fcmTokens/{tokenId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+      }
+    }
+
+    // Contact queries permissions
+    match /contact_queries/{queryId} {
+      allow create: if true; // Anyone can submit the contact form
+      allow read, update, delete: if isAdmin(); // Only admin can read, update (mark as read), and delete
+    }
+
+    // Guest newsletter subscribers
+    match /newsletter_subscribers/{docId} {
+      allow create: if true;
+      allow read, delete: if isAdmin();
+    }
+
+    // Allow anyone to read the system config (needed to check if Maintenance Mode is active)
+    // Only allow your admin email to edit it
+    match /system/config {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == 'mt398401@gmail.com';
+    }
+
+    // Featured Curations permissions
+    match /featured_curations/{curationId} {
+      allow read: if true; // Anyone visiting the site can see the featured curations
+      allow write, delete: if isAdmin(); // Only admin can add, edit, or delete curations
+    }
+
+    match /{path=**}/ratings/{movieId} {
+      allow read: if true;
+    }
+  }
+}

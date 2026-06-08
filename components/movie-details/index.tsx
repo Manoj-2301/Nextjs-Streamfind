@@ -212,7 +212,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type') as 'movie' | 'tv' | null;
   const { user } = useAuth();
-  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
+  const { isInWatchlist, requestAddToList, removeFromWatchlist } = useWatchlist();
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
   const [isLoading, setIsLoading] = useState(!initialMovie);
@@ -228,6 +228,16 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeftState = useRef(0);
+  
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+      if (reviewTimerRef.current) clearTimeout(reviewTimerRef.current);
+    };
+  }, []);
 
   const handleMouseDown = (ref: React.RefObject<HTMLDivElement | null>, e: React.MouseEvent) => {
     if (!ref.current) return;
@@ -586,7 +596,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     if (saved) {
       removeFromWatchlist(movie.id);
     } else {
-      addToWatchlist(movie);
+      requestAddToList(movie);
     }
   };
 
@@ -603,7 +613,8 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       } else {
         await navigator.clipboard.writeText(window.location.href);
         setIsShared(true);
-        setTimeout(() => setIsShared(false), 2000);
+        if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+        shareTimerRef.current = setTimeout(() => setIsShared(false), 2000);
       }
     } catch (err) {
       console.error('Error sharing:', err);
@@ -1050,7 +1061,8 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                               await setUserRating(movie.id, userRating || 5, { title: movie.title, posterUrl: movie.posterUrl }, reviewInput);
                               setReviewSuccess(true);
                               setIsEditing(false);
-                              setTimeout(() => setReviewSuccess(false), 3000);
+                              if (reviewTimerRef.current) clearTimeout(reviewTimerRef.current);
+                              reviewTimerRef.current = setTimeout(() => setReviewSuccess(false), 3000);
                             } catch (e) {
                               console.error("Error submitting review:", e);
                             } finally {

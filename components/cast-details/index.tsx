@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import { ChevronLeft, Loader2, Calendar, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ChevronLeft, Loader2, Calendar, MapPin, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getCastDetails, getCastMovies } from '@/services/tmdbService';
 import { Movie, CastMember } from '@/types';
@@ -34,6 +34,7 @@ export default function CastDetails({
   const [isMoviesLoading, setIsMoviesLoading] = useState(false);
   const [error, setError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -194,6 +195,35 @@ export default function CastDetails({
                 <p className="text-white/40 italic mb-12 uppercase text-xs tracking-widest">No biography available for this artist.</p>
               )}
 
+              {/* Image Gallery */}
+              {cast.images && cast.images.length > 0 && (
+                <div className="mb-12">
+                  <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
+                    <span className="w-1 h-3 bg-brand"></span> GALLERY
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {cast.images.slice(0, 8).map((img, idx) => (
+                      <div 
+                        key={idx} 
+                        className="aspect-[2/3] relative rounded-xl overflow-hidden cursor-pointer group"
+                        onClick={() => setSelectedImage(img)}
+                      >
+                        <Image
+                          src={img}
+                          alt={`${cast.name} gallery image ${idx + 1}`}
+                          fill
+                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <span className="text-white font-bold text-sm tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">View</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Movies Done */}
               <div>
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-8 flex items-center gap-2">
@@ -217,6 +247,42 @@ export default function CastDetails({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Image Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 md:p-8"
+          >
+            <button 
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-6 right-6 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-brand hover:text-black rounded-full text-white transition-all z-50"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-5xl max-h-[90vh] w-full h-full rounded-2xl overflow-hidden shadow-2xl"
+            >
+              <Image
+                src={selectedImage}
+                alt={`${cast.name} fullscreen`}
+                fill
+                className="object-contain"
+                quality={100}
+                priority
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

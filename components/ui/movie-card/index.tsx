@@ -15,6 +15,13 @@ interface MovieCardProps {
   activeGenre?: string;
 }
 
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
 export default function MovieCard({ movie, accentColor = '#999', priority = false, activeGenre }: MovieCardProps) {
   const [imgError, setImgError] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
@@ -71,8 +78,8 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
       >
         {/* Background Image / Fallback */}
         {imgError || !currentPoster ? (
-          <div className="absolute inset-0 flex items-center justify-center p-4 bg-[#141414] text-center">
-            <span className="font-serif font-bold text-white text-sm">{movie.title}</span>
+          <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-brand/20 to-purple-900/20 border border-white/5 text-center">
+            <span className="font-sans font-black text-white/20 text-6xl uppercase tracking-tighter shadow-sm">{getInitials(movie.title)}</span>
           </div>
         ) : (
           <Image

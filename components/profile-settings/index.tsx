@@ -3,20 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'react-hot-toast';
+import { notify as toast, syncBrowserChannelPref } from '../../lib/notify';
 import {
   Bell, Settings, Shield, CreditCard, HelpCircle, Film, Tv, Play, Plus,
   Trash2, Mail, Check, X, ShieldCheck, Download, RefreshCw, Eye, Lock,
   Info, Activity, Globe, Heart, ChevronDown, CheckCircle2, Layout, Calendar,
   ArrowRight, MessageSquare, AlertCircle, Laptop, Smartphone, AlertTriangle, LogOut,
   Search, ArrowUp, ArrowDown, History, Award, Clock, Trophy, Zap, Star, ChevronLeft, ChevronRight, Share2,
-  UserX, MonitorPlay, Sliders, Unlock, LayoutList, ExternalLink, Power
+  UserX, MonitorPlay, Sliders, Unlock, LayoutList, ExternalLink, Power, Menu,
+  Fingerprint, MonitorSmartphone, Database, UserCog
 } from 'lucide-react';
 import { getUserActivities, clearUserActivities } from '@/lib/genreTracker';
 import { searchMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { app } from '@/lib/firebase';
-import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc, getCountFromServer } from 'firebase/firestore';
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
@@ -24,6 +25,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { revalidatePage } from '@/app/actions/revalidate';
 import { ProfileSettings } from '@/types';
+import { useWatchlist } from '@/context/WatchlistContext';
 
 interface ProfileSettingsPanelProps {
   user: any;
@@ -57,6 +59,17 @@ const STREAMING_PLATFORMS = [
   { id: 'max', name: 'Max', logo: 'M', color: 'bg-blue-800', glow: 'shadow-blue-700/30' },
 ];
 
+const SETTING_TABS = [
+  { id: 'notifications', icon: '🔔', name: 'Notifications', label: 'Updates & Alerts' },
+  { id: 'preferences', icon: '⚙️', name: 'Preferences', label: 'DNA & Filters' },
+  { id: 'privacy', icon: '🛡️', name: 'Privacy & Security', label: 'Sessions & Data' },
+  { id: 'payment', icon: '💳', name: 'Payment Methods', label: 'Billing & Premium' },
+  { id: 'help', icon: '❓', name: 'Help & Support', label: 'FAQ & Dispatches' },
+  { id: 'tracking', icon: '🕵️', name: 'Watchlists & Tracking', label: 'Aggregator Insights' },
+  { id: 'activity', icon: '🏆', name: 'Activity & Badges', label: 'Timeline & Achievements' },
+  { id: 'notes', icon: '📝', name: 'Director\'s Notes', label: 'Reviews & Critiques' }
+];
+
 export default function ProfileSettingsPanel({
   user,
   profile,
@@ -78,6 +91,8 @@ export default function ProfileSettingsPanel({
   >('notifications');
   const searchParams = useSearchParams();
   const router = useRouter();
+  
+  const { customWatchlists, createCustomWatchlist, deleteCustomWatchlist } = useWatchlist();
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -88,23 +103,45 @@ export default function ProfileSettingsPanel({
 
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isLogoutAllModalOpen, setIsLogoutAllModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [keepCurrentDevice, setKeepCurrentDevice] = useState(true);
   const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
   const [showActivityPopup, setShowActivityPopup] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
+  const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
   // Billing states
   const [billingPlan, setBillingPlan] = useState<string>('free');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [renewalDate, setRenewalDate] = useState<string>('N/A');
   const [isUpgrading, setIsUpgrading] = useState(false);
+  
+  const signOutTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Default to true if not explicitly set to false
+    syncBrowserChannelPref(profile.channelBrowser !== false);
+  }, [profile.channelBrowser]);
+
+  useEffect(() => {
+    return () => {
+      if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) return;
     const db = getFirestore(app);
     const auditRef = collection(db, `users/${user.uid}/audit_logs`);
     const q = query(auditRef, orderBy('timestamp', 'desc'), limit(5));
+
+    // Fetch the true total count of audit logs (alerts) for the badge
+    getCountFromServer(auditRef).then((snap) => {
+      setTotalAuditLogs(snap.data().count);
+    }).catch((error) => {
+      if (error.code !== 'permission-denied') console.error('Count fetch error:', error);
+    });
 
     const unsubscribeAudit = onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditEvent));
@@ -472,11 +509,100 @@ export default function ProfileSettingsPanel({
   const [ticketType, setTicketType] = useState<'general' | 'bug' | 'missing' | 'wrong_availability' | 'feature'>('general');
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [newWatchlistName, setNewWatchlistName] = useState('');
-  const [customWatchlists, setCustomWatchlists] = useState<{ id: string; name: string; count: number }[]>([
-    { id: '1', name: 'Sci-Fi Gems', count: 12 },
-    { id: '2', name: 'Late Night Thrillers', count: 8 },
-    { id: '3', name: 'Family Weekend Critiques', count: 15 }
-  ]);
+
+  // --- Release Calendar State ---
+  const [upcomingMovies, setUpcomingMovies] = useState<{ id: number; title: string; release_date: string; poster_path: string | null }[]>([]);
+  const [trackedReleases, setTrackedReleases] = useState<number[]>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
+  // Fetch upcoming movies from TMDB
+  useEffect(() => {
+    const fetchUpcoming = async () => {
+      setIsLoadingCalendar(true);
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+        if (!apiKey) return;
+        const res = await fetch(`https://api.themoviedb.org/3/movie/upcoming?api_key=${apiKey}&language=en-US&page=1`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // normalize to start of today
+        const futureMovies = (data.results || [])
+          .filter((m: any) => {
+            if (!m.release_date) return false;
+            return new Date(m.release_date) >= today;
+          })
+          .slice(0, 10)
+          .map((m: any) => ({
+            id: m.id,
+            title: m.title,
+            release_date: m.release_date,
+            poster_path: m.poster_path
+          }));
+        setUpcomingMovies(futureMovies);
+      } catch (err) {
+        console.error('Failed to fetch upcoming movies', err);
+      } finally {
+        setIsLoadingCalendar(false);
+      }
+    };
+    fetchUpcoming();
+  }, []);
+
+  // Subscribe to user's tracked releases in Firestore
+  useEffect(() => {
+    if (!user?.uid) return;
+    const db = getFirestore(app);
+    const q = collection(db, `users/${user.uid}/trackedReleases`);
+    const unsub = onSnapshot(q, (snap) => {
+      setTrackedReleases(snap.docs.map(d => Number(d.id)));
+    }, (err) => {
+      if (err.code !== 'permission-denied') console.error('Tracked releases error:', err);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Toggle tracking a release + auto-enable notifyNewRelease toggle
+  const handleToggleTrackedRelease = async (movieId: number, movieTitle: string) => {
+    if (!user?.uid) { toast.error('Please log in to track releases'); return; }
+    const db = getFirestore(app);
+    const docRef = doc(db, `users/${user.uid}/trackedReleases/${movieId}`);
+    const isTracked = trackedReleases.includes(movieId);
+    try {
+      if (isTracked) {
+        await deleteDoc(docRef);
+        toast.success(`Removed "${movieTitle}" from reminders`);
+      } else {
+        await setDoc(docRef, { movieId, title: movieTitle, trackedAt: new Date() });
+        toast.success(`🔔 Tracking "${movieTitle}" — you'll be notified on release!`);
+        // Auto-enable the notifyNewRelease toggle if it's currently off
+        if (!profile.notifyNewRelease) {
+          await handleTogglePref('notifyNewRelease');
+        }
+
+        // Trigger universal email notification (will silently abort if email channel is off)
+        try {
+          const token = await user.getIdToken();
+          fetch('/api/notifications/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              type: 'TRACK_RELEASE',
+              data: { movieTitle }
+            })
+          }).catch(console.error); // Run in background
+        } catch (e) {
+          console.error('Failed to send tracking email notification', e);
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling tracked release:', err);
+      toast.error('Failed to update release tracker');
+    }
+  };
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -560,55 +686,118 @@ export default function ProfileSettingsPanel({
   };
 
   return (
-    <div className="mt-12 bg-surface/30 border border-white/5 rounded-[40px] p-6 md:p-12 shadow-2xl backdrop-blur-xl relative overflow-hidden font-sans">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
-      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-        <div className="lg:w-1/4 shrink-0 flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar lg:sticky lg:top-32 self-start pb-4 lg:pb-0">
-          <div className="hidden lg:block mb-6">
-            <h3 className="text-3xl font-display font-black uppercase italic tracking-tight text-glow">
+    <div className="mt-8 md:mt-12 bg-black/40 border border-white/10 rounded-[2rem] md:rounded-[40px] p-4 md:p-8 shadow-2xl relative font-sans">
+      {/* Background Glows & Blur Layer */}
+      <div className="absolute inset-0 rounded-[2rem] md:rounded-[40px] backdrop-blur-3xl pointer-events-none z-0" />
+      <div className="absolute inset-0 overflow-hidden rounded-[2rem] md:rounded-[40px] pointer-events-none z-0">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-brand/10 rounded-full -mr-48 -mt-48 blur-[100px]" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full -ml-48 -mb-48 blur-[100px]" />
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 relative z-10 w-full">
+        {/* Mobile Header / Drawer Toggle */}
+        <div className="lg:hidden flex items-center justify-between bg-white/5 border border-white/10 rounded-3xl p-4 backdrop-blur-md shadow-xl">
+           <div className="flex items-center gap-4">
+             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xl shadow-inner">
+               {SETTING_TABS.find(t => t.id === activeSettingTab)?.icon}
+             </div>
+             <div>
+               <h3 className="text-sm font-black uppercase tracking-widest text-white">
+                 {SETTING_TABS.find(t => t.id === activeSettingTab)?.name}
+               </h3>
+               <p className="text-[10px] text-white/50 font-medium uppercase tracking-wider mt-0.5">{SETTING_TABS.find(t => t.id === activeSettingTab)?.label}</p>
+             </div>
+           </div>
+           <button onClick={() => setIsMobileMenuOpen(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-white transition-colors active:scale-95">
+             <Menu className="w-5 h-5" />
+           </button>
+        </div>
+
+        {/* Mobile Drawer (AnimatePresence) */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] lg:hidden"
+              />
+              <motion.div 
+                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto no-scrollbar bg-black/95 border-t border-white/10 rounded-t-[40px] p-6 z-[9999] lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-3xl flex flex-col gap-2"
+              >
+                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
+                <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-white mb-4 px-2">Control Center</h3>
+                {SETTING_TABS.map((t) => {
+                  const isActive = activeSettingTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => { setActiveSettingTab(t.id as any); setIsMobileMenuOpen(false); }}
+                      className={`flex items-center gap-4 px-5 py-4 rounded-3xl transition-all ${isActive ? 'bg-brand/10 border border-brand/30' : 'bg-transparent border border-transparent hover:bg-white/5'}`}
+                    >
+                      <span className="text-2xl">{t.icon}</span>
+                      <div className="text-left">
+                        <div className={`text-sm font-black uppercase tracking-wider ${isActive ? 'text-brand' : 'text-white/70'}`}>{t.name}</div>
+                        <div className="text-[10px] text-white/40 uppercase tracking-widest">{t.label}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:flex w-full lg:w-1/4 shrink-0 flex-col gap-2 sticky top-24 self-start">
+          <div className="mb-6 px-2">
+            <h3 className="text-3xl font-display font-black uppercase italic tracking-tight text-glow bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
               Control <span className="text-brand">Center</span>
             </h3>
-            <p className="text-white/40 text-xs font-medium mt-1">Configure your personal preferences</p>
+            <p className="text-white/40 text-xs font-medium mt-1 tracking-wide uppercase">Configure preferences</p>
           </div>
-          {[
-            { id: 'notifications', icon: '🔔', name: 'Notifications', label: 'Updates & Alerts' },
-            { id: 'preferences', icon: '⚙️', name: 'Preferences', label: 'DNA & Filters' },
-            { id: 'privacy', icon: '🛡️', name: 'Privacy & Security', label: 'Sessions & Data' },
-            { id: 'payment', icon: '💳', name: 'Payment Methods', label: 'Billing & Premium' },
-            { id: 'help', icon: '❓', name: 'Help & Support', label: 'FAQ & Dispatches' },
-            { id: 'tracking', icon: '🕵️', name: 'Watchlists & Tracking', label: 'Aggregator Insights' },
-            { id: 'activity', icon: '🏆', name: 'Activity & Badges', label: 'Timeline & Achievements' },
-            { id: 'notes', icon: '📝', name: 'Director\'s Notes', label: 'Reviews & Critiques' }
-          ].map((t) => {
-            const isActive = activeSettingTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setActiveSettingTab(t.id as any)}
-                className={`flex flex-col items-center lg:items-start shrink-0 px-5 lg:px-6 py-4 rounded-2xl border transition-all ${isActive
-                  ? 'bg-brand/10 border-brand/35 text-brand shadow-lg shadow-brand/5'
-                  : 'bg-white/5 border-white/5 text-white/50 hover:bg-white/10 hover:text-white hover:border-white/10'
-                  }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl lg:text-sm">{t.icon}</span>
-                  <span className="hidden lg:block text-xs font-black uppercase tracking-wider">{t.name}</span>
-                </div>
-                <span className="hidden lg:block text-[9px] text-white/30 font-medium mt-0.5">{t.label}</span>
-              </button>
-            );
-          })}
+          <div className="flex flex-col gap-1.5">
+            {SETTING_TABS.map((t) => {
+              const isActive = activeSettingTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveSettingTab(t.id as any)}
+                  className="relative flex flex-col items-start shrink-0 px-5 py-3.5 rounded-2xl transition-all group overflow-hidden"
+                >
+                  {isActive && (
+                    <motion.div layoutId="desktopActiveTab" className="absolute inset-0 bg-gradient-to-r from-brand/15 to-purple-500/5 border border-brand/20 rounded-2xl shadow-inner pointer-events-none" />
+                  )}
+                  <div className="flex items-center gap-3 relative z-10">
+                    <span className={`text-base transition-transform group-hover:scale-110 ${isActive ? '' : 'opacity-70'}`}>{t.icon}</span>
+                    <span className={`text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${isActive ? 'text-brand drop-shadow-sm' : 'text-white/50 group-hover:text-white/80'}`}>{t.name}</span>
+                  </div>
+                  <span className={`text-[9px] font-medium mt-1 ml-8 uppercase tracking-widest relative z-10 transition-colors ${isActive ? 'text-brand/60' : 'text-white/30'}`}>{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="flex-grow lg:w-3/4 bg-black/40 border border-white/5 rounded-[32px] p-6 md:p-8 min-h-[500px] flex flex-col justify-between">
+
+        {/* Content Pane */}
+        <div className="flex-grow lg:w-3/4 bg-white/[0.02] border border-white/10 rounded-[2rem] md:rounded-[40px] p-5 md:p-10 min-h-[500px] flex flex-col justify-between shadow-inner backdrop-blur-xl relative">
           <div className="space-y-6">
             {activeSettingTab === 'notifications' && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Notification Channels & Alerts</h4>
-                  <p className="text-white/40 text-xs mt-1">Every setting here saves instantly to your account across all devices.</p>
+              <div className="space-y-6 animate-fadeIn">
+                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 blur-[50px] rounded-full pointer-events-none" />
+                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Notification Channels & Alerts</h4>
+                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Every setting here saves instantly to your account across all devices.</p>
                 </div>
-                <div className="space-y-4">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Notification Channels</h5>
+
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                      <Bell className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Delivery Channels</h5>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                       { key: 'channelEmail' as const, title: 'Email', icon: '📧', desc: 'Alerts to your inbox.' },
@@ -619,26 +808,69 @@ export default function ProfileSettingsPanel({
                       return (
                         <button
                           key={c.key}
-                          onClick={() => handleTogglePref(c.key)}
-                          className={`p-5 rounded-2xl border cursor-pointer transition-all text-left relative overflow-hidden group ${isActive
-                            ? 'bg-brand/8 border-brand/25 text-white shadow-md shadow-brand/5'
-                            : 'bg-white/5 border-white/5 text-white/40 hover:border-white/10 hover:bg-white/8'
+                          onClick={async () => {
+                            if (c.key === 'channelPush' && !isActive) {
+                              try {
+                                const permission = await Notification.requestPermission();
+                                if (permission === 'granted') {
+                                  const { getMessagingInstance } = await import('../../lib/firebase');
+                                  const messaging = await getMessagingInstance();
+                                  if (messaging) {
+                                    const { getToken } = await import('firebase/messaging');
+                                    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                                    if (!vapidKey) {
+                                      toast.error('VAPID key missing. Setup incomplete.');
+                                      return;
+                                    }
+                                    const token = await getToken(messaging, { vapidKey });
+                                    if (token && user) {
+                                      const db = getFirestore(app);
+                                      // Using a subcollection fcmTokens to store multiple devices if needed
+                                      const docRef = doc(db, `users/${user.uid}/fcmTokens/${token}`);
+                                      await setDoc(docRef, { token, device: navigator.userAgent, createdAt: new Date() });
+                                    }
+                                  }
+                                  await handleTogglePref(c.key);
+                                } else {
+                                  toast.error('Notification permission denied.');
+                                }
+                              } catch (e) {
+                                console.error('Push setup error:', e);
+                                toast.error('Failed to enable push notifications.');
+                              }
+                            } else {
+                              // Standard toggle for other channels, or disabling push
+                              await handleTogglePref(c.key);
+                            }
+                          }}
+                          className={`p-5 rounded-2xl border cursor-pointer transition-all text-left relative overflow-hidden group hover:-translate-y-1 ${isActive
+                            ? 'bg-gradient-to-br from-brand/15 to-purple-500/5 border-brand/30 shadow-lg shadow-brand/10'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
                             }`}
                         >
-                          {isActive && <div className="absolute top-0 right-0 w-16 h-16 bg-brand/10 rounded-full -mr-6 -mt-6 blur-xl" />}
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-base">{c.icon}</span>
-                            <div className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${isActive ? 'bg-brand border-brand shadow-[0_0_6px_rgba(240,171,252,0.6)]' : 'bg-transparent border-white/20'}`} />
+                          {isActive && <div className="absolute -top-6 -right-6 w-20 h-20 bg-brand/20 rounded-full blur-2xl" />}
+                          <div className="flex items-center justify-between mb-4 relative z-10">
+                            <span className="text-2xl drop-shadow-md">{c.icon}</span>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isActive ? 'bg-brand border-brand shadow-[0_0_12px_rgba(240,171,252,0.8)]' : 'bg-transparent border-white/20 group-hover:border-white/40'}`}>
+                              {isActive && <Check className="w-3 h-3 text-white" />}
+                            </div>
                           </div>
-                          <p className="text-xs font-black uppercase">{c.title}</p>
-                          <p className="text-[9px] text-white/30 mt-0.5 font-medium">{c.desc}</p>
+                          <p className="text-sm font-black uppercase tracking-wider text-white relative z-10">{c.title}</p>
+                          <p className="text-[10px] text-white/50 mt-1 font-medium tracking-widest uppercase relative z-10">{c.desc}</p>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                <div className="space-y-4 pt-2 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">🎬 New Releases</h5>
+
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400">
+                      <Film className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black uppercase tracking-widest text-white">New Releases</h5>
+                  </div>
+                  <div className="space-y-2">
                   {([
                     { key: 'notifyNewRelease', label: 'Watchlist Releases', desc: 'Alert when a title on your watchlist is officially released.' },
                     { key: 'notifyNewEpisodes', label: 'New Episode Alerts', desc: 'Notified the moment a new episode of a tracked series drops.' },
@@ -646,52 +878,74 @@ export default function ProfileSettingsPanel({
                   ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((item) => {
                     const isActive = (profile[item.key] as boolean | undefined) ?? true;
                     return (
-                      <div key={item.key as string} className="flex gap-4 items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
                         <div>
-                          <p className="text-xs font-black text-white uppercase">{item.label}</p>
-                          <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
+                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">{item.label}</p>
+                          <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">{item.desc}</p>
                         </div>
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
-                          className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                          className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${isActive
+                            ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
                             : 'bg-white/5 border-white/10 hover:border-white/20'
                             }`}
                         >
-                          <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
+                          <div
+                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${isActive ? 'translate-x-7' : 'translate-x-1 opacity-50'
+                              }`}
+                          />
                         </button>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
-                <div className="space-y-4 pt-2 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">📡 Platform Updates</h5>
-                  {([
+
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                      <Heart className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Community & Social</h5>
+                  </div>
+                  <div className="space-y-2">
+                    {([
                     { key: 'notifyPlatformAdded', label: 'New Streaming Platforms', desc: 'Alerted when StreamFinds integrates a new provider.' },
                     { key: 'notifyNewFeatures', label: 'New Product Features', desc: 'Be first to know about aggregation upgrades, calendar views, and badges.' },
                   ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((item) => {
                     const isActive = (profile[item.key] as boolean | undefined) ?? true;
                     return (
-                      <div key={item.key as string} className="flex gap-4 items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
                         <div>
-                          <p className="text-xs font-black text-white uppercase">{item.label}</p>
-                          <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
+                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">{item.label}</p>
+                          <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">{item.desc}</p>
                         </div>
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
-                          className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                          className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${isActive
+                            ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
                             : 'bg-white/5 border-white/10 hover:border-white/20'
                             }`}
                         >
-                          <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
+                          <div
+                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${isActive ? 'translate-x-7' : 'translate-x-1 opacity-50'
+                              }`}
+                          />
                         </button>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
-                <div className="space-y-4 pt-2 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">✨ Personalized Alerts</h5>
+
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                      <Star className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Personalized Alerts</h5>
+                  </div>
+                  <div className="space-y-2">
                   {([
                     { key: 'notifyFavGenres', label: 'Trending in Favorite Genres', desc: 'Alerts matching critical genres from your DNA profile.' },
                     { key: 'notifyWatchHistoryRecs', label: 'History Recommendations', desc: 'Tailored picks based on your ratings and watch history.' },
@@ -699,38 +953,47 @@ export default function ProfileSettingsPanel({
                   ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((item) => {
                     const isActive = (profile[item.key] as boolean | undefined) ?? true;
                     return (
-                      <div key={item.key as string} className="flex gap-4 items-center justify-between border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
                         <div>
-                          <p className="text-xs font-black text-white uppercase">{item.label}</p>
-                          <p className="text-[10px] text-white/40 mt-1">{item.desc}</p>
+                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">{item.label}</p>
+                          <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">{item.desc}</p>
                         </div>
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
-                          className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                            ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
+                          className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${isActive
+                            ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
                             : 'bg-white/5 border-white/10 hover:border-white/20'
                             }`}
                         >
-                          <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
+                          <div
+                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${isActive ? 'translate-x-7' : 'translate-x-1 opacity-50'
+                              }`}
+                          />
                         </button>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
+
                 <div className="pt-6 border-t border-white/5">
                   <div className="rounded-[28px] bg-gradient-to-br from-purple-950/30 via-black/40 to-indigo-950/20 border border-purple-500/15 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                    <div className="flex flex-row items-center justify-between px-4 sm:px-6 pt-6 pb-4 border-b border-white/5 gap-2 sm:gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
                           <Shield className="w-4 h-4 text-purple-400" />
                         </div>
-                        <div>
-                          <h5 className="text-xs font-black uppercase tracking-widest text-white">🛡 Vigilance Hub</h5>
-                          <p className="text-[9px] text-white/30 font-medium mt-0.5">Real-time security &amp; account activity monitoring</p>
+                        <div className="min-w-0">
+                          <h5 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-1.5 truncate">
+                            <Shield className="w-3.5 h-3.5 text-white/50 shrink-0" /> Vigilance Hub
+                          </h5>
+                          <p className="text-[9px] text-white/30 font-medium mt-0.5 leading-relaxed break-words">
+                            Real-time security &amp; account activity monitoring
+                          </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                      <div className="flex items-center shrink-0 whitespace-nowrap gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 w-auto">
+                        <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-green-400 animate-pulse" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-green-400">All Clear</span>
                       </div>
                     </div>
@@ -739,7 +1002,7 @@ export default function ProfileSettingsPanel({
                         {[
                           { label: 'Active Sessions', value: activeSessions.length.toString(), icon: '💻', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/15' },
                           { label: 'Login Streak', value: `${profile?.loginStreak || 1}d`, icon: '🔑', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/15' },
-                          { label: 'Alerts', value: auditLogs.length.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
+                          { label: 'Alerts', value: totalAuditLogs.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
                           // { label: '2FA Status', value: 'Off', icon: '🔒', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/15' },
                         ].map((stat) => (
                           <div key={stat.label} className={`p-3 rounded-2xl border ${stat.bg} flex flex-col gap-1`}>
@@ -820,7 +1083,8 @@ export default function ProfileSettingsPanel({
                               logSecurityEvent(user?.uid, 'All Sessions Terminated', 'All refresh tokens revoked via Firebase Admin.', 'bg-red-500');
                               toast.dismiss(t);
                               toast.success('All sessions terminated. Signing you out…');
-                              setTimeout(() => onSignOut?.(), 1500);
+                              if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+                              signOutTimerRef.current = setTimeout(() => onSignOut?.(), 1500);
                             } catch {
                               toast.dismiss(t);
                               toast.error('Failed to terminate sessions.');
@@ -846,9 +1110,10 @@ export default function ProfileSettingsPanel({
             )}
             {activeSettingTab === 'preferences' && (
               <div className="space-y-8 animate-fadeIn relative">
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Curation Preferences</h4>
-                  <p className="text-white/40 text-xs mt-1">Configure language, region, content filters, and build your content DNA profile.</p>
+                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 blur-[50px] rounded-full pointer-events-none" />
+                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Curation Preferences</h4>
+                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Configure language, region, content filters, and build your content DNA profile.</p>
                 </div>
 
                 {profile.plan !== 'premium' && (
@@ -869,44 +1134,61 @@ export default function ProfileSettingsPanel({
                   </div>
                 )}
 
-                <div className={profile.plan !== 'premium' ? 'opacity-30 pointer-events-none select-none blur-sm transition-all duration-500' : ''}>
-                  <div className="flex gap-4 items-center justify-between py-4 border-b border-white/5">
-                    <div>
-                      <p className="text-xs font-black text-white uppercase">Auto Filter (DNA Match)</p>
-                      <p className="text-[10px] text-white/40 mt-1">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
+                <div className={profile.plan !== 'premium' ? 'opacity-30 pointer-events-none select-none blur-sm transition-all duration-500 space-y-6' : 'space-y-6'}>
+                  
+                  <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Global Settings</h5>
                     </div>
-                    <button
-                      onClick={() => handleLocalToggle('autoFilter')}
-                      className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${(profile.autoFilter ?? false)
-                        ? 'bg-brand border-brand shadow-[0_0_10px_rgba(240,171,252,0.4)]'
-                        : 'bg-white/5 border-white/10 hover:border-white/20'
-                        }`}
-                    >
-                      <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${(profile.autoFilter ?? false) ? 'left-[23px]' : 'left-[3px]'}`} />
-                    </button>
+
+                    <div className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
+                      <div>
+                        <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">Auto Filter (DNA Match)</p>
+                        <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
+                      </div>
+                      <button
+                        onClick={() => handleLocalToggle('autoFilter')}
+                        className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${(profile.autoFilter ?? false)
+                          ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
+                          : 'bg-white/5 border-white/10 hover:border-white/20'
+                          }`}
+                      >
+                        <div className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${(profile.autoFilter ?? false) ? 'translate-x-7' : 'translate-x-1 opacity-50'}`} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4">
+                      <div className="space-y-2 relative group">
+                        <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Prevalent Language</label>
+                        <CustomSelect
+                          value={profile.prefLanguage || 'en'}
+                          onChange={(val) => handleLocalSelect('prefLanguage', val)}
+                          options={tmdbLanguages.length > 0 ? tmdbLanguages : [{ value: 'en', label: 'English' }]}
+                          className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-bold group-hover:border-white/20 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2 relative group">
+                        <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Active Watch Region</label>
+                        <CustomSelect
+                          value={profile.watchRegion || 'IN'}
+                          onChange={(val) => handleRegionChange(val)}
+                          options={tmdbRegions.length > 0 ? tmdbRegions : [{ value: 'IN', label: 'India' }]}
+                          className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-bold group-hover:border-white/20 transition-all"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Prevalent Language</label>
-                      <CustomSelect
-                        value={profile.prefLanguage || 'en'}
-                        onChange={(val) => handleLocalSelect('prefLanguage', val)}
-                        options={tmdbLanguages.length > 0 ? tmdbLanguages : [{ value: 'en', label: 'English' }]}
-                        className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
-                      />
+
+                  <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-8 h-8 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400">
+                        <MonitorPlay className="w-4 h-4" />
+                      </div>
+                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Content Format Preference</h5>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Active Watch Region</label>
-                      <CustomSelect
-                        value={profile.watchRegion || 'IN'}
-                        onChange={(val) => handleRegionChange(val)}
-                        options={tmdbRegions.length > 0 ? tmdbRegions : [{ value: 'IN', label: 'India' }]}
-                        className="bg-black/60 rounded-2xl p-4 text-xs font-bold"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-3 pt-6 border-t border-white/5 mt-6">
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Content Format Preference</h5>
                     <div className="flex gap-3">
                       {[
                         { id: 'movies', label: '🎬 Movies Only' },
@@ -918,7 +1200,7 @@ export default function ProfileSettingsPanel({
                           <button
                             key={item.id}
                             onClick={() => handleLocalSelect('prefContentType', item.id)}
-                            className={`flex-1 py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/10 border-brand/30 text-brand' : 'bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/10'
+                            className={`flex-1 py-4 px-4 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-1 ${isActive ? 'bg-gradient-to-br from-brand/15 to-purple-500/5 border-brand/30 text-brand shadow-[0_0_15px_rgba(240,171,252,0.15)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/20 hover:bg-white/10'
                               }`}
                           >
                             {item.label}
@@ -927,12 +1209,22 @@ export default function ProfileSettingsPanel({
                       })}
                     </div>
                   </div>
-                  <div className="space-y-6 pt-6 border-t border-white/5 bg-white/[0.01] p-6 rounded-3xl border border-white/5 mt-6">
-                    <div>
-                      <h5 className="text-xs font-black uppercase text-brand tracking-widest mb-1">🧬 DNA Filter (Your Unique Feature)</h5>
-                      <p className="text-[10px] text-white/40">Fine-tune your aggregator parameters. We build your personalized lists matching this template.</p>
+
+                  <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none" />
+                    
+                    <div className="flex items-center gap-3 mb-6 relative z-10">
+                      <div className="w-8 h-8 rounded-xl bg-brand/20 border border-brand/30 flex items-center justify-center text-brand">
+                        <Fingerprint className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h5 className="text-xs font-black uppercase tracking-widest text-white">🧬 DNA Filter</h5>
+                        <p className="text-[9px] text-white/40 tracking-wider font-medium uppercase mt-0.5">Your Unique Feature</p>
+                      </div>
                     </div>
-                    <div className="space-y-3">
+
+                    <div className="space-y-6 relative z-10">
+                      <div className="space-y-3">
                       <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Select Moods</p>
                       <div className="flex flex-wrap gap-2">
                         {['Feel Good', 'Dark', 'Emotional', 'Family', 'Inspirational'].map((mood) => {
@@ -942,7 +1234,7 @@ export default function ProfileSettingsPanel({
                             <button
                               key={mood}
                               onClick={() => handleToggleDnaMood(mood)}
-                              className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/20 border-brand text-brand' : 'bg-black/40 border-white/5 text-white/40 hover:text-white'
+                              className={`px-4 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-1 ${isActive ? 'bg-gradient-to-r from-brand/20 to-purple-500/20 border-brand/50 text-white shadow-[0_0_15px_rgba(240,171,252,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20'
                                 }`}
                             >
                               {mood}
@@ -964,7 +1256,7 @@ export default function ProfileSettingsPanel({
                             <button
                               key={item.id}
                               onClick={() => handleLocalSelect('dnaRuntime', item.id)}
-                              className={`flex-1 py-2 px-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all ${isActive ? 'bg-brand/10 border-brand/35 text-brand' : 'bg-black/30 border-white/5 text-white/30 hover:text-white'
+                              className={`flex-1 py-3 px-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-1 ${isActive ? 'bg-gradient-to-r from-brand/20 to-purple-500/20 border-brand/50 text-white shadow-[0_0_15px_rgba(240,171,252,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20'
                                 }`}
                             >
                               {item.label}
@@ -990,16 +1282,16 @@ export default function ProfileSettingsPanel({
                               key={platform.id}
                               onClick={() => handleToggleSub(platform.name)}
                               title={platform.name}
-                              className={`relative group flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all duration-200 ${isActive ? `bg-white/10 border-white/20 shadow-lg ${platform.glow}` : 'bg-black/30 border-white/5 hover:border-white/15 hover:bg-white/5'
+                              className={`relative group flex flex-col items-center gap-3 p-4 rounded-[20px] border transition-all duration-300 hover:-translate-y-1 ${isActive ? `bg-gradient-to-br from-white/10 to-white/5 border-white/30 shadow-xl ${platform.glow}` : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
                                 }`}
                             >
-                              <div className={`w-9 h-9 rounded-xl ${platform.color} flex items-center justify-center text-white font-black text-sm shadow-md transition-transform group-hover:scale-110 ${isActive ? 'ring-2 ring-white/30' : ''}`}>
+                              <div className={`w-10 h-10 rounded-[14px] ${platform.color} flex items-center justify-center text-white font-black text-sm shadow-md transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 ${isActive ? 'ring-2 ring-white/40 ring-offset-2 ring-offset-black/50' : ''}`}>
                                 {platform.logo}
                               </div>
-                              <span className={`text-[8px] font-black uppercase tracking-wide leading-tight text-center line-clamp-2 ${isActive ? 'text-white' : 'text-white/40'}`}>{platform.name}</span>
+                              <span className={`text-[9px] font-black uppercase tracking-widest leading-tight text-center line-clamp-2 transition-colors ${isActive ? 'text-white' : 'text-white/50 group-hover:text-white/80'}`}>{platform.name}</span>
                               {isActive && (
-                                <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 bg-brand rounded-full flex items-center justify-center">
-                                  <svg width="7" height="7" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="black" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                <div className="absolute top-2 right-2 w-4 h-4 bg-brand rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(240,171,252,0.8)] animate-in zoom-in">
+                                  <svg width="8" height="8" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                 </div>
                               )}
                             </button>
@@ -1010,12 +1302,14 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
               </div>
+              </div>
             )}
             {activeSettingTab === 'privacy' && (
               <div className="space-y-8 animate-fadeIn">
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Privacy & Security</h4>
-                  <p className="text-white/40 text-xs mt-1">Review active connections, secure your account details, and manage local logs.</p>
+                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[50px] rounded-full pointer-events-none" />
+                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Privacy & Security</h4>
+                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Review active connections, secure your account details, and manage local logs.</p>
                 </div>
                 {/* TEMPORARILY DISABLED - Account Security / 2FA
                 <div className="space-y-4">
@@ -1030,14 +1324,19 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
                 */}
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <div className="flex justify-between items-center">
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Active Sessions</h5>
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <MonitorSmartphone className="w-4 h-4" />
+                      </div>
+                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Active Sessions</h5>
+                    </div>
                     <button
                       onClick={() => setIsLogoutAllModalOpen(true)}
-                      className="text-[9px] font-black text-brand uppercase tracking-widest hover:underline"
+                      className="text-[9px] font-black text-brand uppercase tracking-widest hover:underline bg-brand/10 hover:bg-brand/20 px-3 py-1.5 rounded-lg border border-brand/20 transition-colors"
                     >
-                      Logout All Devices
+                      Logout All
                     </button>
                   </div>
                   <div className="space-y-3">
@@ -1077,9 +1376,15 @@ export default function ProfileSettingsPanel({
                     ))}
                   </div>
                 </div>
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Data Controls</h5>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 blur-[60px] rounded-full pointer-events-none" />
+                  <div className="flex items-center gap-3 mb-6 relative z-10">
+                    <div className="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                      <Database className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Data Controls</h5>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
                     {[
                       {
                         label: 'Download My Data', isPremiumOnly: true, action: async () => {
@@ -1264,29 +1569,52 @@ export default function ProfileSettingsPanel({
                             }
                             item.action();
                           }}
-                          className={`p-4 rounded-2xl flex flex-col items-center justify-center text-center gap-2 transition-all relative ${
+                          className={`flex flex-col items-center justify-center p-5 rounded-[20px] border transition-all duration-300 hover:-translate-y-1 gap-3 relative overflow-hidden group ${
                             isLocked 
-                              ? 'bg-black/40 border border-white/5 text-white/30 cursor-not-allowed' 
-                              : 'bg-white/5 border border-white/5 hover:border-white/20 text-white/80 hover:bg-white/10 cursor-pointer'
+                              ? 'bg-black/40 border-white/5 opacity-50 cursor-not-allowed' 
+                              : item.label.includes('Delete') || item.label.includes('Clear') 
+                                ? 'bg-gradient-to-br from-red-500/5 to-transparent border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.15)]' 
+                                : 'bg-gradient-to-br from-white/[0.05] to-transparent border-white/10 hover:border-white/20 hover:bg-white/10 shadow-sm'
                           }`}
                         >
                           {isLocked ? (
-                            <Lock className="w-4 h-4 text-brand/50" />
+                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                              <Lock className="w-4 h-4 text-brand/50" />
+                            </div>
                           ) : (
-                            <item.icon className="w-4 h-4 text-white/30" />
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                              item.label.includes('Delete') || item.label.includes('Clear') 
+                                ? 'bg-red-500/10 group-hover:bg-red-500/20' 
+                                : 'bg-white/5 group-hover:bg-brand/20'
+                            }`}>
+                              <item.icon className={`w-4 h-4 ${
+                                item.label.includes('Delete') || item.label.includes('Clear') 
+                                  ? 'text-red-400' 
+                                  : 'text-white/50 group-hover:text-brand'
+                              }`} />
+                            </div>
                           )}
-                          <span className="text-[8px] font-black uppercase tracking-widest leading-relaxed">{item.label}</span>
+                          <span className={`text-[9px] font-black uppercase tracking-widest leading-relaxed transition-colors ${
+                            item.label.includes('Delete') || item.label.includes('Clear')
+                              ? 'text-red-400/70 group-hover:text-red-400'
+                              : 'text-white/60 group-hover:text-white'
+                          }`}>{item.label}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                <div className="space-y-3 border-t border-white/5 pt-6">
-                  <div>
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Account Management</h5>
-                    <p className="text-[9px] text-white/25 mt-1">Manage authentication, session, and account status.</p>
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400">
+                      <UserCog className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Account Management</h5>
+                      <p className="text-[9px] text-white/40 font-medium tracking-widest uppercase mt-0.5">Manage authentication, session, and account status.</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
                       onClick={async () => {
                         try {
@@ -1351,59 +1679,59 @@ export default function ProfileSettingsPanel({
 
             {activeSettingTab === 'payment' && (
               <div className="space-y-8 animate-fadeIn">
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Payment Methods</h4>
-                  <p className="text-white/40 text-xs mt-1">Manage your billing, saved methods, and premium subscriptions.</p>
+                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] rounded-full pointer-events-none" />
+                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Payment & Billing</h4>
+                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Manage your billing, saved methods, and premium subscriptions.</p>
                 </div>
 
                 {/* Payment Security Info */}
-                <div className="space-y-4">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Payment Security</h5>
-                  <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-start gap-4">
-                    <div className="p-2.5 rounded-xl bg-green-500/10 border border-green-500/20 flex-shrink-0">
-                      <ShieldCheck className="w-5 h-5 text-green-400" />
+                {/* Payment Security Info */}
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
+                  <div className="flex flex-col sm:flex-row items-start gap-5">
+                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
+                      <ShieldCheck className="w-6 h-6 text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-xs font-black text-white">Payments secured by Razorpay</p>
-                      <p className="text-[10px] text-white/50 mt-1 leading-relaxed">
-                        Your card numbers, UPI IDs, and bank details are <span className="text-green-400 font-bold">never stored</span> on our servers or in your browser. 
+                      <h5 className="text-xs font-black text-white uppercase tracking-widest mb-1">Payments secured by Razorpay</h5>
+                      <p className="text-[10px] text-white/50 leading-relaxed font-medium">
+                        Your card numbers, UPI IDs, and bank details are <span className="text-emerald-400 font-bold">never stored</span> on our servers or in your browser. 
                         All payment data is handled exclusively by Razorpay, which is PCI-DSS Level 1 compliant — the highest level of payment security certification.
                       </p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <span className="text-[8px] uppercase tracking-wider font-black text-white/30 px-2 py-1 rounded bg-white/5 border border-white/10">PCI-DSS</span>
-                        <span className="text-[8px] uppercase tracking-wider font-black text-white/30 px-2 py-1 rounded bg-white/5 border border-white/10">256-BIT SSL</span>
-                        <span className="text-[8px] uppercase tracking-wider font-black text-white/30 px-2 py-1 rounded bg-white/5 border border-white/10">RBI COMPLIANT</span>
+                      <div className="flex flex-wrap items-center gap-3 mt-4">
+                        <span className="text-[9px] uppercase tracking-widest font-black text-white/40 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">PCI-DSS</span>
+                        <span className="text-[9px] uppercase tracking-widest font-black text-white/40 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">256-BIT SSL</span>
+                        <span className="text-[9px] uppercase tracking-widest font-black text-white/40 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">RBI COMPLIANT</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Billing */}
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Billing</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-5 rounded-2xl bg-brand/10 border border-brand/20">
-                      <p className="text-[9px] text-brand uppercase tracking-widest font-black">Current Plan</p>
-                      <p className="text-xl font-display font-black text-white mt-1 uppercase italic tracking-tight">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-gradient-to-br from-brand/10 to-brand/5 border border-brand/20 rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col justify-center">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-brand/20 blur-[50px] rounded-full pointer-events-none" />
+                      <p className="text-[10px] text-brand uppercase tracking-widest font-black relative z-10">Current Plan</p>
+                      <p className="text-3xl font-display font-black text-white mt-1 uppercase italic tracking-tight relative z-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
                         {billingPlan === 'premium' ? 'Premium' : 'Free Tier'}
                       </p>
                       {billingPlan === 'premium' ? (
-                        <p className="text-[10px] text-white/50 mt-1">You have access to all premium features.</p>
+                        <p className="text-[10px] text-white/70 mt-2 font-medium tracking-wide relative z-10">You have access to all premium features.</p>
                       ) : (
-                        <p className="text-[10px] text-white/50 mt-1">Upgrade to Premium for full features.</p>
+                        <p className="text-[10px] text-white/70 mt-2 font-medium tracking-wide relative z-10">Upgrade to Premium for full features.</p>
                       )}
                       
                       {billingPlan !== 'premium' && (
                         <button 
                           onClick={handleUpgrade}
                           disabled={isUpgrading}
-                          className="mt-4 px-6 py-2 bg-brand text-black font-black uppercase tracking-widest text-[9px] rounded-lg hover:bg-white transition-colors disabled:opacity-50"
+                          className="mt-6 px-8 py-4 bg-brand text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all hover:scale-105 disabled:opacity-50 relative z-10 shadow-[0_0_20px_rgba(240,171,252,0.4)]"
                         >
                           {isUpgrading ? 'Loading...' : 'Upgrade Now'}
                         </button>
                       )}
                     </div>
-                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md space-y-5">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] text-white/40 uppercase font-black">Renewal Date</span>
                         <span className="text-xs text-white font-medium">{billingPlan === 'premium' ? renewalDate : 'N/A'}</span>
@@ -1452,21 +1780,27 @@ export default function ProfileSettingsPanel({
                       )}
                     </div>
                   </div>
-                </div>
 
                 {/* Premium Features */}
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Premium Features</h5>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md mt-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center text-yellow-400">
+                      <Star className="w-4 h-4" />
+                    </div>
+                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Premium Features Included</h5>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
                       { title: 'Ad-Free Experience', icon: MonitorPlay },
                       { title: 'Advanced Filters', icon: Sliders },
                       { title: 'Early Access', icon: Unlock },
                       { title: 'Multiple Watchlists', icon: LayoutList }
                     ].map((feat, i) => (
-                      <div key={i} className="p-4 rounded-2xl bg-black/20 border border-white/5 text-center flex flex-col items-center gap-2">
-                        <feat.icon className="w-5 h-5 text-brand" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/60">{feat.title}</span>
+                      <div key={i} className="p-5 rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10 text-center flex flex-col items-center gap-3 hover:-translate-y-1 transition-transform">
+                        <div className="p-3 bg-brand/10 rounded-xl">
+                          <feat.icon className="w-5 h-5 text-brand" />
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/70 leading-relaxed">{feat.title}</span>
                       </div>
                     ))}
                   </div>
@@ -1476,9 +1810,10 @@ export default function ProfileSettingsPanel({
 
             {activeSettingTab === 'help' && (
               <div className="space-y-8 animate-fadeIn">
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Help & Support</h4>
-                  <p className="text-white/40 text-xs mt-1">Get assistance, contact support, and view legal documents.</p>
+                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[50px] rounded-full pointer-events-none" />
+                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Help & Support</h4>
+                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Get assistance, contact support, and view legal documents.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1493,7 +1828,7 @@ export default function ProfileSettingsPanel({
                           { q: 'Why can\'t I play content directly?', a: 'StreamFinds redirects you to the official platform where the content is hosted.' },
                           { q: 'How often is data updated?', a: 'Pricing, availability, and trending metrics are refreshed every 24 hours.' }
                         ].map((faq, i) => (
-                          <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                          <div key={i} className="p-5 rounded-[20px] bg-white/[0.02] border border-white/10 backdrop-blur-md hover:bg-white/5 transition-colors">
                             <p className="text-xs font-black text-white">{faq.q}</p>
                             <p className="text-[10px] text-white/60 mt-1 leading-relaxed">{faq.a}</p>
                           </div>
@@ -1507,14 +1842,18 @@ export default function ProfileSettingsPanel({
                   <div className="space-y-4">
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Contact Support</h5>
 
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <a href="https://wa.me/message/YOUR_WHATSAPP_LINK_HERE" target="_blank" rel="noreferrer" className="p-4 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 flex flex-col items-center gap-2 hover:bg-[#25D366]/20 transition-all">
-                        <MessageSquare className="w-5 h-5 text-[#25D366]" />
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <a href="https://wa.me/message/YOUR_WHATSAPP_LINK_HERE" target="_blank" rel="noreferrer" className="p-5 rounded-2xl bg-gradient-to-br from-[#25D366]/10 to-transparent border border-[#25D366]/20 flex flex-col items-center gap-3 hover:-translate-y-1 transition-all group">
+                        <div className="p-3 bg-[#25D366]/20 rounded-xl group-hover:scale-110 transition-transform">
+                          <MessageSquare className="w-5 h-5 text-[#25D366]" />
+                        </div>
                         <span className="text-[9px] font-black uppercase text-[#25D366] tracking-widest">WhatsApp Chat</span>
                       </a>
-                      <a href="mailto:support@streamfind.com" className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center gap-2 hover:bg-white/10 transition-all">
-                        <Mail className="w-5 h-5 text-white/60" />
-                        <span className="text-[9px] font-black uppercase text-white/60 tracking-widest">Email Support</span>
+                      <a href="mailto:support@streamfind.com" className="p-5 rounded-2xl bg-gradient-to-br from-white/10 to-transparent border border-white/10 flex flex-col items-center gap-3 hover:-translate-y-1 transition-all group">
+                        <div className="p-3 bg-white/10 rounded-xl group-hover:scale-110 transition-transform">
+                          <Mail className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="text-[9px] font-black uppercase text-white/80 tracking-widest">Email Support</span>
                       </a>
                     </div>
 
@@ -1591,7 +1930,7 @@ export default function ProfileSettingsPanel({
                       { title: 'DMCA Policy', path: '/dmca' },
                       { title: 'Data Disclaimer', path: '/data-disclaimer' }
                     ].map((doc, i) => (
-                      <Link key={i} href={doc.path} className="p-4 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all text-left flex flex-col justify-between h-full gap-2 group">
+                      <Link key={i} href={doc.path} className="p-5 bg-white/[0.02] border border-white/10 rounded-2xl text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/5 transition-all text-left flex flex-col justify-between h-full gap-2 group hover:-translate-y-1 backdrop-blur-sm">
                         <div className="flex justify-between items-start w-full">
                           <span>{doc.title}</span>
                           <ExternalLink className="w-3 h-3 opacity-30 group-hover:opacity-100 transition-opacity" />
@@ -1605,9 +1944,10 @@ export default function ProfileSettingsPanel({
 
             {activeSettingTab === 'tracking' && (
               <div className="space-y-8 animate-fadeIn">
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Watchlists & Tracking</h4>
-                  <p className="text-white/40 text-xs mt-1">Organize your movies, monitor watch history, and track releases.</p>
+                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none" />
+                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Watchlists & Tracking</h4>
+                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Organize your movies, monitor watch history, and track releases.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1615,7 +1955,7 @@ export default function ProfileSettingsPanel({
                   <div className="space-y-6">
                     <div className="space-y-4">
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">My Watchlists</h5>
-                      <div className="p-5 bg-black/20 border border-white/5 rounded-2xl space-y-4">
+                      <div className="p-6 bg-white/[0.02] border border-white/10 rounded-[24px] space-y-4 backdrop-blur-md">
                         <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
                           <div className="flex items-center gap-3">
                             <CheckCircle2 className="w-4 h-4 text-brand" />
@@ -1646,11 +1986,15 @@ export default function ProfileSettingsPanel({
                           />
                         </div>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!newWatchlistName.trim()) return toast.error('Please enter a list name');
-                            setCustomWatchlists(prev => [...prev, { id: Date.now().toString(), name: newWatchlistName, count: 0 }]);
-                            setNewWatchlistName('');
-                            toast.success('Custom watchlist created!');
+                            try {
+                              await createCustomWatchlist(newWatchlistName);
+                              setNewWatchlistName('');
+                              toast.success('Custom watchlist created!');
+                            } catch (e) {
+                              toast.error('Failed to create watchlist');
+                            }
                           }}
                           className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-colors"
                         >
@@ -1666,9 +2010,13 @@ export default function ProfileSettingsPanel({
                               <p className="text-[9px] text-white/40 font-medium">{list.count} items</p>
                             </div>
                             <button
-                              onClick={() => {
-                                setCustomWatchlists(prev => prev.filter(l => l.id !== list.id));
-                                toast.success('Watchlist deleted');
+                              onClick={async () => {
+                                try {
+                                  await deleteCustomWatchlist(list.id);
+                                  toast.success('Watchlist deleted');
+                                } catch (e) {
+                                  toast.error('Failed to delete watchlist');
+                                }
                               }}
                               className="p-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                             >
@@ -1684,37 +2032,88 @@ export default function ProfileSettingsPanel({
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Release Calendar</h5>
-                      <span className="text-[9px] px-2 py-1 bg-brand/10 text-brand rounded uppercase font-black tracking-widest">Beta</span>
+                      <span className="text-[9px] px-2 py-1 bg-brand/10 text-brand rounded uppercase font-black tracking-widest">Live</span>
                     </div>
 
-                    <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-5">
+                    <div className="p-6 bg-white/[0.02] border border-white/10 rounded-[24px] space-y-5 backdrop-blur-md">
                       <div className="flex items-center gap-3 pb-4 border-b border-white/5">
                         <Calendar className="w-8 h-8 text-white/40" />
                         <div>
                           <p className="text-xs font-black text-white uppercase tracking-widest">Upcoming Releases</p>
-                          <p className="text-[10px] text-white/40 mt-0.5">Track movies before they hit streaming.</p>
+                          <p className="text-[10px] text-white/40 mt-0.5">Click 🔔 to get notified when released.</p>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <h6 className="text-[9px] font-black uppercase tracking-widest text-brand">Content Reminders</h6>
-                        <div className="space-y-2">
-                          {[
-                            { name: 'Dune: Part Two', date: 'Available next week on Max' },
-                            { name: 'Deadpool & Wolverine', date: 'In theaters next month' }
-                          ].map((item, i) => (
-                            <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-black/40 border border-white/5">
-                              <div>
-                                <p className="text-[10px] font-black text-white uppercase">{item.name}</p>
-                                <p className="text-[9px] text-white/40">{item.date}</p>
-                              </div>
-                              <Bell className="w-4 h-4 text-brand/70" />
-                            </div>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <h6 className="text-[9px] font-black uppercase tracking-widest text-brand">In Theaters Soon</h6>
+                          {trackedReleases.length > 0 && (
+                            <span className="text-[9px] text-white/40 font-medium">{trackedReleases.length} tracked</span>
+                          )}
                         </div>
-                        <button className="w-full mt-2 py-2 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/60 rounded-xl transition-colors">
-                          Browse Calendar
-                        </button>
+                        <div className="space-y-2 max-h-[340px] overflow-y-auto custom-scrollbar pr-1" data-lenis-prevent>
+                          {isLoadingCalendar ? (
+                            <div className="space-y-2">
+                              {[1,2,3].map(i => (
+                                <div key={i} className="h-14 rounded-xl bg-white/5 animate-pulse" />
+                              ))}
+                            </div>
+                          ) : upcomingMovies.length === 0 ? (
+                            <p className="text-[10px] text-white/30 text-center py-4">No upcoming movies found.</p>
+                          ) : (
+                            upcomingMovies.map((movie) => {
+                              const isTracked = trackedReleases.includes(movie.id);
+                              const releaseDate = movie.release_date
+                                ? new Date(movie.release_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                : 'TBA';
+                              return (
+                                <div key={movie.id} className={`flex justify-between items-center p-3 rounded-xl border transition-all group ${isTracked ? 'bg-brand/10 border-brand/30' : 'bg-black/40 border-white/5 hover:border-white/10'}`}>
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {movie.poster_path && (
+                                      <div className="relative w-8 h-11 rounded-md overflow-hidden shrink-0">
+                                        <Image
+                                          src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                                          alt={movie.title}
+                                          fill
+                                          className="object-cover"
+                                          unoptimized
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-black text-white uppercase truncate">{movie.title}</p>
+                                      <p className="text-[9px] text-white/40">{releaseDate}</p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleTrackedRelease(movie.id, movie.title)}
+                                    className={`p-1.5 rounded-lg shrink-0 transition-all ${isTracked ? 'text-brand bg-brand/10' : 'text-white/20 hover:text-brand hover:bg-brand/10'}`}
+                                    title={isTracked ? 'Remove reminder' : 'Set reminder'}
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 24 24"
+                                      className="w-4 h-4 transition-all"
+                                      stroke="currentColor"
+                                      strokeWidth={2}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      fill={isTracked ? 'currentColor' : 'none'}
+                                    >
+                                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                        {trackedReleases.length > 0 && (
+                          <p className="text-[9px] text-center text-white/30 pt-1">
+                            ✅ Notifications enabled via <span className="text-brand cursor-pointer" onClick={() => setActiveSettingTab('notifications')}>Notifications tab</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1946,9 +2345,9 @@ export default function ProfileSettingsPanel({
               </motion.div>
             )}
           </div>
-          <div className="mt-8 pt-6 border-t border-white/5 text-[10px] text-white/30 font-semibold flex justify-between items-center">
-            <span>Aggregator preferences automatically sync across all logged devices.</span>
-            <span className="text-brand flex items-center gap-1">
+          <div className="mt-8 pt-6 border-t border-white/5 text-[10px] text-white/30 font-semibold flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
+            <span className="leading-relaxed">Aggregator preferences automatically sync across all logged devices.</span>
+            <span className="text-brand flex items-center gap-1.5 bg-brand/10 px-3 py-1.5 rounded-full md:bg-transparent md:px-0 md:py-0 md:rounded-none border border-brand/20 md:border-transparent">
               <ShieldCheck className="w-3.5 h-3.5" /> Encrypted Sync
             </span>
           </div>
@@ -2113,7 +2512,8 @@ export default function ProfileSettingsPanel({
                       
                       if (!keepCurrentDevice) {
                         toast.success('All sessions revoked. Signing you out…');
-                        setTimeout(() => onSignOut?.(), 1500);
+                        if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+                        signOutTimerRef.current = setTimeout(() => onSignOut?.(), 1500);
                       } else {
                         toast.success(`Revoked ${revokedCount} session(s).`);
                       }

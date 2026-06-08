@@ -23,6 +23,22 @@ export const getDb = async () => {
 };
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+
+// Initialize Messaging only on the client and if supported
+export const getMessagingInstance = async () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const { getMessaging, isSupported } = await import('firebase/messaging');
+    const supported = await isSupported();
+    if (supported) {
+      return getMessaging(app);
+    }
+    return null;
+  } catch (err) {
+    console.error('Firebase Messaging not supported:', err);
+    return null;
+  }
+};
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'
