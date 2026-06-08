@@ -354,7 +354,7 @@ export default function ProfileComponent() {
     };
 
     syncAuthToFirestore();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, isOwner]);
 
   // Firestore read
@@ -377,11 +377,11 @@ export default function ProfileComponent() {
         const hasMismatchedPhoto = data.photoURL && user?.photoURL && data.photoURL !== user.photoURL;
 
         if (isOwner && user && (
-          hasMissingEmail || 
-          hasMissingDisplayName || 
-          hasMissingPhoto || 
-          hasMismatchedEmail || 
-          hasMismatchedName || 
+          hasMissingEmail ||
+          hasMissingDisplayName ||
+          hasMissingPhoto ||
+          hasMismatchedEmail ||
+          hasMismatchedName ||
           hasMismatchedPhoto
         )) {
           setDoc(docRef, {
@@ -549,7 +549,7 @@ export default function ProfileComponent() {
     }
   };
 
-  const handleTogglePref = async (field: 
+  const handleTogglePref = async (field:
     | 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter'
     | 'notifyFavGenres' | 'weeklyDigest'
     | 'notifyNewEpisodes' | 'notifyNewSeasons'
@@ -694,7 +694,7 @@ export default function ProfileComponent() {
           <div className="h-4 w-32 rounded-full bg-white/5 animate-pulse" />
         </div>
         <div className="grid grid-cols-3 gap-3 mt-4">
-          {[1,2,3].map(i => (
+          {[1, 2, 3].map(i => (
             <div key={i} className="h-20 w-28 rounded-2xl bg-white/5 animate-pulse" />
           ))}
         </div>
@@ -726,32 +726,53 @@ export default function ProfileComponent() {
     );
   }
 
+  // Use the user's profile photo as a blurred cinematic banner instead of a movie backdrop
+  const heroBackdrop = isOwner
+    ? (user?.photoURL || profile.photoURL || null)
+    : (profile.photoURL || null);
+
   return (
     <>
       <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30">
-        {/* 1. Identity & Visuals: Aura Header */}
-        <div className={`min-h-0 lg:min-h-[60vh] lg:h-auto flex flex-col justify-center relative overflow-hidden transition-colors duration-1000 bg-gradient-to-b ${getAuraColor(primaryFavGenre)}`}>
-          {/* Animated Background Mesh & Noise */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent z-10" />
+        {/* 1. Identity & Visuals: Cinematic Aura Header */}
+        <div className={`min-h-0 lg:min-h-[60vh] lg:h-auto flex flex-col justify-end relative overflow-hidden transition-colors duration-1000 ${!heroBackdrop ? `bg-gradient-to-b ${getAuraColor(primaryFavGenre)}` : 'bg-[#050505]'}`}>
 
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Cinematic Profile Backdrop */}
+          {heroBackdrop && (
+            <div className="absolute inset-0 z-0 overflow-hidden">
+              <Image
+                src={heroBackdrop}
+                alt="Profile Cinematic Background"
+                fill
+                unoptimized
+                className="object-cover opacity-60 mix-blend-lighten blur-[2px]"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-[#050505]/60 to-[#050505] mix-blend-multiply" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent" />
+            </div>
+          )}
+
+          {/* Animated Background Mesh & Noise */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay pointer-events-none z-10" />
+
+          <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
             <motion.div
               animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
               transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-              className="w-[150%] h-[150%] opacity-30 blur-[100px] bg-brand/20 absolute -top-1/4 -left-1/4 rounded-full mix-blend-screen"
+              className="w-[150%] h-[150%] opacity-20 blur-[100px] bg-brand/30 absolute -top-1/4 -left-1/4 rounded-full mix-blend-screen"
             />
           </div>
 
           <div className="relative z-20 px-2 sm:px-4 md:px-8 pt-6 sm:pt-12 md:pt-16 pb-2 w-full max-w-7xl mx-auto">
-            
+
             {/* The Bento Glass Container */}
             <div className="relative w-full bg-gradient-to-br from-[#1a1a1a]/80 to-[#050505]/90 backdrop-blur-3xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] lg:rounded-[2.5rem] px-4 sm:px-6 md:px-12 py-6 md:py-8 shadow-[0_30px_100px_-20px_rgba(0,0,0,1)] overflow-hidden flex flex-col lg:flex-row gap-6 lg:gap-16 items-center lg:items-start group/bento transition-all duration-700">
-              
+
               {/* Premium Inner Highlight & Glows */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none rounded-[2.5rem] lg:rounded-[3rem]" />
               <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-brand/10 via-transparent to-transparent opacity-0 group-hover/bento:opacity-100 blur-[100px] transition-opacity duration-1000 pointer-events-none" />
-              
+
               {/* Left Column: Avatar & Actions */}
               <div className="relative z-10 flex flex-row lg:flex-col items-center lg:items-center justify-center shrink-0 w-full lg:w-auto gap-4 sm:gap-8 lg:gap-0">
                 <motion.div
@@ -762,12 +783,12 @@ export default function ProfileComponent() {
                 >
                   {/* Rotating Gradient Border Container */}
                   <div className={`relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-[1.5rem] md:rounded-[1.75rem] overflow-hidden p-[3px] flex items-center justify-center ${currentFrame.containerClass} shadow-[0_0_40px_rgba(0,0,0,0.5)]`}>
-                    
+
                     {/* The spinning gradient layer */}
                     {currentFrame.id !== 'none' && (
                       <div className={`absolute inset-[-50%] animate-[spin_4s_linear_infinite] ${currentFrame.spinClass}`} />
                     )}
-                    
+
                     {/* The Inner Dark Container that holds the image */}
                     <div className="relative z-10 w-full h-full rounded-[1.35rem] md:rounded-[1.6rem] overflow-hidden bg-[#0a0a0a]/90 backdrop-blur-xl p-1 md:p-1.5">
                       {(profile.photoURL || (isOwner && user?.photoURL)) ? (
@@ -775,6 +796,7 @@ export default function ProfileComponent() {
                           <Image
                             src={isOwner ? (user?.photoURL || profile.photoURL || "") : (profile.photoURL || "")}
                             fill
+                            unoptimized
                             sizes="(max-width: 768px) 160px, 192px"
                             className="object-cover"
                             alt={isOwner ? (user?.displayName || profile.displayName || "Profile Owner") : (profile.displayName || "Profile Owner")}
@@ -816,7 +838,7 @@ export default function ProfileComponent() {
                 {/* Right side for mobile / Stacked bottom for desktop */}
                 <div className="flex-1 flex flex-col justify-center items-center gap-2 sm:gap-4 w-full min-w-[140px] max-w-[200px] lg:max-w-[180px]">
                   {/* Badges Stacked under Avatar */}
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
@@ -835,7 +857,7 @@ export default function ProfileComponent() {
                     <div className="w-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/10 px-2 py-1.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg text-center relative overflow-hidden">
                       {/* Subtle shine effect */}
                       <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 animate-[shine_4s_ease-in-out_infinite]" />
-                      <span className="relative text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/50 font-black text-[7px] sm:text-[10px] md:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase whitespace-nowrap">
+                      <span className="relative block w-full truncate text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/50 font-black text-[7px] sm:text-[10px] md:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase">
                         {profile.avatarFrame !== 'none' ? `${currentFrame.name} Member` : 'Standard'}
                       </span>
                     </div>
@@ -843,7 +865,7 @@ export default function ProfileComponent() {
 
                   {/* Call to Actions */}
                   {isOwner && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.5 }}
@@ -857,7 +879,7 @@ export default function ProfileComponent() {
                         <span className="hidden lg:block font-black text-xs uppercase tracking-[0.2em]">Edit Profile</span>
                         <Edit2 className="w-3 h-3 sm:w-4 sm:h-4 lg:hidden" />
                       </button>
-                      
+
                       {isShareEnabled && (
                         <>
                           <button
@@ -885,7 +907,7 @@ export default function ProfileComponent() {
               {/* Right Column: Name, Bio, Tags */}
               <div className="relative z-10 flex flex-col items-center lg:items-start flex-1 text-center lg:text-left mt-4 lg:mt-0">
                 {/* Typography: Name & Email */}
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
@@ -897,7 +919,7 @@ export default function ProfileComponent() {
                       : (profile.displayName || profile.email?.split('@')[0] || 'Movie Buff')
                     }
                   </h1>
-                  
+
                   {isOwner && user?.email && (
                     <div className="flex items-center justify-center lg:justify-start gap-2.5 text-white/80 bg-gradient-to-r from-white/10 to-transparent pr-6 pl-4 py-2.5 rounded-full inline-flex border border-white/10 backdrop-blur-md shadow-inner">
                       <div className="bg-brand/20 p-1 rounded-full">
@@ -909,7 +931,7 @@ export default function ProfileComponent() {
                 </motion.div>
 
                 {/* Bio */}
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
@@ -921,7 +943,7 @@ export default function ProfileComponent() {
                 </motion.div>
 
                 {/* Glowing Tags */}
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
@@ -934,8 +956,8 @@ export default function ProfileComponent() {
                         key={genre}
                         onClick={() => isOwner && handleToggleGenre(genre)}
                         className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 shadow-lg ${isOwner ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0' : 'cursor-default'} ${isActive
-                            ? 'bg-gradient-to-br from-brand/20 to-brand/5 border-brand/50 text-brand shadow-[0_0_20px_rgba(229,9,20,0.3)] backdrop-blur-md'
-                            : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/90 hover:border-white/30 hover:bg-white/10 backdrop-blur-sm'
+                          ? 'bg-gradient-to-br from-brand/20 to-brand/5 border-brand/50 text-brand shadow-[0_0_20px_rgba(229,9,20,0.3)] backdrop-blur-md'
+                          : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/90 hover:border-white/30 hover:bg-white/10 backdrop-blur-sm'
                           }`}
                       >
                         {genre}
@@ -946,7 +968,7 @@ export default function ProfileComponent() {
               </div>
 
               {/* Far Right Column: Seamless Stats Panel */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 }}
@@ -955,7 +977,7 @@ export default function ProfileComponent() {
                 <div className="w-full bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-[1.5rem] lg:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-row lg:flex-col justify-around lg:justify-start gap-4 sm:gap-5 lg:gap-6 shadow-2xl relative overflow-hidden group">
                   {/* Subtle hover background glow */}
                   <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                  
+
                   {[
                     { icon: Film, label: "Watched", value: totalHours, unit: "HR", iconColor: "text-blue-400" },
                     { icon: Activity, label: "Rank", value: frameTitle === "Apprentice" ? "B" : "A+", unit: "S2", iconColor: "text-brand" },
@@ -979,7 +1001,7 @@ export default function ProfileComponent() {
                           </p>
                         </div>
                       </div>
-                      
+
                       {/* Divider for desktop */}
                       {index < 2 && (
                         <div className="hidden lg:block w-full h-px bg-gradient-to-r from-white/[0.05] via-white/[0.05] to-transparent mt-6" />
@@ -993,64 +1015,64 @@ export default function ProfileComponent() {
           </div>
         </div>
 
-      {/* Main Container for Settings & Content Below */}
-      <div className="container mx-auto max-w-7xl px-2 sm:px-4 lg:px-12 pt-2 pb-4 relative z-30">
+        {/* Main Container for Settings & Content Below */}
+        <div className="container mx-auto max-w-7xl px-2 sm:px-4 lg:px-12 pt-2 pb-4 relative z-30">
 
-        {/* Settings Tabs Panel */}
-        {isOwner && (
-          <ProfileSettingsPanel
-            user={user}
-            profile={profile}
-            setProfile={setProfile}
-            isOwner={isOwner}
-            watchlist={watchlist}
-            userReviews={userReviews}
-            handleTogglePref={handleTogglePref}
-            handleRegionChange={handleRegionChange}
-            handleToggleSub={handleToggleSub}
-            additionalDetails={additionalDetails}
-            handleToggleLike={handleToggleLike}
-            handleShareNote={handleShareNote}
-            onSignOut={() => setIsSignOutModalOpen(true)}
-            systemAchievements={systemAchievements}
-          />
-        )}
-      </div>
+          {/* Settings Tabs Panel */}
+          {isOwner && (
+            <ProfileSettingsPanel
+              user={user}
+              profile={profile}
+              setProfile={setProfile}
+              isOwner={isOwner}
+              watchlist={watchlist}
+              userReviews={userReviews}
+              handleTogglePref={handleTogglePref}
+              handleRegionChange={handleRegionChange}
+              handleToggleSub={handleToggleSub}
+              additionalDetails={additionalDetails}
+              handleToggleLike={handleToggleLike}
+              handleShareNote={handleShareNote}
+              onSignOut={() => setIsSignOutModalOpen(true)}
+              systemAchievements={systemAchievements}
+            />
+          )}
+        </div>
 
-      {/* Edit Profile Modal */}
-      <AnimatePresence>
-        {isOwner && isEditModalOpen && (
-          <EditProfileModal
-            isOpen={isEditModalOpen}
-            onClose={() => setIsEditModalOpen(false)}
-            modalError={modalError}
-            modalSuccess={modalSuccess}
-            editDisplayName={editDisplayName}
-            setEditDisplayName={setEditDisplayName}
-            newEmail={newEmail}
-            setNewEmail={setNewEmail}
-            bioInput={bioInput}
-            setBioInput={setBioInput}
-            editFrameId={editFrameId}
-            setEditFrameId={setEditFrameId}
-            frames={frames}
-            isSaving={isSaving}
-            handleSaveProfile={handleSaveProfile}
-            profile={profile}
-          />
-        )}
-      </AnimatePresence>
+        {/* Edit Profile Modal */}
+        <AnimatePresence>
+          {isOwner && isEditModalOpen && (
+            <EditProfileModal
+              isOpen={isEditModalOpen}
+              onClose={() => setIsEditModalOpen(false)}
+              modalError={modalError}
+              modalSuccess={modalSuccess}
+              editDisplayName={editDisplayName}
+              setEditDisplayName={setEditDisplayName}
+              newEmail={newEmail}
+              setNewEmail={setNewEmail}
+              bioInput={bioInput}
+              setBioInput={setBioInput}
+              editFrameId={editFrameId}
+              setEditFrameId={setEditFrameId}
+              frames={frames}
+              isSaving={isSaving}
+              handleSaveProfile={handleSaveProfile}
+              profile={profile}
+            />
+          )}
+        </AnimatePresence>
 
-      {/* Share Profile Modal */}
-      <AnimatePresence>
-        {isShareModalOpen && (
-          <ShareProfileModal
-            isOpen={isShareModalOpen}
-            onClose={() => setIsShareModalOpen(false)}
-            user={user}
-          />
-        )}
-      </AnimatePresence>
+        {/* Share Profile Modal */}
+        <AnimatePresence>
+          {isShareModalOpen && (
+            <ShareProfileModal
+              isOpen={isShareModalOpen}
+              onClose={() => setIsShareModalOpen(false)}
+              user={user}
+            />
+          )}
+        </AnimatePresence>
 
       </div>
 

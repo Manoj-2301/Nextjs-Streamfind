@@ -212,7 +212,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type') as 'movie' | 'tv' | null;
   const { user } = useAuth();
-  const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
+  const { isInWatchlist, requestAddToList, removeFromWatchlist } = useWatchlist();
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
   const [isLoading, setIsLoading] = useState(!initialMovie);
@@ -596,7 +596,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     if (saved) {
       removeFromWatchlist(movie.id);
     } else {
-      addToWatchlist(movie);
+      requestAddToList(movie);
     }
   };
 

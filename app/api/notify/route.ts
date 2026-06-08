@@ -314,22 +314,22 @@ function generateNewsletterHtml(name: string, movies: any[], genres: string[], s
       const rankBadgeText = `RANK #${globalIndex + 1}`;
 
       const genrePills = movie.genres.slice(0, 2).map((g: string) =>
-        `<span style="display:inline-block;background-color:rgba(255,40,78,0.06);border:1px solid rgba(255,40,78,0.25);color:#ff284e;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;padding:2px 6px;border-radius:4px;margin-right:4px;margin-bottom:4px;">${g}</span>`
+        `<span style="display:inline-block;background-color:rgba(240,171,252,0.06);border:1px solid rgba(240,171,252,0.25);color:#f0abfc;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;padding:2px 6px;border-radius:4px;margin-right:4px;margin-bottom:4px;">${g}</span>`
       ).join('');
 
       return `
         <!-- Movie Card Column -->
-        <td class="movie-card-column" width="48%" style="width:48%;vertical-align:top;background:linear-gradient(to bottom, #161616, #1f1f1f);border:1px solid rgba(255,255,255,0.06);border-radius:24px;padding:16px;box-shadow:0 12px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);box-sizing:border-box;">
+        <td class="movie-card-column" width="48%" style="width:48%;vertical-align:top;background:linear-gradient(to bottom, #18002a, #10001a);border:1px solid rgba(255,255,255,0.06);border-radius:24px;padding:16px;box-shadow:0 12px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);box-sizing:border-box;">
           
           <!-- Cinematic Image backdrop with Rank Pill -->
-          <div style="border-radius:16px;overflow:hidden;height:135px;background:linear-gradient(to top, #161616 0%, rgba(22,22,22,0.6) 50%, rgba(22,22,22,0) 100%), url('${movie.backdropUrl}') no-repeat center center;background-size:cover;position:relative;">
+          <div style="border-radius:16px;overflow:hidden;height:135px;background:linear-gradient(to top, #18002a 0%, rgba(24,0,42,0.6) 50%, rgba(24,0,42,0) 100%), url('${movie.backdropUrl}') no-repeat center center;background-size:cover;position:relative;">
             <a href="${siteUrl}/movie/${movie.id}" target="_blank" style="display:block;width:100%;height:135px;text-decoration:none;border:none;outline:none;position:relative;">
               
               <!-- Vibrant Floating Neon Rank Pill -->
               <div style="position:absolute;top:10px;right:10px;left:auto;z-index:30;">
-                <table border="0" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #ff284e 0%, #a80f27 100%);border-radius:6px;box-shadow:0 4px 10px rgba(255,40,78,0.4);">
+                <table border="0" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #f0abfc 0%, #e879f9 100%);border-radius:6px;box-shadow:0 4px 10px rgba(240,171,252,0.4);">
                   <tr>
-                    <td style="padding:4px 8px;color:#ffffff;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-align:center;">
+                    <td style="padding:4px 8px;color:#080009;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-align:center;">
                       ${rankBadgeText}
                     </td>
                   </tr>
@@ -350,7 +350,7 @@ function generateNewsletterHtml(name: string, movies: any[], genres: string[], s
             <!-- Rating Badging -->
             <table border="0" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
               <tr>
-                <td style="color:#ff284e;font-size:11px;font-weight:bold;padding-right:6px;vertical-align:middle;">★ ${movie.rating.toFixed(1)}</td>
+                <td style="color:#f0abfc;font-size:11px;font-weight:bold;padding-right:6px;vertical-align:middle;">★ ${movie.rating.toFixed(1)}</td>
                 <td style="background-color:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:8px;font-weight:bold;padding:1px 4px;border-radius:3px;vertical-align:middle;">TMDB</td>
               </tr>
             </table>
@@ -360,7 +360,7 @@ function generateNewsletterHtml(name: string, movies: any[], genres: string[], s
             </p>
             
             <!-- Deluxe Action Button -->
-            <a href="${siteUrl}/movie/${movie.id}" target="_blank" class="movie-card-btn" style="display:inline-block;background:linear-gradient(135deg, #ff284e 0%, #b8142f 100%);color:#ffffff;text-decoration:none;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;padding:10px 22px;border-radius:10px;box-shadow:0 6px 15px rgba(255,40,78,0.3);text-align:center;border:1px solid rgba(255,255,255,0.1);">
+            <a href="${siteUrl}/movie/${movie.id}" target="_blank" class="movie-card-btn" style="display:inline-block;background:linear-gradient(135deg, #f0abfc 0%, #e879f9 100%);color:#080009;text-decoration:none;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;padding:10px 22px;border-radius:10px;box-shadow:0 6px 15px rgba(240,171,252,0.3);text-align:center;border:1px solid rgba(255,255,255,0.1);">
               WATCH TRAILER
             </a>
           </div>
@@ -423,18 +423,18 @@ function generateNewsletterHtml(name: string, movies: any[], genres: string[], s
           }
         </style>
       </head>
-      <body style="font-family:'Inter', -apple-system, sans-serif;background-color:#080808;color:#ffffff;margin:0;padding:40px 0;">
+      <body style="font-family:'Inter', -apple-system, sans-serif;background-color:#080009;color:#ffffff;margin:0;padding:40px 0;">
         
         <!-- Main Email Container -->
-        <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="main-table" style="width:600px;margin:0 auto;background-color:#0c0c0c;border:1px solid rgba(255,255,255,0.04);border-radius:28px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="main-table" style="width:600px;margin:0 auto;background-color:#10001a;border:1px solid rgba(255,255,255,0.04);border-radius:28px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.8);">
           
           <!-- Glowing Header Logo -->
           <tr>
-            <td style="padding:40px 24px;text-align:center;background:linear-gradient(to bottom, #250207 0%, #0c0c0c 100%);border-bottom:1px solid rgba(255,40,78,0.15);">
+            <td style="padding:40px 24px;text-align:center;background:linear-gradient(to bottom, #250207 0%, #10001a 100%);border-bottom:1px solid rgba(240,171,252,0.15);">
               <table align="center" border="0" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background-color:#ff284e;border-radius:8px;padding:6px 12px;box-shadow:0 0 15px rgba(255,40,78,0.6);margin-bottom:8px;display:inline-block;">
-                    <span style="color:#ffffff;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:3px;font-style:italic;">STREAMFIND</span>
+                  <td style="background-color:#f0abfc;border-radius:8px;padding:6px 12px;box-shadow:0 0 15px rgba(240,171,252,0.6);margin-bottom:8px;display:inline-block;">
+                    <span style="color:#080009;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:3px;font-style:italic;">STREAMFIND</span>
                   </td>
                 </tr>
                 <tr>
@@ -451,13 +451,13 @@ function generateNewsletterHtml(name: string, movies: any[], genres: string[], s
             <td style="padding:32px 32px 0 32px;">
               
               <!-- Premium Left-Accent Greeting Block -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#161616;border-left:4px solid #ff284e;border-radius:8px;margin-bottom:32px;border-collapse:collapse;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#18002a;border-left:4px solid #f0abfc;border-radius:8px;margin-bottom:32px;border-collapse:collapse;">
                 <tr>
                   <td style="padding:20px 24px;">
                     <h2 style="margin:0 0 8px 0;font-size:18px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;text-transform:uppercase;">Hey ${name},</h2>
                     <p style="margin:0;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.65);font-weight:500;">
                       ${isFavGenresAlert 
-                        ? `We scanned the multiverse and detected new cinematic blockbusters matching your favorite genres: <strong style="color:#ff284e;font-weight:700;">${genreListString}</strong>. Check them out below!`
+                        ? `We scanned the multiverse and detected new cinematic blockbusters matching your favorite genres: <strong style="color:#f0abfc;font-weight:700;">${genreListString}</strong>. Check them out below!`
                         : `We scanned the multiverse and detected today's absolute top new movie epic releases across all platforms! Check them out below!`
                       }
                     </p>
@@ -482,7 +482,7 @@ function generateNewsletterHtml(name: string, movies: any[], genres: string[], s
           
           <!-- Muted Cinema Footer -->
           <tr>
-            <td style="padding:32px 24px;text-align:center;background-color:#090909;border-top:1px solid rgba(255,255,255,0.02);">
+            <td style="padding:32px 24px;text-align:center;background-color:#080009;border-top:1px solid rgba(255,255,255,0.02);">
               <p style="margin:0;font-size:10px;color:rgba(255,255,255,0.3);font-weight:500;line-height:1.6;">
                 ${isFavGenresAlert
                   ? 'You are receiving this automated alert because you subscribed to "Your Favorite Genres" alerts inside your StreamFind Profile settings.'

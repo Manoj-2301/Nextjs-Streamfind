@@ -7,13 +7,33 @@ import { useAuth } from './AuthContext';
 import { app } from '@/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 import { logUserActivity } from '@/lib/genreTracker';
-import { toast } from 'react-hot-toast';
+import { notify as toast } from '../lib/notify';
+import AddToListModal from '@/components/ui/AddToListModal';
+
+export interface CustomWatchlist {
+  id: string;
+  name: string;
+  count?: number;
+}
 
 interface WatchlistContextType {
   watchlist: Movie[];
   addToWatchlist: (movie: Movie) => Promise<void>;
   removeFromWatchlist: (movieId: number) => Promise<void>;
   isInWatchlist: (movieId: number) => boolean;
+  
+  // Custom Lists
+  customWatchlists: CustomWatchlist[];
+  createCustomWatchlist: (name: string) => Promise<void>;
+  deleteCustomWatchlist: (id: string) => Promise<void>;
+  addToCustomWatchlist: (listId: string, movie: Movie) => Promise<void>;
+  removeFromCustomWatchlist: (listId: string, movieId: number) => Promise<void>;
+
+  // Global Modal
+  requestAddToList: (movie: Movie) => void;
+  isModalOpen: boolean;
+  closeModal: () => void;
+  movieToAdd: Movie | null;
 }
 
 const WatchlistContext = createContext<WatchlistContextType | undefined>(undefined);
@@ -28,6 +48,12 @@ interface LocalWatchlistItem {
 
 export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const [watchlist, setWatchlist] = useState<Movie[]>([]);
+  const [customWatchlists, setCustomWatchlists] = useState<CustomWatchlist[]>([]);
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [movieToAdd, setMovieToAdd] = useState<Movie | null>(null);
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -53,12 +79,14 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       } else {
         setWatchlist([]);
       }
+      setCustomWatchlists([]);
       return;
     }
 
     // User is logged in: Merge local items to Firebase
     let isMounted = true;
-    let unsubscribe = () => {};
+    let unsubscribeWatchlist = () => {};
+    let unsubscribeCustomLists = () => {};
 
     import('firebase/firestore').then(({ collection, doc, setDoc, onSnapshot, query, serverTimestamp }) => {
       if (!isMounted) return;
@@ -84,25 +112,58 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const path = `users/${user.uid}/watchlist`;
-      const q = query(collection(getFirestore(app), path));
+      // Default Watchlist listener
+      const pathWatchlist = `users/${user.uid}/watchlist`;
+      const qWatchlist = query(collection(getFirestore(app), pathWatchlist));
       
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubscribeWatchlist = onSnapshot(qWatchlist, (snapshot) => {
         const items: Movie[] = [];
         snapshot.forEach((docSnap) => {
           items.push(docSnap.data() as Movie);
         });
         setWatchlist(items);
       }, (error: any) => {
-        handleFirestoreError(error, OperationType.LIST, path);
+        handleFirestoreError(error, OperationType.LIST, pathWatchlist);
+      });
+
+      // Custom Watchlists listener
+      const pathCustom = `users/${user.uid}/customWatchlists`;
+      const qCustom = query(collection(getFirestore(app), pathCustom));
+      
+      unsubscribeCustomLists = onSnapshot(qCustom, (snapshot) => {
+        const lists: CustomWatchlist[] = [];
+        snapshot.forEach((docSnap) => {
+          lists.push({ id: docSnap.id, ...docSnap.data() } as CustomWatchlist);
+        });
+        setCustomWatchlists(lists);
+      }, (error: any) => {
+        console.error("Error fetching custom lists:", error);
       });
     });
 
     return () => {
       isMounted = false;
-      unsubscribe();
+      unsubscribeWatchlist();
+      unsubscribeCustomLists();
     };
   }, [user]);
+
+  const requestAddToList = (movie: Movie) => {
+    if (!user || customWatchlists.length === 0) {
+      // Direct add
+      addToWatchlist(movie);
+      toast.success(`Added to Watchlist`);
+    } else {
+      // Open modal
+      setMovieToAdd(movie);
+      setIsModalOpen(true);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setMovieToAdd(null), 200);
+  };
 
   const addToWatchlist = async (movie: Movie) => {
     logUserActivity("Watchlist", `Added "${movie.title}" to watchlist`);
@@ -174,9 +235,77 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     return watchlist.some(m => m.id === movieId);
   };
 
+  // Custom List Functions
+  const createCustomWatchlist = async (name: string) => {
+    if (!user) return;
+    try {
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      await addDoc(collection(getFirestore(app), `users/${user.uid}/customWatchlists`), {
+        name,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Failed to create custom watchlist", error);
+      throw error;
+    }
+  };
+
+  const deleteCustomWatchlist = async (id: string) => {
+    if (!user) return;
+    try {
+      const { doc, deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(getFirestore(app), `users/${user.uid}/customWatchlists/${id}`));
+    } catch (error) {
+      console.error("Failed to delete custom watchlist", error);
+      throw error;
+    }
+  };
+
+  const addToCustomWatchlist = async (listId: string, movie: Movie) => {
+    if (!user) return;
+    try {
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const path = `users/${user.uid}/customWatchlists/${listId}/movies/${movie.id}`;
+      await setDoc(doc(getFirestore(app), path), {
+        ...movie,
+        addedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Failed to add to custom watchlist", error);
+      throw error;
+    }
+  };
+
+  const removeFromCustomWatchlist = async (listId: string, movieId: number) => {
+    if (!user) return;
+    try {
+      const { doc, deleteDoc } = await import('firebase/firestore');
+      const path = `users/${user.uid}/customWatchlists/${listId}/movies/${movieId}`;
+      await deleteDoc(doc(getFirestore(app), path));
+    } catch (error) {
+      console.error("Failed to remove from custom watchlist", error);
+      throw error;
+    }
+  };
+
   return (
-    <WatchlistContext.Provider value={{ watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist }}>
+    <WatchlistContext.Provider value={{ 
+      watchlist, 
+      addToWatchlist, 
+      removeFromWatchlist, 
+      isInWatchlist,
+      customWatchlists,
+      createCustomWatchlist,
+      deleteCustomWatchlist,
+      addToCustomWatchlist,
+      removeFromCustomWatchlist,
+      requestAddToList,
+      isModalOpen,
+      closeModal,
+      movieToAdd
+    }}>
       {children}
+      <AddToListModal />
     </WatchlistContext.Provider>
   );
 }

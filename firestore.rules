@@ -41,6 +41,20 @@ service cloud.firestore {
         allow read: if get(/databases/$(database)/documents/users/$(userId)).data.isPublic == true;
       }
 
+      // ✅ NEW: Subcollection for custom watchlists
+      match /customWatchlists/{listId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+        // Allow anyone to read custom watchlists if user profile is public
+        allow read: if get(/databases/$(database)/documents/users/$(userId)).data.isPublic == true;
+        
+        match /movies/{movieId} {
+          allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+          allow read, delete: if isAdmin();
+          allow read: if get(/databases/$(database)/documents/users/$(userId)).data.isPublic == true;
+        }
+      }
+
       // ✅ NEW: Subcollection for movie reviews
       match /reviews/{reviewId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -56,6 +70,18 @@ service cloud.firestore {
       // ✅ NEW: Subcollection for audit logs
       match /audit_logs/{logId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+      }
+
+      // ✅ NEW: Subcollection for tracked upcoming releases (Release Calendar)
+      match /trackedReleases/{movieId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if isAdmin();
+      }
+
+      // ✅ NEW: Subcollection for FCM Push Notification tokens
+      match /fcmTokens/{tokenId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
         allow read, delete: if isAdmin();
       }
     }

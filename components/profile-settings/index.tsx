@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'react-hot-toast';
+import { notify as toast, syncBrowserChannelPref } from '../../lib/notify';
 import {
   Bell, Settings, Shield, CreditCard, HelpCircle, Film, Tv, Play, Plus,
   Trash2, Mail, Check, X, ShieldCheck, Download, RefreshCw, Eye, Lock,
@@ -25,6 +25,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { revalidatePage } from '@/app/actions/revalidate';
 import { ProfileSettings } from '@/types';
+import { useWatchlist } from '@/context/WatchlistContext';
 
 interface ProfileSettingsPanelProps {
   user: any;
@@ -90,6 +91,8 @@ export default function ProfileSettingsPanel({
   >('notifications');
   const searchParams = useSearchParams();
   const router = useRouter();
+  
+  const { customWatchlists, createCustomWatchlist, deleteCustomWatchlist } = useWatchlist();
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -115,6 +118,11 @@ export default function ProfileSettingsPanel({
   const [isUpgrading, setIsUpgrading] = useState(false);
   
   const signOutTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Default to true if not explicitly set to false
+    syncBrowserChannelPref(profile.channelBrowser !== false);
+  }, [profile.channelBrowser]);
 
   useEffect(() => {
     return () => {
@@ -501,11 +509,100 @@ export default function ProfileSettingsPanel({
   const [ticketType, setTicketType] = useState<'general' | 'bug' | 'missing' | 'wrong_availability' | 'feature'>('general');
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [newWatchlistName, setNewWatchlistName] = useState('');
-  const [customWatchlists, setCustomWatchlists] = useState<{ id: string; name: string; count: number }[]>([
-    { id: '1', name: 'Sci-Fi Gems', count: 12 },
-    { id: '2', name: 'Late Night Thrillers', count: 8 },
-    { id: '3', name: 'Family Weekend Critiques', count: 15 }
-  ]);
+
+  // --- Release Calendar State ---
+  const [upcomingMovies, setUpcomingMovies] = useState<{ id: number; title: string; release_date: string; poster_path: string | null }[]>([]);
+  const [trackedReleases, setTrackedReleases] = useState<number[]>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
+  // Fetch upcoming movies from TMDB
+  useEffect(() => {
+    const fetchUpcoming = async () => {
+      setIsLoadingCalendar(true);
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+        if (!apiKey) return;
+        const res = await fetch(`https://api.themoviedb.org/3/movie/upcoming?api_key=${apiKey}&language=en-US&page=1`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // normalize to start of today
+        const futureMovies = (data.results || [])
+          .filter((m: any) => {
+            if (!m.release_date) return false;
+            return new Date(m.release_date) >= today;
+          })
+          .slice(0, 10)
+          .map((m: any) => ({
+            id: m.id,
+            title: m.title,
+            release_date: m.release_date,
+            poster_path: m.poster_path
+          }));
+        setUpcomingMovies(futureMovies);
+      } catch (err) {
+        console.error('Failed to fetch upcoming movies', err);
+      } finally {
+        setIsLoadingCalendar(false);
+      }
+    };
+    fetchUpcoming();
+  }, []);
+
+  // Subscribe to user's tracked releases in Firestore
+  useEffect(() => {
+    if (!user?.uid) return;
+    const db = getFirestore(app);
+    const q = collection(db, `users/${user.uid}/trackedReleases`);
+    const unsub = onSnapshot(q, (snap) => {
+      setTrackedReleases(snap.docs.map(d => Number(d.id)));
+    }, (err) => {
+      if (err.code !== 'permission-denied') console.error('Tracked releases error:', err);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Toggle tracking a release + auto-enable notifyNewRelease toggle
+  const handleToggleTrackedRelease = async (movieId: number, movieTitle: string) => {
+    if (!user?.uid) { toast.error('Please log in to track releases'); return; }
+    const db = getFirestore(app);
+    const docRef = doc(db, `users/${user.uid}/trackedReleases/${movieId}`);
+    const isTracked = trackedReleases.includes(movieId);
+    try {
+      if (isTracked) {
+        await deleteDoc(docRef);
+        toast.success(`Removed "${movieTitle}" from reminders`);
+      } else {
+        await setDoc(docRef, { movieId, title: movieTitle, trackedAt: new Date() });
+        toast.success(`🔔 Tracking "${movieTitle}" — you'll be notified on release!`);
+        // Auto-enable the notifyNewRelease toggle if it's currently off
+        if (!profile.notifyNewRelease) {
+          await handleTogglePref('notifyNewRelease');
+        }
+
+        // Trigger universal email notification (will silently abort if email channel is off)
+        try {
+          const token = await user.getIdToken();
+          fetch('/api/notifications/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              type: 'TRACK_RELEASE',
+              data: { movieTitle }
+            })
+          }).catch(console.error); // Run in background
+        } catch (e) {
+          console.error('Failed to send tracking email notification', e);
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling tracked release:', err);
+      toast.error('Failed to update release tracker');
+    }
+  };
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -711,7 +808,41 @@ export default function ProfileSettingsPanel({
                       return (
                         <button
                           key={c.key}
-                          onClick={() => handleTogglePref(c.key)}
+                          onClick={async () => {
+                            if (c.key === 'channelPush' && !isActive) {
+                              try {
+                                const permission = await Notification.requestPermission();
+                                if (permission === 'granted') {
+                                  const { getMessagingInstance } = await import('../../lib/firebase');
+                                  const messaging = await getMessagingInstance();
+                                  if (messaging) {
+                                    const { getToken } = await import('firebase/messaging');
+                                    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                                    if (!vapidKey) {
+                                      toast.error('VAPID key missing. Setup incomplete.');
+                                      return;
+                                    }
+                                    const token = await getToken(messaging, { vapidKey });
+                                    if (token && user) {
+                                      const db = getFirestore(app);
+                                      // Using a subcollection fcmTokens to store multiple devices if needed
+                                      const docRef = doc(db, `users/${user.uid}/fcmTokens/${token}`);
+                                      await setDoc(docRef, { token, device: navigator.userAgent, createdAt: new Date() });
+                                    }
+                                  }
+                                  await handleTogglePref(c.key);
+                                } else {
+                                  toast.error('Notification permission denied.');
+                                }
+                              } catch (e) {
+                                console.error('Push setup error:', e);
+                                toast.error('Failed to enable push notifications.');
+                              }
+                            } else {
+                              // Standard toggle for other channels, or disabling push
+                              await handleTogglePref(c.key);
+                            }
+                          }}
                           className={`p-5 rounded-2xl border cursor-pointer transition-all text-left relative overflow-hidden group hover:-translate-y-1 ${isActive
                             ? 'bg-gradient-to-br from-brand/15 to-purple-500/5 border-brand/30 shadow-lg shadow-brand/10'
                             : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -1855,11 +1986,15 @@ export default function ProfileSettingsPanel({
                           />
                         </div>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!newWatchlistName.trim()) return toast.error('Please enter a list name');
-                            setCustomWatchlists(prev => [...prev, { id: Date.now().toString(), name: newWatchlistName, count: 0 }]);
-                            setNewWatchlistName('');
-                            toast.success('Custom watchlist created!');
+                            try {
+                              await createCustomWatchlist(newWatchlistName);
+                              setNewWatchlistName('');
+                              toast.success('Custom watchlist created!');
+                            } catch (e) {
+                              toast.error('Failed to create watchlist');
+                            }
                           }}
                           className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-colors"
                         >
@@ -1875,9 +2010,13 @@ export default function ProfileSettingsPanel({
                               <p className="text-[9px] text-white/40 font-medium">{list.count} items</p>
                             </div>
                             <button
-                              onClick={() => {
-                                setCustomWatchlists(prev => prev.filter(l => l.id !== list.id));
-                                toast.success('Watchlist deleted');
+                              onClick={async () => {
+                                try {
+                                  await deleteCustomWatchlist(list.id);
+                                  toast.success('Watchlist deleted');
+                                } catch (e) {
+                                  toast.error('Failed to delete watchlist');
+                                }
                               }}
                               className="p-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                             >
@@ -1893,7 +2032,7 @@ export default function ProfileSettingsPanel({
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Release Calendar</h5>
-                      <span className="text-[9px] px-2 py-1 bg-brand/10 text-brand rounded uppercase font-black tracking-widest">Beta</span>
+                      <span className="text-[9px] px-2 py-1 bg-brand/10 text-brand rounded uppercase font-black tracking-widest">Live</span>
                     </div>
 
                     <div className="p-6 bg-white/[0.02] border border-white/10 rounded-[24px] space-y-5 backdrop-blur-md">
@@ -1901,29 +2040,80 @@ export default function ProfileSettingsPanel({
                         <Calendar className="w-8 h-8 text-white/40" />
                         <div>
                           <p className="text-xs font-black text-white uppercase tracking-widest">Upcoming Releases</p>
-                          <p className="text-[10px] text-white/40 mt-0.5">Track movies before they hit streaming.</p>
+                          <p className="text-[10px] text-white/40 mt-0.5">Click 🔔 to get notified when released.</p>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <h6 className="text-[9px] font-black uppercase tracking-widest text-brand">Content Reminders</h6>
-                        <div className="space-y-2">
-                          {[
-                            { name: 'Dune: Part Two', date: 'Available next week on Max' },
-                            { name: 'Deadpool & Wolverine', date: 'In theaters next month' }
-                          ].map((item, i) => (
-                            <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-black/40 border border-white/5">
-                              <div>
-                                <p className="text-[10px] font-black text-white uppercase">{item.name}</p>
-                                <p className="text-[9px] text-white/40">{item.date}</p>
-                              </div>
-                              <Bell className="w-4 h-4 text-brand/70" />
-                            </div>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <h6 className="text-[9px] font-black uppercase tracking-widest text-brand">In Theaters Soon</h6>
+                          {trackedReleases.length > 0 && (
+                            <span className="text-[9px] text-white/40 font-medium">{trackedReleases.length} tracked</span>
+                          )}
                         </div>
-                        <button className="w-full mt-2 py-2 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/60 rounded-xl transition-colors">
-                          Browse Calendar
-                        </button>
+                        <div className="space-y-2 max-h-[340px] overflow-y-auto custom-scrollbar pr-1" data-lenis-prevent>
+                          {isLoadingCalendar ? (
+                            <div className="space-y-2">
+                              {[1,2,3].map(i => (
+                                <div key={i} className="h-14 rounded-xl bg-white/5 animate-pulse" />
+                              ))}
+                            </div>
+                          ) : upcomingMovies.length === 0 ? (
+                            <p className="text-[10px] text-white/30 text-center py-4">No upcoming movies found.</p>
+                          ) : (
+                            upcomingMovies.map((movie) => {
+                              const isTracked = trackedReleases.includes(movie.id);
+                              const releaseDate = movie.release_date
+                                ? new Date(movie.release_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                : 'TBA';
+                              return (
+                                <div key={movie.id} className={`flex justify-between items-center p-3 rounded-xl border transition-all group ${isTracked ? 'bg-brand/10 border-brand/30' : 'bg-black/40 border-white/5 hover:border-white/10'}`}>
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {movie.poster_path && (
+                                      <div className="relative w-8 h-11 rounded-md overflow-hidden shrink-0">
+                                        <Image
+                                          src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                                          alt={movie.title}
+                                          fill
+                                          className="object-cover"
+                                          unoptimized
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-black text-white uppercase truncate">{movie.title}</p>
+                                      <p className="text-[9px] text-white/40">{releaseDate}</p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleTrackedRelease(movie.id, movie.title)}
+                                    className={`p-1.5 rounded-lg shrink-0 transition-all ${isTracked ? 'text-brand bg-brand/10' : 'text-white/20 hover:text-brand hover:bg-brand/10'}`}
+                                    title={isTracked ? 'Remove reminder' : 'Set reminder'}
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 24 24"
+                                      className="w-4 h-4 transition-all"
+                                      stroke="currentColor"
+                                      strokeWidth={2}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      fill={isTracked ? 'currentColor' : 'none'}
+                                    >
+                                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                        {trackedReleases.length > 0 && (
+                          <p className="text-[9px] text-center text-white/30 pt-1">
+                            ✅ Notifications enabled via <span className="text-brand cursor-pointer" onClick={() => setActiveSettingTab('notifications')}>Notifications tab</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

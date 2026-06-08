@@ -67,14 +67,14 @@ export async function POST(request: Request) {
     
     const htmlContent = `
       <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; max-w-xl mx-auto bg-black text-white p-8 rounded-xl border border-[#333]">
-        <h1 style="color: #E50914; font-weight: 900; text-transform: uppercase; font-size: 24px; margin-bottom: 20px;">
+        <h1 style="color: #f0abfc; font-weight: 900; text-transform: uppercase; font-size: 24px; margin-bottom: 20px;">
           Welcome to the ${genre} Universe, ${displayName}!
         </h1>
         <p style="color: #ccc; font-size: 16px; line-height: 1.5; margin-bottom: 30px;">
           You just added <strong>${genre}</strong> to your favorite genres! To celebrate, we've pulled the absolute top-trending masterpiece in this category just for you.
         </p>
         
-        <div style="background-color: #111; border: 1px solid #333; border-radius: 12px; overflow: hidden; margin-bottom: 30px;">
+        <div style="background-color: #10001a; border: 1px solid #18002a; border-radius: 12px; overflow: hidden; margin-bottom: 30px;">
           <img src="${posterUrl}" alt="${topMovie.title}" style="width: 100%; height: auto; display: block;" />
           <div style="padding: 20px;">
             <h2 style="margin: 0 0 10px 0; font-size: 20px; font-weight: 800;">${topMovie.title}</h2>
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
             <p style="color: #bbb; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
               ${topMovie.overview}
             </p>
-            <a href="${siteUrl}/movie/${topMovie.id}" style="display: inline-block; background-color: #E50914; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
+            <a href="${siteUrl}/movie/${topMovie.id}" style="display: inline-block; background-color: #f0abfc; color: #080009; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
               View Details
             </a>
           </div>
