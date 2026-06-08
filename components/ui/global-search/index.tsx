@@ -5,14 +5,22 @@ import { Search, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Movie } from '@/types';
-import { searchMovies } from '@/services/tmdbService';
+import { Movie, CastMember } from '@/types';
+import { searchMovies, searchPeople } from '@/services/tmdbService';
 import Image from 'next/image';
+
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Movie[]>([]);
+  const [searchType, setSearchType] = useState<'movies' | 'people'>('movies');
+  const [results, setResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -34,10 +42,12 @@ export default function GlobalSearch() {
       return;
     }
 
+    // Clear results and show loader immediately on type or query change
+    setResults([]);
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await searchMovies(query);
+        const results = searchType === 'movies' ? await searchMovies(query) : await searchPeople(query);
         setResults(results.slice(0, 5));
       } catch (error) {
         console.error('Search error:', error);
@@ -48,13 +58,17 @@ export default function GlobalSearch() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, searchType]);
 
-  const handleSelect = (movie: Movie) => {
+  const handleSelect = (item: any) => {
     setIsOpen(false);
     setQuery('');
-    const typeParam = movie.type ? `?type=${movie.type}` : '';
-    router.push(`/movie/${movie.id}${typeParam}`);
+    if (searchType === 'people') {
+      router.push(`/cast/${item.id}`);
+    } else {
+      const typeParam = item.type ? `?type=${item.type}` : '';
+      router.push(`/movie/${item.id}${typeParam}`);
+    }
   };
 
   return (
@@ -81,7 +95,7 @@ export default function GlobalSearch() {
               <input
                 autoFocus
                 type="text"
-                placeholder="Search movies, TV shows, anime..."
+                placeholder={searchType === 'movies' ? "Search movies, TV shows, anime..." : "Search actors, directors, crew..."}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="bg-transparent border-none outline-none text-white text-sm w-full"
@@ -93,6 +107,21 @@ export default function GlobalSearch() {
               )}
             </div>
 
+            <div className="flex border-b border-white/5">
+              <button 
+                onClick={() => setSearchType('movies')}
+                className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition-colors ${searchType === 'movies' ? 'text-brand border-b-2 border-brand bg-brand/5' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+              >
+                Movies & Shows
+              </button>
+              <button 
+                onClick={() => setSearchType('people')}
+                className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition-colors ${searchType === 'people' ? 'text-brand border-b-2 border-brand bg-brand/5' : 'text-white/40 hover:text-white/70 hover:bg-white/5'}`}
+              >
+                People
+              </button>
+            </div>
+
             <div className="max-h-[60vh] overflow-y-auto custom-scrollbar p-2" data-lenis-prevent>
               {isSearching ? (
                 <div className="flex flex-col items-center justify-center py-8 gap-3">
@@ -101,39 +130,53 @@ export default function GlobalSearch() {
                 </div>
               ) : results.length > 0 ? (
                 <div className="flex flex-col gap-1">
-                  {results.map((movie) => (
+                  {results.map((item) => (
                     <button
-                      key={movie.id}
-                      onClick={() => handleSelect(movie)}
+                      key={item.id}
+                      onClick={() => handleSelect(item)}
                       className="flex items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-all text-left group"
                     >
-                      <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0 relative">
-                        <Image 
-                          src={movie.posterUrl} 
-                          alt={movie.title} 
-                          fill
-                          sizes="48px"
-                          className="object-cover group-hover:scale-110 transition-transform"
-                          referrerPolicy="no-referrer"
-                        />
+                      <div className={`w-12 h-16 rounded overflow-hidden flex-shrink-0 relative ${searchType === 'people' ? 'rounded-full w-14 h-14' : ''}`}>
+                        {(searchType === 'people' ? item.imageUrl : item.posterUrl) ? (
+                          <Image 
+                            src={searchType === 'people' ? item.imageUrl : item.posterUrl} 
+                            alt={searchType === 'people' ? item.name : item.title} 
+                            fill
+                            sizes="56px"
+                            className="object-cover group-hover:scale-110 transition-transform"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand/20 to-purple-900/20 border border-white/5 ${searchType === 'people' ? 'rounded-full' : ''}`}>
+                            <span className="font-sans font-black text-white/40 text-xl tracking-tighter uppercase">{getInitials(searchType === 'people' ? item.name : item.title)}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-white truncate">{movie.title}</h4>
-                        <p className="text-[10px] text-white/40 flex items-center gap-2">
-                          <span>{movie.year}</span>
-                          <span>•</span>
-                          <span className="text-brand">{movie.genre[0]}</span>
-                        </p>
+                        <h4 className="text-sm font-bold text-white truncate">{searchType === 'people' ? item.name : item.title}</h4>
+                        {searchType === 'people' ? (
+                          <p className="text-[10px] text-white/40 flex items-center gap-2">
+                            <span className="text-brand">{item.role}</span>
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-white/40 flex items-center gap-2">
+                            <span>{item.year}</span>
+                            <span>•</span>
+                            <span className="text-brand">{item.genre && item.genre[0]}</span>
+                          </p>
+                        )}
                       </div>
                     </button>
                   ))}
-                  <Link 
-                    href={`/browse?q=${query}`} 
-                    onClick={() => setIsOpen(false)}
-                    className="mt-2 text-center py-3 text-xs font-bold text-brand hover:bg-brand/10 transition-colors rounded-lg border border-brand/20 mx-2 mb-2"
-                  >
-                    VIEW ALL RESULTS
-                  </Link>
+                  {searchType === 'movies' && (
+                    <Link 
+                      href={`/browse?q=${query}`} 
+                      onClick={() => setIsOpen(false)}
+                      className="mt-2 text-center py-3 text-xs font-bold text-brand hover:bg-brand/10 transition-colors rounded-lg border border-brand/20 mx-2 mb-2"
+                    >
+                      VIEW ALL RESULTS
+                    </Link>
+                  )}
                 </div>
               ) : query ? (
                 <div className="py-8 text-center">

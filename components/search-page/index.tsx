@@ -5,13 +5,23 @@ import SearchBar from '@/components/ui/search-bar';
 import MovieCard from '@/components/ui/movie-card';
 import { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, Search as SearchIcon, RotateCcw } from 'lucide-react';
-import { searchMovies } from '@/services/tmdbService';
-import { Movie } from '@/types';
+import { searchMovies, searchPeople } from '@/services/tmdbService';
+import { Movie, CastMember } from '@/types';
 import { toast } from 'react-hot-toast';
+import Image from 'next/image';
+import Link from 'next/link';
+
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 export default function SearchPage() {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<Movie[]>([]);
+  const [searchType, setSearchType] = useState<'movies' | 'people'>('movies');
+  const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -20,18 +30,23 @@ export default function SearchPage() {
       return;
     }
 
+    // Clear results immediately on tab switch to avoid rendering movies as people (or vice versa) while loading
+    setResults([]);
+    setIsLoading(true);
+
     const handler = setTimeout(async () => {
-      setIsLoading(true);
       try {
-        const data = await searchMovies(search);
+        const data = searchType === 'movies' ? await searchMovies(search) : await searchPeople(search);
         setResults(data);
         if (data.length === 0) {
-          toast.error("search correct movie name or show");
+          toast.error("No results found");
         }
-        import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
-          trackGenreSearch(search);
-          logUserActivity("Search", `Searched for "${search}"`);
-        });
+        if (searchType === 'movies') {
+          import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
+            trackGenreSearch(search);
+            logUserActivity("Search", `Searched for "${search}"`);
+          });
+        }
       } catch (error) {
         console.error("Search error:", error);
       } finally {
@@ -40,7 +55,7 @@ export default function SearchPage() {
     }, 500);
 
     return () => clearTimeout(handler);
-  }, [search]);
+  }, [search, searchType]);
 
   return (
     <motion.div
@@ -54,7 +69,22 @@ export default function SearchPage() {
           <Sparkles className="w-3 h-3" /> Search Intelligence
         </div>
         <h1 className="text-4xl md:text-7xl font-black text-white mb-8 uppercase tracking-tighter leading-tight">What are we watching?</h1>
-        <SearchBar value={search} onChange={setSearch} placeholder="Search movies, actors, or keywords..." />
+        <SearchBar value={search} onChange={setSearch} placeholder={searchType === 'movies' ? "Search movies, TV shows, anime..." : "Search actors, directors, crew..."} />
+        
+        <div className="flex justify-center mt-8 gap-4">
+           <button 
+             onClick={() => setSearchType('movies')}
+             className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${searchType === 'movies' ? 'bg-brand text-black border-brand shadow-[0_0_20px_rgba(var(--brand-rgb),0.3)]' : 'bg-surface border-white/5 text-white/40 hover:border-white/20 hover:text-white'}`}
+           >
+             Movies & Shows
+           </button>
+           <button 
+             onClick={() => setSearchType('people')}
+             className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${searchType === 'people' ? 'bg-brand text-black border-brand shadow-[0_0_20px_rgba(var(--brand-rgb),0.3)]' : 'bg-surface border-white/5 text-white/40 hover:border-white/20 hover:text-white'}`}
+           >
+             People
+           </button>
+        </div>
       </div>
 
       {search ? (
@@ -67,8 +97,33 @@ export default function SearchPage() {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-             {results.map(movie => (
-               <MovieCard key={movie.id} movie={movie} />
+             {results.map(item => (
+               searchType === 'movies' ? (
+                 <MovieCard key={item.id} movie={item} />
+               ) : (
+                 <Link href={`/cast/${item.id}`} key={item.id} className="block group">
+                    <div className="relative aspect-[2/3] rounded-2xl overflow-hidden mb-4 bg-surface border border-white/5 shadow-xl shadow-black/50">
+                      {item.imageUrl ? (
+                        <Image 
+                          src={item.imageUrl} 
+                          alt={item.name} 
+                          fill 
+                          className="object-cover group-hover:scale-110 transition-transform duration-500"
+                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-brand/20 to-purple-900/20">
+                          <span className="font-sans font-black text-white/20 text-6xl uppercase tracking-tighter shadow-sm">{getInitials(item.name)}</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <h3 className="text-white font-bold text-lg mb-1">{item.name}</h3>
+                        <p className="text-brand text-xs uppercase tracking-widest font-black">{item.role}</p>
+                      </div>
+                    </div>
+                 </Link>
+               )
              ))}
           </div>
 

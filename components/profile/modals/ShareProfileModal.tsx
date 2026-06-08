@@ -23,7 +23,7 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 sm:p-12">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8 md:p-12">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -35,9 +35,9 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-surface border border-white/10 rounded-[40px] w-full max-w-md relative z-10 overflow-hidden shadow-2xl"
+        className="bg-[#050505] border border-white/10 rounded-[2rem] sm:rounded-[40px] w-full max-w-md max-h-full relative z-10 overflow-y-auto no-scrollbar shadow-2xl"
       >
-        <div className="p-8 md:p-10 space-y-8">
+        <div className="p-6 sm:p-8 md:p-10 space-y-6 sm:space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase italic tracking-tight">Share <span className="text-brand">Profile</span></h2>
             <button onClick={onClose} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">

@@ -16,7 +16,7 @@ import { getUserActivities, clearUserActivities } from '@/lib/genreTracker';
 import { searchMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { app } from '@/lib/firebase';
-import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc, getCountFromServer } from 'firebase/firestore';
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
@@ -93,6 +93,7 @@ export default function ProfileSettingsPanel({
   const [showActivityPopup, setShowActivityPopup] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
+  const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
   // Billing states
   const [billingPlan, setBillingPlan] = useState<string>('free');
@@ -113,6 +114,13 @@ export default function ProfileSettingsPanel({
     const db = getFirestore(app);
     const auditRef = collection(db, `users/${user.uid}/audit_logs`);
     const q = query(auditRef, orderBy('timestamp', 'desc'), limit(5));
+
+    // Fetch the true total count of audit logs (alerts) for the badge
+    getCountFromServer(auditRef).then((snap) => {
+      setTotalAuditLogs(snap.data().count);
+    }).catch((error) => {
+      if (error.code !== 'permission-denied') console.error('Count fetch error:', error);
+    });
 
     const unsubscribeAudit = onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditEvent));
@@ -568,10 +576,14 @@ export default function ProfileSettingsPanel({
   };
 
   return (
-    <div className="mt-12 bg-surface/30 border border-white/5 rounded-[40px] p-6 md:p-12 shadow-2xl backdrop-blur-xl relative overflow-hidden font-sans">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
-      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-        <div className="lg:w-1/4 shrink-0 flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar lg:sticky lg:top-32 self-start pb-4 lg:pb-0">
+    <div className="mt-8 md:mt-12 bg-surface/30 border border-white/5 rounded-[2rem] md:rounded-[40px] p-4 md:p-12 shadow-2xl backdrop-blur-xl relative font-sans">
+      {/* Background Glows (Clipped) */}
+      <div className="absolute inset-0 overflow-hidden rounded-[40px] pointer-events-none">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-brand/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+      </div>
+      
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 relative z-10 w-full max-w-[100vw]">
+        <div className="w-full lg:w-1/4 shrink-0 flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory lg:snap-none lg:sticky lg:top-24 self-start pb-4 lg:pb-0 pt-2 lg:pt-8">
           <div className="hidden lg:block mb-6">
             <h3 className="text-3xl font-display font-black uppercase italic tracking-tight text-glow">
               Control <span className="text-brand">Center</span>
@@ -593,21 +605,21 @@ export default function ProfileSettingsPanel({
               <button
                 key={t.id}
                 onClick={() => setActiveSettingTab(t.id as any)}
-                className={`flex flex-col items-center lg:items-start shrink-0 px-5 lg:px-6 py-4 rounded-2xl border transition-all ${isActive
+                className={`flex flex-row lg:flex-col items-center lg:items-start shrink-0 px-4 lg:px-6 py-2.5 lg:py-4 rounded-xl lg:rounded-2xl border transition-all snap-start ${isActive
                   ? 'bg-brand/10 border-brand/35 text-brand shadow-lg shadow-brand/5'
                   : 'bg-white/5 border-white/5 text-white/50 hover:bg-white/10 hover:text-white hover:border-white/10'
                   }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xl lg:text-sm">{t.icon}</span>
-                  <span className="hidden lg:block text-xs font-black uppercase tracking-wider">{t.name}</span>
+                  <span className="text-base lg:text-sm">{t.icon}</span>
+                  <span className="text-[10px] lg:text-xs font-black uppercase tracking-wider whitespace-nowrap">{t.name}</span>
                 </div>
                 <span className="hidden lg:block text-[9px] text-white/30 font-medium mt-0.5">{t.label}</span>
               </button>
             );
           })}
         </div>
-        <div className="flex-grow lg:w-3/4 bg-black/40 border border-white/5 rounded-[32px] p-6 md:p-8 min-h-[500px] flex flex-col justify-between">
+        <div className="flex-grow lg:w-3/4 bg-black/40 border border-white/5 rounded-[1.5rem] md:rounded-[32px] p-5 md:p-8 min-h-[400px] md:min-h-[500px] flex flex-col justify-between">
           <div className="space-y-6">
             {activeSettingTab === 'notifications' && (
               <div className="space-y-8 animate-fadeIn">
@@ -727,18 +739,22 @@ export default function ProfileSettingsPanel({
                 </div>
                 <div className="pt-6 border-t border-white/5">
                   <div className="rounded-[28px] bg-gradient-to-br from-purple-950/30 via-black/40 to-indigo-950/20 border border-purple-500/15 overflow-hidden">
-                    <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                    <div className="flex flex-row items-center justify-between px-4 sm:px-6 pt-6 pb-4 border-b border-white/5 gap-2 sm:gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
                           <Shield className="w-4 h-4 text-purple-400" />
                         </div>
-                        <div>
-                          <h5 className="text-xs font-black uppercase tracking-widest text-white">🛡 Vigilance Hub</h5>
-                          <p className="text-[9px] text-white/30 font-medium mt-0.5">Real-time security &amp; account activity monitoring</p>
+                        <div className="min-w-0">
+                          <h5 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-1.5 truncate">
+                            <Shield className="w-3.5 h-3.5 text-white/50 shrink-0" /> Vigilance Hub
+                          </h5>
+                          <p className="text-[9px] text-white/30 font-medium mt-0.5 leading-relaxed break-words">
+                            Real-time security &amp; account activity monitoring
+                          </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                      <div className="flex items-center shrink-0 whitespace-nowrap gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 w-auto">
+                        <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-green-400 animate-pulse" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-green-400">All Clear</span>
                       </div>
                     </div>
@@ -747,7 +763,7 @@ export default function ProfileSettingsPanel({
                         {[
                           { label: 'Active Sessions', value: activeSessions.length.toString(), icon: '💻', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/15' },
                           { label: 'Login Streak', value: `${profile?.loginStreak || 1}d`, icon: '🔑', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/15' },
-                          { label: 'Alerts', value: auditLogs.length.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
+                          { label: 'Alerts', value: totalAuditLogs.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
                           // { label: '2FA Status', value: 'Off', icon: '🔒', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/15' },
                         ].map((stat) => (
                           <div key={stat.label} className={`p-3 rounded-2xl border ${stat.bg} flex flex-col gap-1`}>
@@ -1955,9 +1971,9 @@ export default function ProfileSettingsPanel({
               </motion.div>
             )}
           </div>
-          <div className="mt-8 pt-6 border-t border-white/5 text-[10px] text-white/30 font-semibold flex justify-between items-center">
-            <span>Aggregator preferences automatically sync across all logged devices.</span>
-            <span className="text-brand flex items-center gap-1">
+          <div className="mt-8 pt-6 border-t border-white/5 text-[10px] text-white/30 font-semibold flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
+            <span className="leading-relaxed">Aggregator preferences automatically sync across all logged devices.</span>
+            <span className="text-brand flex items-center gap-1.5 bg-brand/10 px-3 py-1.5 rounded-full md:bg-transparent md:px-0 md:py-0 md:rounded-none border border-brand/20 md:border-transparent">
               <ShieldCheck className="w-3.5 h-3.5" /> Encrypted Sync
             </span>
           </div>

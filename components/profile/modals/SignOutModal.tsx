@@ -15,7 +15,7 @@ export default function SignOutModal({ isOpen, onClose, logout }: SignOutModalPr
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -27,7 +27,7 @@ export default function SignOutModal({ isOpen, onClose, logout }: SignOutModalPr
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-sm bg-surface/90 border border-white/10 rounded-[32px] p-6 shadow-2xl overflow-hidden bg-black/90"
+        className="relative w-full max-w-sm max-h-full bg-[#050505] border border-white/10 rounded-[2rem] sm:rounded-[32px] p-6 shadow-2xl overflow-y-auto no-scrollbar"
       >
         <div className="absolute top-0 right-0 p-6">
           <button

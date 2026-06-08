@@ -1,5 +1,5 @@
 'use client';
-import { getFirestore, doc, setDoc, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { parseUserAgent } from '@/lib/deviceParser';
 
@@ -86,8 +86,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               signOut(auth);
             }
           });
+
+          // Update user's lastActive and loginStreak
+          const userRef = doc(db, `users/${currentUser.uid}`);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            let newStreak = userData.loginStreak || 1;
+            
+            if (userData.lastActive) {
+              const lastActiveDate = userData.lastActive.toDate();
+              const now = new Date();
+              const lastActiveDay = new Date(lastActiveDate.getFullYear(), lastActiveDate.getMonth(), lastActiveDate.getDate());
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              
+              const diffTime = today.getTime() - lastActiveDay.getTime();
+              const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+              
+              if (diffDays === 1) {
+                newStreak += 1; // Consecutive day
+              } else if (diffDays > 1) {
+                newStreak = 1; // Streak broken
+              }
+              // If diffDays === 0, keep current streak
+            }
+            
+            await setDoc(userRef, { 
+              lastActive: serverTimestamp(),
+              loginStreak: newStreak
+            }, { merge: true });
+          } else {
+            await setDoc(userRef, {
+              lastActive: serverTimestamp(),
+              loginStreak: 1
+            }, { merge: true });
+          }
         } catch (error) {
-          console.error("Failed to register session:", error);
+          console.error("Failed to register session/streak:", error);
         }
       } else {
         // Logged out
@@ -113,13 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Use popup on ALL devices — works on mobile too
     const result = await signInWithPopup(auth, googleProvider);
 
-    if (result?.user) {
-      await setDoc(
-        doc(db, 'users', result.user.uid),
-        { lastActive: serverTimestamp() },
-        { merge: true }
-      );
-    }
+    // The onAuthStateChanged listener handles updating lastActive and loginStreak
   } catch (error: any) {
     if (error?.code === 'auth/popup-closed-by-user') throw error;
     console.error("Login failed:", error);
@@ -133,8 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       throw new Error("Please verify your email before logging in. Check your inbox.");
     }
-    // Write lastActive on login
-    await setDoc(doc(db, 'users', userCredential.user.uid), { lastActive: serverTimestamp() }, { merge: true });
+    // The onAuthStateChanged listener handles updating lastActive and loginStreak
   };
 
   const signupWithEmail = async (email: string, pass: string, name: string) => {
