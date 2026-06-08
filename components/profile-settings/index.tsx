@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import {
@@ -15,11 +16,12 @@ import { getUserActivities, clearUserActivities } from '@/lib/genreTracker';
 import { searchMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { app } from '@/lib/firebase';
-import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc } from 'firebase/firestore';
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { revalidatePage } from '@/app/actions/revalidate';
 import { ProfileSettings } from '@/types';
 
@@ -85,6 +87,8 @@ export default function ProfileSettingsPanel({
   }, [searchParams]);
 
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const [isLogoutAllModalOpen, setIsLogoutAllModalOpen] = useState(false);
+  const [keepCurrentDevice, setKeepCurrentDevice] = useState(true);
   const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
   const [showActivityPopup, setShowActivityPopup] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -731,12 +735,12 @@ export default function ProfileSettingsPanel({
                       </div>
                     </div>
                     <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {[
-                          { label: 'Active Sessions', value: '2', icon: '💻', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/15' },
-                          { label: 'Login Streak', value: '7d', icon: '🔑', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/15' },
-                          { label: 'Alerts (7d)', value: '0', icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
-                          { label: '2FA Status', value: 'Off', icon: '🔒', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/15' },
+                          { label: 'Active Sessions', value: activeSessions.length.toString(), icon: '💻', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/15' },
+                          { label: 'Login Streak', value: `${profile?.loginStreak || 1}d`, icon: '🔑', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/15' },
+                          { label: 'Alerts', value: auditLogs.length.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
+                          // { label: '2FA Status', value: 'Off', icon: '🔒', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/15' },
                         ].map((stat) => (
                           <div key={stat.label} className={`p-3 rounded-2xl border ${stat.bg} flex flex-col gap-1`}>
                             <span className="text-base">{stat.icon}</span>
@@ -1030,26 +1034,7 @@ export default function ProfileSettingsPanel({
                   <div className="flex justify-between items-center">
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Active Sessions</h5>
                     <button
-                      onClick={async () => {
-                        if (!user?.uid) return;
-                        const t = toast.loading('Logging out all devices…');
-                        try {
-                          const db = getFirestore(app);
-                          const sessionsSnap = await getDocs(collection(db, 'users', user.uid, 'sessions'));
-                          const batch = writeBatch(db);
-                          sessionsSnap.docs.forEach(doc => batch.delete(doc.ref));
-                          await batch.commit();
-                          
-                          logSecurityEvent(user?.uid, 'All Sessions Revoked', 'All device sessions were logged out.', 'bg-red-500');
-                          toast.dismiss(t);
-                          toast.success('All sessions revoked. Signing you out…');
-                          setTimeout(() => onSignOut?.(), 1500);
-                        } catch (error) {
-                          toast.dismiss(t);
-                          toast.error('Failed to revoke sessions.');
-                          console.error(error);
-                        }
-                      }}
+                      onClick={() => setIsLogoutAllModalOpen(true)}
                       className="text-[9px] font-black text-brand uppercase tracking-widest hover:underline"
                     >
                       Logout All Devices
@@ -1516,17 +1501,6 @@ export default function ProfileSettingsPanel({
                       </div>
                     </div>
 
-                    <div className="space-y-4 pt-4 border-t border-white/5">
-                      <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Legal</h5>
-                      <div className="grid grid-cols-2 gap-3">
-                        {['Terms of Service', 'Privacy Policy', 'Cookie Policy', 'DMCA Policy'].map((doc, i) => (
-                          <button key={i} className="p-3 bg-black/20 border border-white/5 rounded-xl text-[9px] font-black uppercase text-white/60 hover:text-white hover:bg-white/5 transition-all text-left flex items-center justify-between">
-                            {doc}
-                            <ExternalLink className="w-3 h-3 opacity-50" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Right Column: Contact Support */}
@@ -1534,14 +1508,14 @@ export default function ProfileSettingsPanel({
                     <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Contact Support</h5>
 
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                      <button className="p-4 rounded-xl bg-brand/10 border border-brand/20 flex flex-col items-center gap-2 hover:bg-brand/20 transition-all">
-                        <MessageSquare className="w-5 h-5 text-brand" />
-                        <span className="text-[9px] font-black uppercase text-brand tracking-widest">Live Chat</span>
-                      </button>
-                      <button className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center gap-2 hover:bg-white/10 transition-all">
+                      <a href="https://wa.me/message/YOUR_WHATSAPP_LINK_HERE" target="_blank" rel="noreferrer" className="p-4 rounded-xl bg-[#25D366]/10 border border-[#25D366]/20 flex flex-col items-center gap-2 hover:bg-[#25D366]/20 transition-all">
+                        <MessageSquare className="w-5 h-5 text-[#25D366]" />
+                        <span className="text-[9px] font-black uppercase text-[#25D366] tracking-widest">WhatsApp Chat</span>
+                      </a>
+                      <a href="mailto:support@streamfind.com" className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center gap-2 hover:bg-white/10 transition-all">
                         <Mail className="w-5 h-5 text-white/60" />
                         <span className="text-[9px] font-black uppercase text-white/60 tracking-widest">Email Support</span>
-                      </button>
+                      </a>
                     </div>
 
                     <div className="p-6 rounded-2xl bg-black/20 border border-white/5 space-y-4">
@@ -1571,14 +1545,31 @@ export default function ProfileSettingsPanel({
                         />
                       </div>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (!supportMessage) return toast.error('Please enter a message');
                           setIsSubmittingSupport(true);
-                          setTimeout(() => {
+                          try {
+                            const db = getFirestore(app);
+                            const type = supportMessage.startsWith('Type:') ? supportMessage.split(':')[1].split('\n')[0] : 'Submit Ticket';
+                            const msg = supportMessage.includes('\n') ? supportMessage.substring(supportMessage.indexOf('\n') + 1).trim() : supportMessage;
+                            
+                            await addDoc(collection(db, 'support_tickets'), {
+                              userId: user?.uid || 'anonymous',
+                              email: user?.email || '',
+                              type: type,
+                              message: msg || supportMessage,
+                              status: 'open',
+                              createdAt: new Date().toISOString()
+                            });
+                            
                             toast.success('Ticket submitted successfully!');
                             setSupportMessage('');
+                          } catch (e) {
+                            console.error('Failed to submit ticket', e);
+                            toast.error('Failed to submit ticket. Please try again later.');
+                          } finally {
                             setIsSubmittingSupport(false);
-                          }, 1000);
+                          }
                         }}
                         disabled={isSubmittingSupport}
                         className="w-full py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-colors disabled:opacity-50"
@@ -1586,6 +1577,27 @@ export default function ProfileSettingsPanel({
                         {isSubmittingSupport ? 'Sending...' : 'Submit Request'}
                       </button>
                     </div>
+                  </div>
+                </div>
+
+                {/* Full Width Legal Section */}
+                <div className="space-y-4 pt-8 mt-8 border-t border-white/5 w-full">
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Legal & Policies</h5>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                      { title: 'Terms of Service', path: '/terms' },
+                      { title: 'Privacy Policy', path: '/privacy' },
+                      { title: 'Cookie Policy', path: '/cookie-policy' },
+                      { title: 'DMCA Policy', path: '/dmca' },
+                      { title: 'Data Disclaimer', path: '/data-disclaimer' }
+                    ].map((doc, i) => (
+                      <Link key={i} href={doc.path} className="p-4 bg-white/5 border border-white/5 rounded-xl text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/10 transition-all text-left flex flex-col justify-between h-full gap-2 group">
+                        <div className="flex justify-between items-start w-full">
+                          <span>{doc.title}</span>
+                          <ExternalLink className="w-3 h-3 opacity-30 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1781,7 +1793,7 @@ export default function ProfileSettingsPanel({
                             <div className="flex items-center gap-4">
                               <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform flex items-center justify-center w-11 h-11 ${badge.color}`}>
                                 {badge.isCustomIcon ? (
-                                  <img src={badge.icon as string} alt={badge.title} className="w-5 h-5 object-contain" />
+                                  <Image width={20} height={20} src={badge.icon as string} alt={badge.title} className="w-5 h-5 object-contain" />
                                 ) : (
                                   <badge.icon className="w-5 h-5" />
                                 )}
@@ -1834,10 +1846,12 @@ export default function ProfileSettingsPanel({
                             className="w-full sm:w-[450px] shrink-0 snap-start p-6 bg-surface/30 border border-white/5 rounded-[32px] hover:bg-surface/40 transition-colors group flex flex-col gap-6"
                           >
                             <div className="flex gap-4">
-                              <div className="w-16 shrink-0 h-24 bg-white/5 rounded-xl overflow-hidden shadow-md">
-                                <img
+                              <div className="w-16 shrink-0 h-24 bg-white/5 rounded-xl overflow-hidden shadow-md relative">
+                                <Image
                                   src={review.moviePoster || 'https://placehold.co/200x300?text=No+Image'}
-                                  className="w-full h-full object-cover"
+                                  className="object-cover"
+                                  fill
+                                  sizes="100px"
                                   alt={review.movieTitle}
                                 />
                               </div>
@@ -2013,6 +2027,105 @@ export default function ProfileSettingsPanel({
                   className="px-6 py-2 bg-brand text-black hover:bg-brand/90 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
                 >
                   Done
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isLogoutAllModalOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl relative"
+            >
+              <div className="p-6 border-b border-white/5 flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black uppercase tracking-widest text-white">Logout All Devices?</h3>
+                  <p className="text-xs text-white/50 mt-1">
+                    You are about to terminate all active sessions on other devices.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${keepCurrentDevice ? 'bg-brand border-brand' : 'bg-transparent border-white/20 group-hover:border-white/40'}`}>
+                    {keepCurrentDevice && <Check className="w-3.5 h-3.5 text-black" />}
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-white">Keep current device logged in</p>
+                    <p className="text-[10px] text-white/40 mt-0.5">Untick this to be completely signed out everywhere.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    checked={keepCurrentDevice}
+                    onChange={(e) => setKeepCurrentDevice(e.target.checked)}
+                  />
+                </label>
+              </div>
+
+              <div className="p-6 border-t border-white/5 bg-black/40 flex justify-end gap-3">
+                <button
+                  onClick={() => setIsLogoutAllModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/50 hover:text-white hover:border-white/30 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!user?.uid) return;
+                    setIsLogoutAllModalOpen(false);
+                    const t = toast.loading('Terminating sessions...');
+                    try {
+                      const db = getFirestore(app);
+                      const sessionsSnap = await getDocs(collection(db, 'users', user.uid, 'sessions'));
+                      const batch = writeBatch(db);
+                      
+                      let revokedCount = 0;
+                      sessionsSnap.docs.forEach(doc => {
+                        const data = doc.data();
+                        if (keepCurrentDevice && data.current) {
+                          return;
+                        }
+                        batch.delete(doc.ref);
+                        revokedCount++;
+                      });
+                      
+                      if (revokedCount === 0) {
+                        toast.dismiss(t);
+                        toast.success('No other sessions to revoke.');
+                        return;
+                      }
+
+                      await batch.commit();
+                      
+                      logSecurityEvent(user?.uid, 'Sessions Revoked', `${revokedCount} device session(s) were logged out.`, 'bg-red-500');
+                      toast.dismiss(t);
+                      
+                      if (!keepCurrentDevice) {
+                        toast.success('All sessions revoked. Signing you out…');
+                        setTimeout(() => onSignOut?.(), 1500);
+                      } else {
+                        toast.success(`Revoked ${revokedCount} session(s).`);
+                      }
+                    } catch (error) {
+                      toast.dismiss(t);
+                      toast.error('Failed to revoke sessions.');
+                      console.error(error);
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 text-xs font-black uppercase tracking-widest transition-all"
+                >
+                  Confirm
                 </button>
               </div>
             </motion.div>

@@ -129,13 +129,13 @@ export default function CastDetails({
               animate={{ y: 0, opacity: 1 }}
               className="rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl border border-white/10"
             >
-              <img
+              <Image
                 src={cast.imageUrl}
                 alt={cast.name}
+                width={320}
+                height={480}
                 className="w-full h-auto aspect-[2/3] object-cover"
-                referrerPolicy="no-referrer"
-                loading="eager"
-                fetchPriority="high"
+                priority
               />
             </motion.div>
 

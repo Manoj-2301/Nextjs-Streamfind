@@ -144,7 +144,7 @@ export default function Footer() {
         )}
 
         {/* Footer Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 md:gap-12">
           <div className="col-span-2">
             <h3 className="text-2xl font-display font-bold text-white mb-4">StreamFind</h3>
             <p className="text-white/40 max-w-sm mb-8 leading-relaxed text-sm">
@@ -174,8 +174,17 @@ export default function Footer() {
             <ul className="space-y-3 text-white/40 text-sm">
               <li><Link href="/about" className="hover:text-brand transition-colors">About Us</Link></li>
               <li><Link href="/contact" className="hover:text-brand transition-colors">Contact</Link></li>
-              <li><Link href="/privacy" className="hover:text-brand transition-colors">Privacy Policy</Link></li>
               <li><Link href="/sitemap-page" className="hover:text-brand transition-colors">Sitemap</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-white font-bold mb-5 text-sm uppercase tracking-widest">Legal</h4>
+            <ul className="space-y-3 text-white/40 text-sm">
+              <li><Link href="/terms" className="hover:text-brand transition-colors">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="hover:text-brand transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/cookie-policy" className="hover:text-brand transition-colors">Cookie Policy</Link></li>
+              <li><Link href="/dmca" className="hover:text-brand transition-colors">DMCA Policy</Link></li>
+              <li><Link href="/data-disclaimer" className="hover:text-brand transition-colors">Data Disclaimer</Link></li>
             </ul>
           </div>
         </div>

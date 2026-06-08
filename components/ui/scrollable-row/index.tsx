@@ -5,14 +5,16 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, KeyboardEvent } from 'react';
 import MovieCard from '@/components/ui/movie-card';
 import { Movie } from '@/types';
+import Link from 'next/link';
 
 interface ScrollableRowProps {
   title: string;
   movies: Movie[];
   className?: string;
+  viewAllLink?: string;
 }
 
-export default function ScrollableRow({ title, movies, className = "" }: ScrollableRowProps) {
+export default function ScrollableRow({ title, movies, className = "", viewAllLink }: ScrollableRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -83,6 +85,11 @@ export default function ScrollableRow({ title, movies, className = "" }: Scrolla
             >
               <ChevronRight className="w-5 h-5" />
             </button>
+            {viewAllLink && (
+              <Link href={viewAllLink} className="ml-2 px-3 py-1.5 rounded-full text-xs font-bold bg-white/10 hover:bg-white hover:text-black transition-colors">
+                View All
+              </Link>
+            )}
           </div>
         </div>
       )}

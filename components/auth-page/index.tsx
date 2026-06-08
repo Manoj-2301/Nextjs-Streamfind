@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -15,17 +16,14 @@ export default function AuthPage() {
   // Two-step sign-in state
   const [signInStep, setSignInStep] = useState<SignInStep>('email');
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { register, handleSubmit, getValues, setValue, setFocus, reset } = useForm({
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '' }
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
-
-  const emailRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
 
   const { user, loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
@@ -40,24 +38,23 @@ export default function AuthPage() {
   // Auto-focus the active field on step change
   useEffect(() => {
     if (signInStep === 'email') {
-      setTimeout(() => emailRef.current?.focus(), 100);
+      setTimeout(() => setFocus('email'), 100);
     } else {
-      setTimeout(() => passwordRef.current?.focus(), 100);
+      setTimeout(() => setFocus('password'), 100);
     }
-  }, [signInStep]);
+  }, [signInStep, setFocus]);
 
   // Reset to email step when toggling between sign-in and sign-up
   const handleToggleMode = () => {
     setIsSignUp(!isSignUp);
     setSignInStep('email');
-    setName('');
-    setPassword('');
-    setConfirmPassword('');
+    reset();
   };
 
   const handleEmailContinue = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    const currentEmail = getValues('email');
+    if (!currentEmail || !/\S+@\S+\.\S+/.test(currentEmail)) {
       toast.error('Please enter a valid email address.');
       return;
     }
@@ -65,13 +62,14 @@ export default function AuthPage() {
   };
 
   const handleForgotPassword = async () => {
-    if (!email) {
+    const currentEmail = getValues('email');
+    if (!currentEmail) {
       toast.error('Please enter your email address to reset your password.');
       return;
     }
     setIsSubmitting(true);
     try {
-      await sendPasswordReset(email);
+      await sendPasswordReset(currentEmail);
       toast.success('Password reset email sent! Please check your inbox.');
     } catch (err: any) {
       console.error('Password reset error:', err);
@@ -84,19 +82,18 @@ export default function AuthPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: any) => {
     setIsSubmitting(true);
 
     try {
       if (isSignUp) {
-        if (!name.trim()) { toast.error('Please enter your name.'); setIsSubmitting(false); return; }
-        if (password !== confirmPassword) { toast.error('Passwords do not match.'); setIsSubmitting(false); return; }
-        await signupWithEmail(email, password, name);
+        if (!data.name.trim()) { toast.error('Please enter your name.'); setIsSubmitting(false); return; }
+        if (data.password !== data.confirmPassword) { toast.error('Passwords do not match.'); setIsSubmitting(false); return; }
+        await signupWithEmail(data.email, data.password, data.name);
         toast.success('Verification email sent to your inbox.');
         setVerificationSent(true);
       } else {
-        await loginWithEmail(email, password);
+        await loginWithEmail(data.email, data.password);
         toast.success('Logged in successfully!');
         router.push('/');
       }
@@ -161,11 +158,11 @@ export default function AuthPage() {
               </div>
               <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-4">Verify Your Email</h2>
               <p className="text-white/60 mb-8 leading-relaxed">
-                We've sent a verification link to <strong className="text-white">{email}</strong>.
+                We've sent a verification link to <strong className="text-white">{getValues('email')}</strong>.
                 Please check your inbox and click the link to activate your account.
               </p>
               <button
-                onClick={() => { setVerificationSent(false); setIsSignUp(false); setPassword(''); setConfirmPassword(''); setSignInStep('email'); }}
+                onClick={() => { setVerificationSent(false); setIsSignUp(false); reset(); setSignInStep('email'); }}
                 className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <LogIn className="w-5 h-5" /> Sign In Now
@@ -187,7 +184,7 @@ export default function AuthPage() {
                     ? 'Join StreamFind to save your favorites.'
                     : signInStep === 'email'
                     ? 'Sign in to access your watchlist.'
-                    : <span>Signing in as <span className="text-white font-semibold">{email}</span></span>
+                    : <span>Signing in as <span className="text-white font-semibold">{getValues('email')}</span></span>
                   }
                 </p>
               </div>
@@ -196,13 +193,13 @@ export default function AuthPage() {
 
               {/* ── Sign Up Form (all fields at once) ── */}
               {isSignUp ? (
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4" autoComplete="off">
+                <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" autoComplete="off">
                   {/* Name */}
                   <div className="relative group">
                     <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                     <input
-                      type="text" required placeholder="Full Name" value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      type="text" required placeholder="Full Name"
+                      {...register('name')}
                       autoComplete="off"
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
                     />
@@ -211,8 +208,8 @@ export default function AuthPage() {
                   <div className="relative group">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                     <input
-                      type="email" required placeholder="Email Address" value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      type="email" required placeholder="Email Address"
+                      {...register('email')}
                       autoComplete="off"
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
                     />
@@ -222,8 +219,8 @@ export default function AuthPage() {
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                     <input
                       type={showPassword ? 'text' : 'password'} required minLength={6}
-                      placeholder="Password" value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      {...register('password')}
                       autoComplete="new-password"
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
                     />
@@ -237,8 +234,8 @@ export default function AuthPage() {
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                     <input
                       type={showConfirmPassword ? 'text' : 'password'} required minLength={6}
-                      placeholder="Confirm Password" value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm Password"
+                      {...register('confirmPassword')}
                       autoComplete="new-password"
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
                     />
@@ -273,12 +270,10 @@ export default function AuthPage() {
                       <div className="relative group">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                         <input
-                          ref={emailRef}
                           type="email"
                           required
                           placeholder="Email Address"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          {...register('email')}
                           autoComplete="username"
                           id="signin-email"
                           className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
@@ -300,13 +295,13 @@ export default function AuthPage() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.2 }}
-                      onSubmit={handleSubmit}
+                      onSubmit={handleSubmit(onSubmit)}
                       className="flex flex-col gap-4"
                     >
                       {/* Back to email step */}
                       <button
                         type="button"
-                        onClick={() => { setSignInStep('email'); setPassword(''); }}
+                        onClick={() => { setSignInStep('email'); setValue('password', ''); }}
                         className="flex items-center justify-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors mb-2"
                       >
                         <ArrowLeft className="w-4 h-4" />
@@ -316,13 +311,11 @@ export default function AuthPage() {
                       <div className="relative group">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
                         <input
-                          ref={passwordRef}
                           type={showPassword ? 'text' : 'password'}
                           required
                           minLength={6}
                           placeholder="Password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
+                          {...register('password')}
                           autoComplete="current-password"
                           id="signin-password"
                           className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder:text-white/30 focus:outline-none focus:border-brand/50 transition-all"
