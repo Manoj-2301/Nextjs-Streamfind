@@ -145,17 +145,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [db]);
 
   const loginWithGoogle = async () => {
-  try {
-    // Use popup on ALL devices — works on mobile too
-    const result = await signInWithPopup(auth, googleProvider);
+    try {
+      // Use popup on ALL devices — works on mobile too
+      const result = await signInWithPopup(auth, googleProvider);
 
-    // The onAuthStateChanged listener handles updating lastActive and loginStreak
-  } catch (error: any) {
-    if (error?.code === 'auth/popup-closed-by-user') throw error;
-    console.error("Login failed:", error);
-    throw error;
-  }
-};
+      // The onAuthStateChanged listener handles updating lastActive and loginStreak
+    } catch (error: any) {
+      if (error?.code === 'auth/popup-closed-by-user') throw error;
+      
+      // Fallback to redirect if popup fails (common in production mobile/in-app browsers or due to 3rd party cookie blocking)
+      if (
+        error?.code === 'auth/popup-blocked' ||
+        error?.code === 'auth/cancelled-popup-request' ||
+        error?.code === 'auth/web-storage-unsupported' ||
+        error?.message?.includes('cross-origin') ||
+        error?.code === 'auth/internal-error'
+      ) {
+        console.log("Popup failed, falling back to redirect...");
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+      
+      console.error("Login failed:", error);
+      throw error;
+    }
+  };
 
   const loginWithEmail = async (email: string, pass: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, pass);

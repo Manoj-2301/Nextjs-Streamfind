@@ -78,7 +78,11 @@ export async function GET(
     });
     query.set('api_key', apiKey);
     const targetUrl = `https://api.themoviedb.org/3/${path}?${query.toString()}`;
-    console.log('[TMDB PROXY] Fetching:', targetUrl);
+    
+    // Mask API key for logging
+    const logQuery = new URLSearchParams(query.toString());
+    if (logQuery.has('api_key')) logQuery.set('api_key', '***HIDDEN***');
+    console.log('[TMDB PROXY] Fetching:', `https://api.themoviedb.org/3/${path}?${logQuery.toString()}`);
 
     // Disable caching to prevent stale 404s or 401s from persisting
     const response = await fetch(targetUrl, { cache: 'no-store' });

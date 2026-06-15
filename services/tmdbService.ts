@@ -149,13 +149,13 @@ const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Prom
     try {
       const errData = await response.json();
       if (errData && errData.error) {
-        errorMsg = `TMDB Error: ${errData.error} ${errData.details ? `(${errData.details})` : ''}`;
+        errorMsg = `TMDB Error: ${errData.error} ${errData.details ? `(${errData.details})` : ''} URL: ${url}`;
       } else if (errData && errData.status_message) {
-        errorMsg = `TMDB Error: ${errData.status_message}`;
+        errorMsg = `TMDB Error: ${errData.status_message} URL: ${url}`;
       }
     } catch (_) { }
-    if (response.status === 404) {
-      errorMsg = 'TMDB API error: Not Found';
+    if (response.status === 404 && !errorMsg.startsWith('TMDB Error')) {
+      errorMsg = `TMDB API error: Not Found (URL: ${url})`;
     }
     throw new Error(errorMsg);
   }
@@ -175,8 +175,10 @@ const fetchGenres = async (options?: RequestInit) => {
     tvGenres.genres.forEach((g: any) => {
       genresMap[g.id] = g.name;
     });
-  } catch (error) {
-    console.error('Error fetching genres:', error);
+  } catch (error: any) {
+    if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
+      console.error('Error fetching genres:', error);
+    }
   }
 };
 

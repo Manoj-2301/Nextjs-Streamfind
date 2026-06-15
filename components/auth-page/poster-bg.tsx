@@ -74,14 +74,14 @@ export default React.memo(function AuthPosterBg() {
         return (
           <div
             key={ci}
-            className="flex-1 flex flex-col gap-3 min-w-0"
+            className="flex-1 flex flex-col gap-3 min-w-0 h-max"
             style={{
               animation: `${direction} ${duration}s linear infinite`,
             }}
           >
             {/* Double the column so it loops seamlessly */}
             {[...col, ...col].map((poster, pi) => (
-              <div key={`${ci}-${pi}`} className="relative w-full rounded-xl aspect-[2/3] overflow-hidden">
+              <div key={`${ci}-${pi}`} className="relative w-full rounded-xl aspect-[2/3] overflow-hidden shrink-0">
                 <Image
                   src={`https://image.tmdb.org/t/p/w300${poster}`}
                   alt=""

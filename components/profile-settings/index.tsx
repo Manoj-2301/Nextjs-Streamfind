@@ -811,6 +811,10 @@ export default function ProfileSettingsPanel({
                           onClick={async () => {
                             if (c.key === 'channelPush' && !isActive) {
                               try {
+                                if (!('Notification' in window)) {
+                                  toast.error('This browser does not support push notifications.');
+                                  return;
+                                }
                                 const permission = await Notification.requestPermission();
                                 if (permission === 'granted') {
                                   const { getMessagingInstance } = await import('../../lib/firebase');
@@ -832,11 +836,11 @@ export default function ProfileSettingsPanel({
                                   }
                                   await handleTogglePref(c.key);
                                 } else {
-                                  toast.error('Notification permission denied.');
+                                  toast.error('Notification permission denied by user/browser.');
                                 }
-                              } catch (e) {
+                              } catch (e: any) {
                                 console.error('Push setup error:', e);
-                                toast.error('Failed to enable push notifications.');
+                                toast.error(`Push error: ${e.message || 'Unknown error'}`);
                               }
                             } else {
                               // Standard toggle for other channels, or disabling push
