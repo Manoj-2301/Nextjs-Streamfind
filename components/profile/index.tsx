@@ -734,7 +734,7 @@ export default function ProfileComponent() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30 relative overflow-hidden pb-32">
+      <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30 relative pb-32">
         {/* 1. Spatial Background: VisionOS inspired mesh & ambient glows */}
         <div className="fixed inset-0 z-0 pointer-events-none">
           {/* Ambient blur */}

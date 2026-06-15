@@ -686,7 +686,7 @@ export default function ProfileSettingsPanel({
   };
 
   return (
-    <div className="mt-8 md:mt-12 bg-[#050505]/40 border border-white/10 rounded-[2rem] md:rounded-[40px] p-4 md:p-8 shadow-[0_30px_60px_rgba(0,0,0,0.8)] relative font-sans overflow-hidden">
+    <div className="mt-8 md:mt-12 bg-[#050505]/40 border border-white/10 rounded-[2rem] md:rounded-[40px] p-4 md:p-8 shadow-[0_30px_60px_rgba(0,0,0,0.8)] relative font-sans">
       {/* Background Glows & Blur Layer */}
       <div className="absolute inset-0 rounded-[2rem] md:rounded-[40px] backdrop-blur-3xl pointer-events-none z-0" />
       <div className="absolute inset-0 overflow-hidden rounded-[2rem] md:rounded-[40px] pointer-events-none z-0 mix-blend-screen opacity-50">
@@ -1117,6 +1117,7 @@ export default function ProfileSettingsPanel({
               </div>
             )}
             {activeSettingTab === 'preferences' && (
+              <div className="space-y-8 animate-fadeIn relative">
                 <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-brand/20 blur-[60px] rounded-full pointer-events-none" />
                   <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Curation Preferences</h4>
@@ -1310,6 +1311,7 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
               </div>
+              </div>
             )}
             {activeSettingTab === 'privacy' && (
               <div className="space-y-8 animate-fadeIn relative">
@@ -1374,7 +1376,8 @@ export default function ProfileSettingsPanel({
                                 }
                               }}
                               className="text-[10px] font-black text-red-500/70 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-xl transition-all duration-300 uppercase tracking-widest border border-transparent hover:border-red-500/20"
-                          Logout
+                            >
+                              Logout
                             </button>
                           )}
                         </div>
