@@ -838,6 +838,15 @@ export default function ProfileComponent() {
             transition={{ type: "spring", stiffness: 100, damping: 20, delay: 0.2 }}
             className="relative z-20"
           >
+            {isOwner && (
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
+            )}
             <div className={`relative w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden p-1 flex items-center justify-center ${currentFrame.containerClass} shadow-[0_30px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl border border-white/20 group hover:scale-[1.02] transition-transform duration-500 mx-auto`}>
               {currentFrame.id !== 'none' && (
                 <div className={`absolute inset-[-50%] animate-[spin_4s_linear_infinite] ${currentFrame.spinClass}`} />
