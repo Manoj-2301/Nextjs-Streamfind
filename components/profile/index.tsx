@@ -20,13 +20,14 @@ import {
   Zap, Activity, History, Shield, Bell, Lock, Globe, Share2,
   Check, Mail, Heart, LogOut, CheckCircle2,
   Coffee, Trophy, Clock, Camera, X, CornerDownRight, ChevronLeft, ChevronRight,
-  CreditCard, HelpCircle, ShieldCheck, Edit2
+  CreditCard, HelpCircle, ShieldCheck, Edit2, Crown
 } from 'lucide-react';
 import ProfileSettingsPanel from '../profile-settings';
 
 import { revalidatePage } from '@/app/actions/revalidate';
 import { ProfileSettings } from '@/types';
 import dynamic from 'next/dynamic';
+import { PremiumBadges } from '@/components/Badges';
 
 const EditProfileModal = dynamic(() => import('./modals/EditProfileModal'), { ssr: false });
 const ShareProfileModal = dynamic(() => import('./modals/ShareProfileModal'), { ssr: false });
@@ -733,285 +734,253 @@ export default function ProfileComponent() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30">
-        {/* 1. Identity & Visuals: Cinematic Aura Header */}
-        <div className={`min-h-0 lg:min-h-[60vh] lg:h-auto flex flex-col justify-end relative overflow-hidden transition-colors duration-1000 ${!heroBackdrop ? `bg-gradient-to-b ${getAuraColor(primaryFavGenre)}` : 'bg-[#050505]'}`}>
-
-          {/* Cinematic Profile Backdrop */}
-          {heroBackdrop && (
-            <div className="absolute inset-0 z-0 overflow-hidden">
+      <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30 relative overflow-hidden pb-32">
+        {/* 1. Spatial Background: VisionOS inspired mesh & ambient glows */}
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          {/* Ambient blur */}
+          <div className="absolute inset-0 bg-[#050505]" />
+          
+          {heroBackdrop ? (
+            <>
               <Image
                 src={heroBackdrop}
                 alt="Profile Cinematic Background"
                 fill
                 unoptimized
-                className="object-cover opacity-60 mix-blend-lighten blur-[2px]"
+                className="object-cover opacity-30 mix-blend-screen blur-[40px] md:blur-[80px]"
                 priority
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-[#050505]/60 to-[#050505] mix-blend-multiply" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent" />
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/40 via-[#050505]/80 to-[#050505]" />
+            </>
+          ) : (
+            <div className={`absolute inset-0 bg-gradient-to-b ${getAuraColor(primaryFavGenre)} opacity-50 blur-[100px] mix-blend-screen`} />
           )}
 
-          {/* Animated Background Mesh & Noise */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay pointer-events-none z-10" />
+          {/* Animated Spatial Orbs */}
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0], x: [0, 50, 0], y: [0, -50, 0] }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+            className="w-[100vw] h-[100vw] max-w-[800px] max-h-[800px] opacity-10 blur-[120px] bg-brand absolute -top-[20%] -left-[10%] rounded-full mix-blend-screen"
+          />
+          <motion.div
+            animate={{ scale: [1, 1.5, 1], rotate: [0, -90, 0], x: [0, -50, 0], y: [0, 50, 0] }}
+            transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
+            className="w-[80vw] h-[80vw] max-w-[600px] max-h-[600px] opacity-10 blur-[100px] bg-blue-500 absolute top-[20%] right-[10%] rounded-full mix-blend-screen"
+          />
 
-          <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
+          {/* Noise overlay */}
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.25] mix-blend-overlay" />
+        </div>
+
+        {/* Floating Action Dock (HUD) */}
+        {isOwner && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
             <motion.div
-              animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
-              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-              className="w-[150%] h-[150%] opacity-20 blur-[100px] bg-brand/30 absolute -top-1/4 -left-1/4 rounded-full mix-blend-screen"
-            />
-          </div>
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: "spring", damping: 20, stiffness: 100, delay: 0.5 }}
+              className="flex items-center gap-2 p-2 rounded-full bg-white/5 backdrop-blur-[40px] border border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
+            >
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+                title="Edit Profile"
+              >
+                <Edit2 className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider hidden sm:block">Edit Profile</span>
+              </button>
 
-          <div className="relative z-20 px-2 sm:px-4 md:px-8 pt-6 sm:pt-12 md:pt-16 pb-2 w-full max-w-7xl mx-auto">
-
-            {/* The Bento Glass Container */}
-            <div className="relative w-full bg-gradient-to-br from-[#1a1a1a]/80 to-[#050505]/90 backdrop-blur-3xl border border-white/10 rounded-[1.5rem] md:rounded-[2rem] lg:rounded-[2.5rem] px-4 sm:px-6 md:px-12 py-6 md:py-8 shadow-[0_30px_100px_-20px_rgba(0,0,0,1)] overflow-hidden flex flex-col lg:flex-row gap-6 lg:gap-16 items-center lg:items-start group/bento transition-all duration-700">
-
-              {/* Premium Inner Highlight & Glows */}
-              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none rounded-[2.5rem] lg:rounded-[3rem]" />
-              <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-brand/10 via-transparent to-transparent opacity-0 group-hover/bento:opacity-100 blur-[100px] transition-opacity duration-1000 pointer-events-none" />
-
-              {/* Left Column: Avatar & Actions */}
-              <div className="relative z-10 flex flex-row lg:flex-col items-center lg:items-center justify-center shrink-0 w-full lg:w-auto gap-4 sm:gap-8 lg:gap-0">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                  className="relative group mb-0 lg:mb-8 shrink-0"
-                >
-                  {/* Rotating Gradient Border Container */}
-                  <div className={`relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-[1.5rem] md:rounded-[1.75rem] overflow-hidden p-[3px] flex items-center justify-center ${currentFrame.containerClass} shadow-[0_0_40px_rgba(0,0,0,0.5)]`}>
-
-                    {/* The spinning gradient layer */}
-                    {currentFrame.id !== 'none' && (
-                      <div className={`absolute inset-[-50%] animate-[spin_4s_linear_infinite] ${currentFrame.spinClass}`} />
-                    )}
-
-                    {/* The Inner Dark Container that holds the image */}
-                    <div className="relative z-10 w-full h-full rounded-[1.35rem] md:rounded-[1.6rem] overflow-hidden bg-[#0a0a0a]/90 backdrop-blur-xl p-1 md:p-1.5">
-                      {(profile.photoURL || (isOwner && user?.photoURL)) ? (
-                        <div className="relative w-full h-full rounded-[1rem] md:rounded-[1.25rem] overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
-                          <Image
-                            src={isOwner ? (user?.photoURL || profile.photoURL || "") : (profile.photoURL || "")}
-                            fill
-                            unoptimized
-                            sizes="(max-width: 768px) 160px, 192px"
-                            className="object-cover"
-                            alt={isOwner ? (user?.displayName || profile.displayName || "Profile Owner") : (profile.displayName || "Profile Owner")}
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-full h-full rounded-[1.25rem] bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center border border-white/5">
-                          <UserIcon className="w-12 h-12 text-white/40 drop-shadow-lg" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Edit Avatar Button */}
-                  {isOwner && (
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="absolute -bottom-2 -right-2 w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-[#2a2a2a] to-[#111] backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center shadow-2xl cursor-pointer hover:border-brand hover:shadow-[0_0_20px_rgba(229,9,20,0.4)] transition-all group/cam z-30"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {isUploadingImage ? (
-                        <div className="w-4 h-4 sm:w-6 sm:h-6 border-2 border-brand/40 border-t-brand rounded-full animate-spin" />
-                      ) : (
-                        <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover/cam:scale-110 transition-transform" />
-                      )}
-                    </motion.div>
-                  )}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </motion.div>
-
-                {/* Right side for mobile / Stacked bottom for desktop */}
-                <div className="flex-1 flex flex-col justify-center items-center gap-2 sm:gap-4 w-full min-w-[140px] max-w-[200px] lg:max-w-[180px]">
-                  {/* Badges Stacked under Avatar */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="flex flex-col items-center gap-1.5 sm:gap-2.5 w-full"
+              {isShareEnabled && (
+                <>
+                  <div className="w-px h-8 bg-white/10 mx-1" />
+                  <button
+                    onClick={() => handleTogglePref('isPublic')}
+                    className={`p-3 rounded-full transition-all duration-300 ${profile.isPublic ? 'bg-brand/20 text-brand' : 'bg-transparent text-white/50 hover:bg-white/10'}`}
+                    title={profile.isPublic ? "Public Profile" : "Private Profile"}
                   >
-                    <div className="w-full flex items-center bg-gradient-to-r from-white/10 to-transparent backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-1 shadow-lg hover:border-white/20 transition-colors">
-                      <div className="bg-gradient-to-br from-brand/80 to-brand/40 text-white rounded-[0.6rem] sm:rounded-[0.8rem] w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(229,9,20,0.5)]">
-                        <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </div>
-                      <div className="flex-1 text-center pr-1 sm:pr-2">
-                        <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-white drop-shadow-md">
-                          {level} Level
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/10 px-2 py-1.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl shadow-lg text-center relative overflow-hidden">
-                      {/* Subtle shine effect */}
-                      <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 animate-[shine_4s_ease-in-out_infinite]" />
-                      <span className="relative block w-full truncate text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/50 font-black text-[7px] sm:text-[10px] md:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase">
-                        {profile.avatarFrame !== 'none' ? `${currentFrame.name} Member` : 'Standard'}
-                      </span>
-                    </div>
-                  </motion.div>
+                    {profile.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={handleShareProfile}
+                    className="p-3 rounded-full bg-transparent text-white/70 hover:text-white hover:bg-white/10 transition-all duration-300"
+                    title="Share Profile"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
 
-                  {/* Call to Actions */}
-                  {isOwner && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 }}
-                      className="flex flex-row lg:flex-col gap-1.5 sm:gap-2.5 w-full"
-                    >
-                      <button
-                        onClick={() => setIsEditModalOpen(true)}
-                        className="flex-1 lg:w-full flex items-center justify-center bg-gradient-to-b from-white/20 to-white/5 hover:from-white/30 hover:to-white/10 text-white border border-white/20 py-2 sm:py-3 rounded-xl sm:rounded-2xl transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:shadow-[0_0_30px_rgba(255,255,255,0.15)] backdrop-blur-md"
-                        title="Edit Profile"
-                      >
-                        <span className="hidden lg:block font-black text-xs uppercase tracking-[0.2em]">Edit Profile</span>
-                        <Edit2 className="w-3 h-3 sm:w-4 sm:h-4 lg:hidden" />
-                      </button>
+        {/* 2. Spatial Main Content Area */}
+        <div className="relative z-10 px-4 sm:px-6 md:px-12 pt-20 md:pt-32 pb-12 w-full max-w-7xl mx-auto flex flex-col items-center">
+          
+          {/* Massive Typography Name (Behind Avatar) */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="w-full text-center relative z-10 mb-[-60px] md:mb-[-100px]"
+          >
+            <h1 className="text-[12vw] md:text-[140px] leading-[0.8] font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-white/80 to-white/10 mix-blend-overlay">
+              {isOwner
+                ? (profile.displayName || user?.displayName || profile.email?.split('@')[0] || user?.email?.split('@')[0] || 'Movie Buff')
+                : (profile.displayName || profile.email?.split('@')[0] || 'Movie Buff')
+              }
+            </h1>
+          </motion.div>
 
-                      {isShareEnabled && (
-                        <>
-                          <button
-                            onClick={() => handleTogglePref('isPublic')}
-                            className={`flex-1 py-2 sm:py-3 rounded-xl sm:rounded-2xl border transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-md shadow-lg ${profile.isPublic ? 'bg-gradient-to-br from-brand/20 to-transparent border-brand/40 text-brand shadow-[0_0_20px_rgba(229,9,20,0.2)]' : 'bg-gradient-to-br from-white/10 to-white/5 border-white/10 text-white/50 hover:text-white'}`}
-                            title={profile.isPublic ? "Public Profile" : "Private Profile"}
-                          >
-                            {profile.isPublic ? <Globe className="w-3 h-3 sm:w-4 sm:h-4" /> : <Lock className="w-3 h-3 sm:w-4 sm:h-4" />}
-                            <span className="hidden lg:hidden font-black text-xs uppercase tracking-[0.2em] ml-2">Public</span>
-                          </button>
-                          <button
-                            onClick={handleShareProfile}
-                            className="flex-1 py-2 sm:py-3 flex items-center justify-center bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-xl sm:rounded-2xl text-white/70 hover:text-white hover:border-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all duration-300 backdrop-blur-md shadow-lg"
-                            title="Share Profile"
-                          >
-                            <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                          </button>
-                        </>
-                      )}
-                    </motion.div>
+          {/* Avatar floating in spatial Z-space */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 100, damping: 20, delay: 0.2 }}
+            className="relative z-20"
+          >
+            <div className={`relative w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden p-1 flex items-center justify-center ${currentFrame.containerClass} shadow-[0_30px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl border border-white/20 group hover:scale-[1.02] transition-transform duration-500 mx-auto`}>
+              {currentFrame.id !== 'none' && (
+                <div className={`absolute inset-[-50%] animate-[spin_4s_linear_infinite] ${currentFrame.spinClass}`} />
+              )}
+              
+              <div className="relative z-10 w-full h-full rounded-full overflow-hidden bg-[#050505]">
+                {(profile.photoURL || (isOwner && user?.photoURL)) ? (
+                  <Image
+                    src={isOwner ? (user?.photoURL || profile.photoURL || "") : (profile.photoURL || "")}
+                    fill
+                    unoptimized
+                    sizes="224px"
+                    className="object-cover"
+                    alt="Avatar"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-transparent flex items-center justify-center">
+                    <UserIcon className="w-16 h-16 text-white/40" />
+                  </div>
+                )}
+              </div>
+
+              {isOwner && (
+                <div 
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center rounded-full cursor-pointer z-30"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingImage ? (
+                    <div className="w-8 h-8 border-2 border-brand/40 border-t-brand rounded-full animate-spin" />
+                  ) : (
+                    <Camera className="w-8 h-8 text-white" />
                   )}
                 </div>
-              </div>
+              )}
+            </div>
+            
+            {/* Badges Flowing naturally below the Avatar */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 max-w-sm mx-auto">
+              {profile.plan === 'ultimate' && (
+                <div className="shadow-[0_10px_20px_rgba(0,0,0,0.5)]">
+                  <PremiumBadges />
+                </div>
+              )}
+              {(() => {
+                const currentPlan = profile.plan || 'free';
+                let colors = "from-white/10 to-white/5 border-white/20 text-white";
+                let planIcon = <Activity className="w-3 h-3" />;
 
-              {/* Right Column: Name, Bio, Tags */}
-              <div className="relative z-10 flex flex-col items-center lg:items-start flex-1 text-center lg:text-left mt-4 lg:mt-0">
-                {/* Typography: Name & Email */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="mb-6 lg:mb-8"
-                >
-                  <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-[#f0f0f0] to-[#888] drop-shadow-[0_0_30px_rgba(255,255,255,0.1)] mb-3 lg:mb-4 leading-[1.1]">
-                    {isOwner
-                      ? (profile.displayName || user?.displayName || profile.email?.split('@')[0] || user?.email?.split('@')[0] || 'Movie Buff')
-                      : (profile.displayName || profile.email?.split('@')[0] || 'Movie Buff')
-                    }
-                  </h1>
+                if (currentPlan === 'premium') {
+                  colors = "from-brand/30 to-brand/10 border-brand/40 text-brand";
+                  planIcon = <Star className="w-3 h-3" />;
+                } else if (currentPlan === 'ultimate') {
+                  colors = "from-yellow-500/30 to-yellow-500/10 border-yellow-500/40 text-yellow-400";
+                  planIcon = <Crown className="w-3 h-3" />;
+                }
 
-                  {isOwner && user?.email && (
-                    <div className="flex items-center justify-center lg:justify-start gap-2.5 text-white/80 bg-gradient-to-r from-white/10 to-transparent pr-6 pl-4 py-2.5 rounded-full inline-flex border border-white/10 backdrop-blur-md shadow-inner">
-                      <div className="bg-brand/20 p-1 rounded-full">
-                        <Mail className="w-3.5 h-3.5 text-brand" />
-                      </div>
-                      <span className="text-sm font-semibold tracking-wide">{user.email}</span>
-                    </div>
-                  )}
-                </motion.div>
+                return (
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br ${colors} backdrop-blur-xl border rounded-full shadow-[0_10px_20px_rgba(0,0,0,0.5)]`}>
+                    {planIcon}
+                    <span className="text-[10px] font-black uppercase tracking-widest">{currentPlan}</span>
+                  </div>
+                );
+              })()}
+            </div>
+          </motion.div>
 
-                {/* Bio */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="mb-6 lg:mb-8 w-full max-w-3xl px-2 lg:px-0"
-                >
-                  <p className="text-white/80 font-medium text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed text-balance lg:text-left drop-shadow-md">
-                    {profile.bio}
-                  </p>
-                </motion.div>
+          {/* Email / Basic info directly under avatar */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-8 text-center"
+          >
+            {isOwner && user?.email && (
+              <p className="text-sm font-medium text-white/50 tracking-wide">{user.email}</p>
+            )}
+            <p className="mt-4 text-base md:text-xl text-white/80 font-medium max-w-2xl mx-auto leading-relaxed text-balance">
+              {profile.bio}
+            </p>
+          </motion.div>
 
-                {/* Glowing Tags */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="flex flex-wrap gap-2.5 justify-center lg:justify-start w-full"
-                >
-                  {AVAILABLE_GENRES.map((genre) => {
-                    const isActive = (profile.favoriteGenres || []).includes(genre);
-                    return (
-                      <span
-                        key={genre}
-                        onClick={() => isOwner && handleToggleGenre(genre)}
-                        className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 shadow-lg ${isOwner ? 'cursor-pointer hover:-translate-y-0.5 active:translate-y-0' : 'cursor-default'} ${isActive
-                          ? 'bg-gradient-to-br from-brand/20 to-brand/5 border-brand/50 text-brand shadow-[0_0_20px_rgba(229,9,20,0.3)] backdrop-blur-md'
-                          : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/90 hover:border-white/30 hover:bg-white/10 backdrop-blur-sm'
-                          }`}
-                      >
-                        {genre}
-                      </span>
-                    );
-                  })}
-                </motion.div>
-              </div>
-
-              {/* Far Right Column: Seamless Stats Panel */}
+          {/* 3. Bento Grid 2.0 (Dynamic Grid Layout) */}
+          <div className="w-full mt-16 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            
+            {/* Stats Cards - Spatial UI style */}
+            {[
+              { icon: Film, label: "Watched", value: totalHours, unit: "HR", color: "from-blue-500/20 to-blue-500/5", iconColor: "text-blue-400", delay: 0.4 },
+              { icon: Activity, label: "Rank", value: frameTitle === "Apprentice" ? "B" : "A+", unit: "S2", color: "from-brand/20 to-brand/5", iconColor: "text-brand", delay: 0.5 },
+              { icon: Star, label: "Rating", value: avgRating, unit: "/5", color: "from-yellow-500/20 to-yellow-500/5", iconColor: "text-yellow-400", delay: 0.6 }
+            ].map((stat) => (
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 }}
-                className="relative z-10 w-full lg:w-80 shrink-0 mt-6 lg:mt-0 flex flex-col"
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: stat.delay, type: "spring" }}
+                className="group relative bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.05] hover:border-white/10 rounded-3xl p-6 flex items-center justify-between transition-all duration-500 backdrop-blur-2xl overflow-hidden"
               >
-                <div className="w-full bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-[1.5rem] lg:rounded-[2rem] p-4 sm:p-6 lg:p-8 flex flex-row lg:flex-col justify-around lg:justify-start gap-4 sm:gap-5 lg:gap-6 shadow-2xl relative overflow-hidden group">
-                  {/* Subtle hover background glow */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-
-                  {[
-                    { icon: Film, label: "Watched", value: totalHours, unit: "HR", iconColor: "text-blue-400" },
-                    { icon: Activity, label: "Rank", value: frameTitle === "Apprentice" ? "B" : "A+", unit: "S2", iconColor: "text-brand" },
-                    { icon: Star, label: "Rating", value: avgRating, unit: "/5", iconColor: "text-yellow-400" }
-                  ].map((stat, index) => (
-                    <div key={stat.label} className="w-full lg:w-auto">
-                      <div className="flex flex-col lg:flex-row items-center lg:items-center gap-2 sm:gap-3 lg:gap-5 group/stat text-center lg:text-left">
-                        <div className={`relative shrink-0 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-[0.8rem] lg:rounded-[1rem] bg-white/[0.03] flex items-center justify-center shadow-inner group-hover/stat:bg-white/[0.08] transition-colors duration-500`}>
-                          <stat.icon className={`w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 ${stat.iconColor} drop-shadow-[0_0_15px_currentColor]`} />
-                        </div>
-
-                        <div className="flex flex-col items-center lg:items-start">
-                          <div className="flex items-baseline gap-1 lg:gap-1.5">
-                            <span className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/60 drop-shadow-md">
-                              {stat.value}
-                            </span>
-                            <span className="hidden sm:inline-block text-[8px] lg:text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">{stat.unit}</span>
-                          </div>
-                          <p className="text-[8px] lg:text-[9px] font-black text-white/40 uppercase tracking-[0.1em] lg:tracking-[0.2em] mt-0.5 group-hover/stat:text-white/80 transition-colors duration-300">
-                            {stat.label}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Divider for desktop */}
-                      {index < 2 && (
-                        <div className="hidden lg:block w-full h-px bg-gradient-to-r from-white/[0.05] via-white/[0.05] to-transparent mt-6" />
-                      )}
-                    </div>
-                  ))}
+                {/* Internal Glow on hover */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                
+                <div className="relative z-10 flex flex-col">
+                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-2">{stat.label}</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl md:text-5xl font-black tracking-tighter text-white drop-shadow-lg">{stat.value}</span>
+                    <span className="text-xs font-black text-white/30 uppercase tracking-widest">{stat.unit}</span>
+                  </div>
+                </div>
+                
+                <div className="relative z-10 w-12 h-12 rounded-full bg-white/5 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-500">
+                  <stat.icon className={`w-5 h-5 ${stat.iconColor} drop-shadow-[0_0_10px_currentColor]`} />
                 </div>
               </motion.div>
+            ))}
 
-            </div>
+            {/* Favorite Genres Bento Box (Spans 3 cols on desktop) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="md:col-span-3 bg-white/[0.03] border border-white/[0.05] rounded-3xl p-6 md:p-8 backdrop-blur-2xl"
+            >
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-6">Cinematic DNA</h3>
+              <div className="flex flex-wrap gap-3">
+                {AVAILABLE_GENRES.map((genre) => {
+                  const isActive = (profile.favoriteGenres || []).includes(genre);
+                  return (
+                    <span
+                      key={genre}
+                      onClick={() => isOwner && handleToggleGenre(genre)}
+                      className={`px-5 py-2.5 rounded-full border text-xs font-black uppercase tracking-widest transition-all duration-300 ${isOwner ? 'cursor-pointer' : 'cursor-default'} ${
+                        isActive
+                          ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105'
+                          : 'bg-transparent border-white/20 text-white/60 hover:text-white hover:border-white/50 hover:bg-white/5'
+                      }`}
+                    >
+                      {genre}
+                    </span>
+                  );
+                })}
+              </div>
+            </motion.div>
+
           </div>
         </div>
 

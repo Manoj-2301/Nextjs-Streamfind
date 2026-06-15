@@ -75,6 +75,6 @@ export interface ProfileSettings {
   securityAlertSuspicious?: boolean;
   securityAlertProfileChange?: boolean;
   securityAlertWeeklyDigest?: boolean;
-  plan?: 'free' | 'premium';
+  plan?: 'free' | 'premium' | 'ultimate';
   loginStreak?: number;
 }
