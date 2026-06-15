@@ -23,9 +23,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - Invalid Token' }, { status: 401 });
     }
 
-    // You can customize the amount based on plans
-    // For now, let's hardcode a premium price, e.g., INR 999
-    const amount = 999;
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      body = { plan: 'premium' };
+    }
+    const requestedPlan = body.plan || 'premium';
+
+    // Set amount based on plan
+    let amount = 500; // default premium
+    if (requestedPlan === 'ultimate') {
+      amount = 1000;
+    } else if (requestedPlan === 'premium') {
+      amount = 500;
+    } else {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+
     const currency = 'INR';
 
     const options = {
@@ -35,7 +50,7 @@ export async function POST(req: NextRequest) {
       receipt: `rcpt_${Date.now().toString().substring(5)}_${decodedToken.uid.substring(0, 5)}`,
       notes: {
         userId: decodedToken.uid,
-        plan: 'premium',
+        plan: requestedPlan,
       },
     };
 
