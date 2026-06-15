@@ -686,29 +686,29 @@ export default function ProfileSettingsPanel({
   };
 
   return (
-    <div className="mt-8 md:mt-12 bg-black/40 border border-white/10 rounded-[2rem] md:rounded-[40px] p-4 md:p-8 shadow-2xl relative font-sans">
+    <div className="mt-8 md:mt-12 bg-[#050505]/40 border border-white/10 rounded-[2rem] md:rounded-[40px] p-4 md:p-8 shadow-[0_30px_60px_rgba(0,0,0,0.8)] relative font-sans overflow-hidden">
       {/* Background Glows & Blur Layer */}
       <div className="absolute inset-0 rounded-[2rem] md:rounded-[40px] backdrop-blur-3xl pointer-events-none z-0" />
-      <div className="absolute inset-0 overflow-hidden rounded-[2rem] md:rounded-[40px] pointer-events-none z-0">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-brand/10 rounded-full -mr-48 -mt-48 blur-[100px]" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full -ml-48 -mb-48 blur-[100px]" />
+      <div className="absolute inset-0 overflow-hidden rounded-[2rem] md:rounded-[40px] pointer-events-none z-0 mix-blend-screen opacity-50">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand/20 rounded-full -mr-48 -mt-48 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/20 rounded-full -ml-48 -mb-48 blur-[120px] animate-pulse delay-1000" />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-10 relative z-10 w-full">
         {/* Mobile Header / Drawer Toggle */}
-        <div className="lg:hidden flex items-center justify-between bg-white/5 border border-white/10 rounded-3xl p-4 backdrop-blur-md shadow-xl">
+        <div className="lg:hidden flex items-center justify-between bg-white/5 border border-white/10 rounded-3xl p-4 backdrop-blur-2xl shadow-xl">
            <div className="flex items-center gap-4">
-             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xl shadow-inner">
+             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand/30 to-purple-500/30 border border-white/20 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">
                {SETTING_TABS.find(t => t.id === activeSettingTab)?.icon}
              </div>
              <div>
-               <h3 className="text-sm font-black uppercase tracking-widest text-white">
+               <h3 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">
                  {SETTING_TABS.find(t => t.id === activeSettingTab)?.name}
                </h3>
-               <p className="text-[10px] text-white/50 font-medium uppercase tracking-wider mt-0.5">{SETTING_TABS.find(t => t.id === activeSettingTab)?.label}</p>
+               <p className="text-[10px] text-white/60 font-medium uppercase tracking-wider mt-0.5">{SETTING_TABS.find(t => t.id === activeSettingTab)?.label}</p>
              </div>
            </div>
-           <button onClick={() => setIsMobileMenuOpen(true)} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-white transition-colors active:scale-95">
+           <button onClick={() => setIsMobileMenuOpen(true)} className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/20 text-white transition-all active:scale-95 shadow-lg">
              <Menu className="w-5 h-5" />
            </button>
         </div>
@@ -720,26 +720,26 @@ export default function ProfileSettingsPanel({
               <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998] lg:hidden"
+                className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9998] lg:hidden"
               />
               <motion.div 
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto no-scrollbar bg-black/95 border-t border-white/10 rounded-t-[40px] p-6 z-[9999] lg:hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-3xl flex flex-col gap-2"
+                className="fixed bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto no-scrollbar bg-[#0a0a0a]/90 border-t border-white/20 rounded-t-[40px] p-6 z-[9999] lg:hidden shadow-[0_-20px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl flex flex-col gap-3"
               >
-                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
-                <h3 className="text-xl font-display font-black uppercase italic tracking-tight text-white mb-4 px-2">Control Center</h3>
+                <div className="w-16 h-1.5 bg-white/30 rounded-full mx-auto mb-6" />
+                <h3 className="text-2xl font-display font-black uppercase italic tracking-tight text-white mb-4 px-2 drop-shadow-lg">Control Center</h3>
                 {SETTING_TABS.map((t) => {
                   const isActive = activeSettingTab === t.id;
                   return (
                     <button
                       key={t.id}
                       onClick={() => { setActiveSettingTab(t.id as any); setIsMobileMenuOpen(false); }}
-                      className={`flex items-center gap-4 px-5 py-4 rounded-3xl transition-all ${isActive ? 'bg-brand/10 border border-brand/30' : 'bg-transparent border border-transparent hover:bg-white/5'}`}
+                      className={`flex items-center gap-4 px-5 py-4 rounded-[24px] transition-all duration-300 ${isActive ? 'bg-gradient-to-r from-brand/20 to-brand/5 border border-brand/40 shadow-[0_0_20px_rgba(229,9,20,0.2)]' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
                     >
-                      <span className="text-2xl">{t.icon}</span>
+                      <span className="text-2xl drop-shadow-md">{t.icon}</span>
                       <div className="text-left">
-                        <div className={`text-sm font-black uppercase tracking-wider ${isActive ? 'text-brand' : 'text-white/70'}`}>{t.name}</div>
-                        <div className="text-[10px] text-white/40 uppercase tracking-widest">{t.label}</div>
+                        <div className={`text-sm font-black uppercase tracking-wider ${isActive ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'text-white/70'}`}>{t.name}</div>
+                        <div className={`text-[10px] uppercase tracking-widest ${isActive ? 'text-brand/80' : 'text-white/40'}`}>{t.label}</div>
                       </div>
                     </button>
                   );
@@ -749,31 +749,32 @@ export default function ProfileSettingsPanel({
           )}
         </AnimatePresence>
 
-        {/* Desktop Sidebar */}
-        <div className="hidden lg:flex w-full lg:w-1/4 shrink-0 flex-col gap-2 sticky top-24 self-start">
-          <div className="mb-6 px-2">
-            <h3 className="text-3xl font-display font-black uppercase italic tracking-tight text-glow bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              Control <span className="text-brand">Center</span>
+        {/* Desktop Sidebar Bento */}
+        <div className="hidden lg:flex w-full lg:w-1/4 shrink-0 flex-col gap-3 sticky top-24 self-start">
+          <div className="mb-6 px-4 py-6 bg-gradient-to-br from-white/10 to-transparent border border-white/10 rounded-[32px] backdrop-blur-2xl shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-brand/20 blur-[40px] rounded-full pointer-events-none" />
+            <h3 className="text-4xl font-display font-black uppercase italic tracking-tight text-glow bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80 relative z-10">
+              Control <br/><span className="text-brand">Center</span>
             </h3>
-            <p className="text-white/40 text-xs font-medium mt-1 tracking-wide uppercase">Configure preferences</p>
+            <p className="text-white/50 text-[10px] font-black mt-2 tracking-widest uppercase relative z-10">Configure preferences</p>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             {SETTING_TABS.map((t) => {
               const isActive = activeSettingTab === t.id;
               return (
                 <button
                   key={t.id}
                   onClick={() => setActiveSettingTab(t.id as any)}
-                  className="relative flex flex-col items-start shrink-0 px-5 py-3.5 rounded-2xl transition-all group overflow-hidden"
+                  className={`relative flex flex-col items-start shrink-0 px-6 py-4 rounded-[24px] transition-all duration-300 group overflow-hidden border ${isActive ? 'border-brand/40 bg-brand/10 shadow-[0_0_20px_rgba(229,9,20,0.15)]' : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20'}`}
                 >
                   {isActive && (
-                    <motion.div layoutId="desktopActiveTab" className="absolute inset-0 bg-gradient-to-r from-brand/15 to-purple-500/5 border border-brand/20 rounded-2xl shadow-inner pointer-events-none" />
+                    <motion.div layoutId="desktopActiveTab" className="absolute inset-0 bg-gradient-to-r from-brand/20 to-transparent pointer-events-none" />
                   )}
-                  <div className="flex items-center gap-3 relative z-10">
-                    <span className={`text-base transition-transform group-hover:scale-110 ${isActive ? '' : 'opacity-70'}`}>{t.icon}</span>
-                    <span className={`text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${isActive ? 'text-brand drop-shadow-sm' : 'text-white/50 group-hover:text-white/80'}`}>{t.name}</span>
+                  <div className="flex items-center gap-4 relative z-10">
+                    <span className={`text-xl transition-transform duration-500 group-hover:scale-125 ${isActive ? 'drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'opacity-60'}`}>{t.icon}</span>
+                    <span className={`text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors ${isActive ? 'text-white drop-shadow-md' : 'text-white/60 group-hover:text-white/90'}`}>{t.name}</span>
                   </div>
-                  <span className={`text-[9px] font-medium mt-1 ml-8 uppercase tracking-widest relative z-10 transition-colors ${isActive ? 'text-brand/60' : 'text-white/30'}`}>{t.label}</span>
+                  <span className={`text-[10px] font-bold mt-1.5 ml-9 uppercase tracking-widest relative z-10 transition-colors ${isActive ? 'text-brand/80' : 'text-white/30 group-hover:text-white/50'}`}>{t.label}</span>
                 </button>
               );
             })}
@@ -781,24 +782,24 @@ export default function ProfileSettingsPanel({
         </div>
 
         {/* Content Pane */}
-        <div className="flex-grow lg:w-3/4 bg-white/[0.02] border border-white/10 rounded-[2rem] md:rounded-[40px] p-5 md:p-10 min-h-[500px] flex flex-col justify-between shadow-inner backdrop-blur-xl relative">
+        <div className="flex-grow lg:w-3/4 bg-[#0a0a0a]/60 border border-white/10 rounded-[2rem] md:rounded-[40px] p-5 md:p-10 min-h-[500px] flex flex-col justify-between shadow-[inset_0_0_40px_rgba(0,0,0,0.5)] backdrop-blur-3xl relative overflow-hidden">
           <div className="space-y-6">
             {activeSettingTab === 'notifications' && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 blur-[50px] rounded-full pointer-events-none" />
-                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Notification Channels & Alerts</h4>
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Every setting here saves instantly to your account across all devices.</p>
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-brand/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Notification Channels & Alerts</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Every setting here saves instantly to your account across all devices.</p>
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                      <Bell className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                      <Bell className="w-5 h-5 drop-shadow-md" />
                     </div>
-                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Delivery Channels</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Delivery Channels</h5>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
                       { key: 'channelEmail' as const, title: 'Email', icon: '📧', desc: 'Alerts to your inbox.' },
                       { key: 'channelPush' as const, title: 'Push', icon: '📱', desc: 'Mobile device alerts.' },
@@ -847,34 +848,34 @@ export default function ProfileSettingsPanel({
                               await handleTogglePref(c.key);
                             }
                           }}
-                          className={`p-5 rounded-2xl border cursor-pointer transition-all text-left relative overflow-hidden group hover:-translate-y-1 ${isActive
-                            ? 'bg-gradient-to-br from-brand/15 to-purple-500/5 border-brand/30 shadow-lg shadow-brand/10'
-                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          className={`p-6 rounded-[24px] border cursor-pointer transition-all duration-300 text-left relative overflow-hidden group hover:-translate-y-1 ${isActive
+                            ? 'bg-gradient-to-br from-brand/20 to-transparent border-brand/40 shadow-[0_10px_30px_rgba(229,9,20,0.2)]'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 shadow-inner'
                             }`}
                         >
-                          {isActive && <div className="absolute -top-6 -right-6 w-20 h-20 bg-brand/20 rounded-full blur-2xl" />}
+                          {isActive && <div className="absolute -top-6 -right-6 w-24 h-24 bg-brand/30 rounded-full blur-[40px] pointer-events-none" />}
                           <div className="flex items-center justify-between mb-4 relative z-10">
-                            <span className="text-2xl drop-shadow-md">{c.icon}</span>
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isActive ? 'bg-brand border-brand shadow-[0_0_12px_rgba(240,171,252,0.8)]' : 'bg-transparent border-white/20 group-hover:border-white/40'}`}>
-                              {isActive && <Check className="w-3 h-3 text-white" />}
+                            <span className="text-3xl drop-shadow-lg">{c.icon}</span>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-brand border-brand shadow-[0_0_15px_rgba(229,9,20,0.8)] scale-110' : 'bg-black/50 border-white/30 group-hover:border-white/50'}`}>
+                              {isActive && <Check className="w-3.5 h-3.5 text-white drop-shadow-md" />}
                             </div>
                           </div>
-                          <p className="text-sm font-black uppercase tracking-wider text-white relative z-10">{c.title}</p>
-                          <p className="text-[10px] text-white/50 mt-1 font-medium tracking-widest uppercase relative z-10">{c.desc}</p>
+                          <p className={`text-sm font-black uppercase tracking-wider relative z-10 transition-colors ${isActive ? 'text-white' : 'text-white/80 group-hover:text-white'}`}>{c.title}</p>
+                          <p className={`text-[10px] mt-1 font-bold tracking-widest uppercase relative z-10 transition-colors ${isActive ? 'text-white/70' : 'text-white/40 group-hover:text-white/60'}`}>{c.desc}</p>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400">
-                      <Film className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 rounded-2xl bg-green-500/20 border border-green-500/40 flex items-center justify-center text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+                      <Film className="w-5 h-5 drop-shadow-md" />
                     </div>
-                    <h5 className="text-xs font-black uppercase tracking-widest text-white">New Releases</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">New Releases</h5>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                   {([
                     { key: 'notifyNewRelease', label: 'Watchlist Releases', desc: 'Alert when a title on your watchlist is officially released.' },
                     { key: 'notifyNewEpisodes', label: 'New Episode Alerts', desc: 'Notified the moment a new episode of a tracked series drops.' },
@@ -882,20 +883,21 @@ export default function ProfileSettingsPanel({
                   ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((item) => {
                     const isActive = (profile[item.key] as boolean | undefined) ?? true;
                     return (
-                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
+                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-5 rounded-[20px] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 group">
                         <div>
-                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">{item.label}</p>
-                          <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">{item.desc}</p>
+                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors drop-shadow-sm">{item.label}</p>
+                          <p className="text-[10px] text-white/50 mt-1.5 font-bold tracking-widest uppercase group-hover:text-white/70 transition-colors">{item.desc}</p>
                         </div>
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
-                          className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${isActive
-                            ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
-                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                          className={`w-14 h-7 rounded-full relative transition-all duration-500 border-2 shrink-0 cursor-pointer overflow-hidden ${isActive
+                            ? 'bg-brand/80 border-brand shadow-[0_0_20px_rgba(229,9,20,0.6)]'
+                            : 'bg-black/60 border-white/20 hover:border-white/40 shadow-inner'
                             }`}
                         >
+                          <div className={`absolute inset-0 bg-gradient-to-r from-transparent to-white/20 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
                           <div
-                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${isActive ? 'translate-x-7' : 'translate-x-1 opacity-50'
+                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-all duration-500 shadow-[0_2px_5px_rgba(0,0,0,0.3)] ${isActive ? 'translate-x-7 scale-110' : 'translate-x-1 opacity-60 scale-90'
                               }`}
                           />
                         </button>
@@ -905,34 +907,35 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
-                      <Heart className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 rounded-2xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.2)]">
+                      <Heart className="w-5 h-5 drop-shadow-md" />
                     </div>
-                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Community & Social</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Community & Social</h5>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {([
                     { key: 'notifyPlatformAdded', label: 'New Streaming Platforms', desc: 'Alerted when StreamFinds integrates a new provider.' },
                     { key: 'notifyNewFeatures', label: 'New Product Features', desc: 'Be first to know about aggregation upgrades, calendar views, and badges.' },
                   ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((item) => {
                     const isActive = (profile[item.key] as boolean | undefined) ?? true;
                     return (
-                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
+                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-5 rounded-[20px] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 group">
                         <div>
-                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">{item.label}</p>
-                          <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">{item.desc}</p>
+                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors drop-shadow-sm">{item.label}</p>
+                          <p className="text-[10px] text-white/50 mt-1.5 font-bold tracking-widest uppercase group-hover:text-white/70 transition-colors">{item.desc}</p>
                         </div>
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
-                          className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${isActive
-                            ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
-                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                          className={`w-14 h-7 rounded-full relative transition-all duration-500 border-2 shrink-0 cursor-pointer overflow-hidden ${isActive
+                            ? 'bg-brand/80 border-brand shadow-[0_0_20px_rgba(229,9,20,0.6)]'
+                            : 'bg-black/60 border-white/20 hover:border-white/40 shadow-inner'
                             }`}
                         >
+                          <div className={`absolute inset-0 bg-gradient-to-r from-transparent to-white/20 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
                           <div
-                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${isActive ? 'translate-x-7' : 'translate-x-1 opacity-50'
+                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-all duration-500 shadow-[0_2px_5px_rgba(0,0,0,0.3)] ${isActive ? 'translate-x-7 scale-110' : 'translate-x-1 opacity-60 scale-90'
                               }`}
                           />
                         </button>
@@ -942,14 +945,14 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
 
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
-                      <Star className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.2)]">
+                      <Star className="w-5 h-5 drop-shadow-md" />
                     </div>
-                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Personalized Alerts</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Personalized Alerts</h5>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                   {([
                     { key: 'notifyFavGenres', label: 'Trending in Favorite Genres', desc: 'Alerts matching critical genres from your DNA profile.' },
                     { key: 'notifyWatchHistoryRecs', label: 'History Recommendations', desc: 'Tailored picks based on your ratings and watch history.' },
@@ -957,20 +960,21 @@ export default function ProfileSettingsPanel({
                   ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((item) => {
                     const isActive = (profile[item.key] as boolean | undefined) ?? true;
                     return (
-                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
+                      <div key={item.key as string} className="flex gap-4 items-center justify-between p-5 rounded-[20px] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 group">
                         <div>
-                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">{item.label}</p>
-                          <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">{item.desc}</p>
+                          <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors drop-shadow-sm">{item.label}</p>
+                          <p className="text-[10px] text-white/50 mt-1.5 font-bold tracking-widest uppercase group-hover:text-white/70 transition-colors">{item.desc}</p>
                         </div>
                         <button
                           onClick={() => handleTogglePref(item.key as any)}
-                          className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${isActive
-                            ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
-                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                          className={`w-14 h-7 rounded-full relative transition-all duration-500 border-2 shrink-0 cursor-pointer overflow-hidden ${isActive
+                            ? 'bg-brand/80 border-brand shadow-[0_0_20px_rgba(229,9,20,0.6)]'
+                            : 'bg-black/60 border-white/20 hover:border-white/40 shadow-inner'
                             }`}
                         >
+                          <div className={`absolute inset-0 bg-gradient-to-r from-transparent to-white/20 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
                           <div
-                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${isActive ? 'translate-x-7' : 'translate-x-1 opacity-50'
+                            className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-all duration-500 shadow-[0_2px_5px_rgba(0,0,0,0.3)] ${isActive ? 'translate-x-7 scale-110' : 'translate-x-1 opacity-60 scale-90'
                               }`}
                           />
                         </button>
@@ -980,63 +984,62 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-white/5">
-                  <div className="rounded-[28px] bg-gradient-to-br from-purple-950/30 via-black/40 to-indigo-950/20 border border-purple-500/15 overflow-hidden">
-                    <div className="flex flex-row items-center justify-between px-4 sm:px-6 pt-6 pb-4 border-b border-white/5 gap-2 sm:gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-                          <Shield className="w-4 h-4 text-purple-400" />
+                <div className="pt-8 border-t border-white/5 mt-8">
+                  <div className="rounded-[32px] bg-gradient-to-br from-purple-500/10 via-[#0a0a0a]/80 to-indigo-500/5 border border-white/10 backdrop-blur-2xl shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] overflow-hidden">
+                    <div className="flex flex-row items-center justify-between px-6 sm:px-8 pt-8 pb-6 border-b border-white/5 gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-12 h-12 rounded-[20px] bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                          <Shield className="w-6 h-6 text-purple-400 drop-shadow-md" />
                         </div>
                         <div className="min-w-0">
-                          <h5 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-1.5 truncate">
-                            <Shield className="w-3.5 h-3.5 text-white/50 shrink-0" /> Vigilance Hub
+                          <h5 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2 truncate drop-shadow-md">
+                            Vigilance Hub
                           </h5>
-                          <p className="text-[9px] text-white/30 font-medium mt-0.5 leading-relaxed break-words">
+                          <p className="text-[10px] text-white/50 font-bold mt-1 tracking-widest uppercase truncate">
                             Real-time security &amp; account activity monitoring
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center shrink-0 whitespace-nowrap gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 w-auto">
-                        <div className="w-1.5 h-1.5 shrink-0 rounded-full bg-green-400 animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-green-400">All Clear</span>
+                      <div className="flex items-center shrink-0 whitespace-nowrap gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 shadow-inner">
+                        <div className="w-2 h-2 shrink-0 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,1)] animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-green-400 drop-shadow-sm">All Clear</span>
                       </div>
                     </div>
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="p-6 sm:p-8 space-y-8">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {[
-                          { label: 'Active Sessions', value: activeSessions.length.toString(), icon: '💻', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/15' },
-                          { label: 'Login Streak', value: `${profile?.loginStreak || 1}d`, icon: '🔑', color: 'text-green-400', bg: 'bg-green-500/10 border-green-500/15' },
-                          { label: 'Alerts', value: totalAuditLogs.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/15' },
-                          // { label: '2FA Status', value: 'Off', icon: '🔒', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/15' },
+                          { label: 'Active Sessions', value: activeSessions.length.toString(), icon: '💻', color: 'text-blue-400', bg: 'bg-blue-500/5 border-blue-500/20' },
+                          { label: 'Login Streak', value: `${profile?.loginStreak || 1}d`, icon: '🔑', color: 'text-green-400', bg: 'bg-green-500/5 border-green-500/20' },
+                          { label: 'Alerts', value: totalAuditLogs.toString(), icon: '⚠️', color: 'text-yellow-400', bg: 'bg-yellow-500/5 border-yellow-500/20' },
                         ].map((stat) => (
-                          <div key={stat.label} className={`p-3 rounded-2xl border ${stat.bg} flex flex-col gap-1`}>
-                            <span className="text-base">{stat.icon}</span>
-                            <p className={`text-base font-black ${stat.color}`}>{stat.value}</p>
-                            <p className="text-[8px] font-black uppercase text-white/30 tracking-widest leading-tight">{stat.label}</p>
+                          <div key={stat.label} className={`p-4 rounded-[20px] border ${stat.bg} backdrop-blur-md flex flex-col gap-2 hover:bg-white/5 transition-all duration-300 shadow-inner`}>
+                            <span className="text-2xl drop-shadow-md">{stat.icon}</span>
+                            <p className={`text-2xl font-display font-black tracking-tight drop-shadow-lg ${stat.color}`}>{stat.value}</p>
+                            <p className="text-[9px] font-bold uppercase text-white/40 tracking-widest leading-tight">{stat.label}</p>
                           </div>
                         ))}
                       </div>
-                      <div className="space-y-2">
-                        <h6 className="text-[9px] font-black uppercase tracking-widest text-white/30">Recent Account Events</h6>
+                      <div className="space-y-3">
+                        <h6 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">Recent Account Events</h6>
                         {auditLogs.length > 0 ? auditLogs.map((ev, i) => (
-                          <div key={ev.id || i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors group">
-                            <div className={`w-2 h-2 rounded-full shrink-0 ${ev.dot}`} />
+                          <div key={ev.id || i} className="flex items-center gap-4 p-4 rounded-[20px] bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all duration-300 group shadow-inner">
+                            <div className={`w-3 h-3 rounded-full shrink-0 shadow-md ${ev.dot}`} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-black uppercase text-white/80 tracking-tight truncate">{ev.event}</p>
-                              <p className="text-[9px] text-white/30 font-medium mt-0.5 truncate">{ev.detail}</p>
+                              <p className="text-[11px] font-black uppercase text-white tracking-widest truncate drop-shadow-sm group-hover:text-purple-400 transition-colors">{ev.event}</p>
+                              <p className="text-[10px] text-white/40 font-bold tracking-widest mt-1 truncate">{ev.detail}</p>
                             </div>
-                            <span className="text-[8px] text-white/20 font-black uppercase tracking-widest shrink-0">
+                            <span className="text-[9px] text-white/30 font-black uppercase tracking-widest shrink-0 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
                               {ev.timestamp ? new Date(ev.timestamp?.toDate?.() || ev.timestamp).toLocaleDateString() : 'Just now'}
                             </span>
                           </div>
                         )) : (
-                          <div className="p-4 text-center border border-white/5 rounded-xl bg-white/5">
-                            <p className="text-[9px] text-white/40 uppercase tracking-widest font-black">No recent events</p>
+                          <div className="p-6 text-center border border-white/10 rounded-[24px] bg-white/[0.02] backdrop-blur-md shadow-inner">
+                            <p className="text-[10px] text-white/50 uppercase tracking-widest font-black">No recent events</p>
                           </div>
                         )}
                       </div>
-                      <div className="space-y-3 pt-2 border-t border-white/5">
-                        <h6 className="text-[9px] font-black uppercase tracking-widest text-white/30">Security Alert Preferences</h6>
+                      <div className="space-y-4 pt-6 border-t border-white/5">
+                        <h6 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">Security Alert Preferences</h6>
                         {([
                           { key: 'securityAlertNewDevice', label: 'Login from New Device', desc: 'Instant alert when account is accessed from an unrecognized device.' },
                           { key: 'securityAlertSuspicious', label: 'Suspicious Activity Alerts', desc: 'Notified of unusual login patterns or location changes.' },
@@ -1045,33 +1048,34 @@ export default function ProfileSettingsPanel({
                         ] as { key: keyof ProfileSettings; label: string; desc: string }[]).map((t) => {
                           const isActive = profile[t.key] ?? true;
                           return (
-                            <div key={t.key} className="flex gap-4 items-center justify-between border-b border-white/5 pb-3 last:border-0 last:pb-0">
+                            <div key={t.key} className="flex gap-4 items-center justify-between p-4 rounded-[20px] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 group">
                               <div>
-                                <p className="text-[10px] font-black text-white uppercase">{t.label}</p>
-                                <p className="text-[9px] text-white/30 mt-0.5">{t.desc}</p>
+                                <p className="text-[11px] font-black text-white uppercase tracking-wider group-hover:text-purple-400 transition-colors drop-shadow-sm">{t.label}</p>
+                                <p className="text-[10px] text-white/50 mt-1.5 font-bold tracking-widest uppercase transition-colors group-hover:text-white/70">{t.desc}</p>
                               </div>
                               <button
                                 onClick={() => {
                                   handleTogglePref(t.key as any);
                                   logSecurityEvent(user?.uid, 'Security Preference Updated', `${t.label} was toggled`, 'bg-brand');
                                 }}
-                                className={`w-11 h-6 rounded-full relative transition-all duration-300 border shrink-0 cursor-pointer ${isActive
-                                  ? 'bg-purple-500 border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]'
-                                  : 'bg-white/5 border-white/10 hover:border-white/20'
+                                className={`w-14 h-7 rounded-full relative transition-all duration-500 border-2 shrink-0 cursor-pointer overflow-hidden ${isActive
+                                  ? 'bg-purple-600/80 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.6)]'
+                                  : 'bg-black/60 border-white/20 hover:border-white/40 shadow-inner'
                                   }`}
                               >
-                                <div className={`absolute top-0 bottom-0 my-auto w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${isActive ? 'left-[23px]' : 'left-[3px]'}`} />
+                                <div className={`absolute inset-0 bg-gradient-to-r from-transparent to-white/20 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+                                <div className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-all duration-500 shadow-[0_2px_5px_rgba(0,0,0,0.3)] ${isActive ? 'translate-x-7 scale-110' : 'translate-x-1 opacity-60 scale-90'}`} />
                               </button>
                             </div>
                           );
                         })}
                       </div>
-                      <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                      <div className="flex flex-wrap gap-3 pt-6 border-t border-white/5">
                         <button
                           onClick={() => toast.success('Sending login activity report to your email.')}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/30 hover:bg-purple-500/5 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all"
+                          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-purple-500/40 hover:bg-purple-500/10 text-[10px] font-black uppercase tracking-widest text-white hover:text-purple-300 transition-all duration-300 shadow-inner hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]"
                         >
-                          <Activity className="w-3 h-3" /> Email Activity Report
+                          <Activity className="w-4 h-4" /> Email Activity Report
                         </button>
                         <button
                           onClick={async () => {
@@ -1113,24 +1117,23 @@ export default function ProfileSettingsPanel({
               </div>
             )}
             {activeSettingTab === 'preferences' && (
-              <div className="space-y-8 animate-fadeIn relative">
-                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 blur-[50px] rounded-full pointer-events-none" />
-                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Curation Preferences</h4>
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Configure language, region, content filters, and build your content DNA profile.</p>
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-brand/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Curation Preferences</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Configure language, region, content filters, and build your content DNA profile.</p>
                 </div>
 
                 {profile.plan !== 'premium' && (
-                  <div className="absolute inset-0 z-50 rounded-2xl bg-black/60 backdrop-blur-sm flex items-center justify-center mt-20">
-                    <div className="bg-black/80 border border-brand/30 p-8 rounded-3xl max-w-sm text-center shadow-[0_0_40px_rgba(240,171,252,0.15)] flex flex-col items-center transform transition-all hover:scale-105">
-                      <div className="w-14 h-14 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-5 shadow-inner">
-                        <Lock className="w-6 h-6" />
+                  <div className="absolute inset-0 z-50 rounded-[32px] bg-black/50 backdrop-blur-md flex items-center justify-center mt-24">
+                    <div className="bg-[#0a0a0a]/80 border border-brand/40 p-8 rounded-[32px] max-w-md text-center shadow-[0_0_50px_rgba(240,171,252,0.2)] flex flex-col items-center transform transition-all duration-500 hover:scale-[1.02] backdrop-blur-2xl">
+                      <div className="w-16 h-16 rounded-2xl bg-brand/10 border border-brand/30 flex items-center justify-center text-brand mb-6 shadow-[inset_0_0_20px_rgba(240,171,252,0.2)]">
+                        <Lock className="w-8 h-8 drop-shadow-md" />
                       </div>
-                      <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">Upgrade to Premium</h3>
-                      <p className="text-xs text-white/50 mb-8 leading-relaxed">Unlock full access to the DNA Filter, custom region and language settings, and personalized streaming catalogs.</p>
+                      <h3 className="text-2xl font-black uppercase tracking-tight text-white mb-3 drop-shadow-md">Upgrade to Premium</h3>
+                      <p className="text-xs text-white/60 mb-8 leading-relaxed font-medium">Unlock full access to the DNA Filter, custom region and language settings, and personalized streaming catalogs.</p>
                       <button 
                         onClick={() => setActiveSettingTab('payment' as any)} 
-                        className="w-full py-4 px-6 rounded-2xl bg-brand text-black text-xs font-black uppercase tracking-widest hover:bg-white hover:scale-105 transition-all shadow-[0_0_20px_rgba(240,171,252,0.3)]"
+                        className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-brand to-purple-500 text-white text-xs font-black uppercase tracking-widest hover:shadow-[0_0_30px_rgba(240,171,252,0.5)] hover:scale-[1.02] transition-all duration-300 border border-white/20"
                       >
                         Unlock Preferences
                       </button>
@@ -1138,62 +1141,63 @@ export default function ProfileSettingsPanel({
                   </div>
                 )}
 
-                <div className={profile.plan !== 'premium' ? 'opacity-30 pointer-events-none select-none blur-sm transition-all duration-500 space-y-6' : 'space-y-6'}>
+                <div className={profile.plan !== 'premium' ? 'opacity-30 pointer-events-none select-none blur-sm transition-all duration-500 space-y-8' : 'space-y-8'}>
                   
-                  <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                        <Globe className="w-4 h-4" />
+                  <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                        <Globe className="w-5 h-5 drop-shadow-md" />
                       </div>
-                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Global Settings</h5>
+                      <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Global Settings</h5>
                     </div>
 
-                    <div className="flex gap-4 items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors group">
+                    <div className="flex gap-4 items-center justify-between p-5 rounded-[24px] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 group shadow-inner">
                       <div>
-                        <p className="text-xs font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors">Auto Filter (DNA Match)</p>
-                        <p className="text-[10px] text-white/40 mt-1 font-medium tracking-widest uppercase">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
+                        <p className="text-sm font-black text-white uppercase tracking-wider group-hover:text-brand transition-colors drop-shadow-sm">Auto Filter (DNA Match)</p>
+                        <p className="text-[10px] text-white/50 mt-1.5 font-bold tracking-widest uppercase group-hover:text-white/70 transition-colors">Automatically apply your DNA Filter settings. Turn off to view default catalog.</p>
                       </div>
                       <button
                         onClick={() => handleLocalToggle('autoFilter')}
-                        className={`w-14 h-7 rounded-full relative transition-all duration-300 border-2 shrink-0 cursor-pointer ${(profile.autoFilter ?? false)
-                          ? 'bg-brand border-brand shadow-[0_0_15px_rgba(240,171,252,0.4)]'
-                          : 'bg-white/5 border-white/10 hover:border-white/20'
+                        className={`w-14 h-7 rounded-full relative transition-all duration-500 border-2 shrink-0 cursor-pointer overflow-hidden ${(profile.autoFilter ?? false)
+                          ? 'bg-brand/80 border-brand shadow-[0_0_20px_rgba(240,171,252,0.6)]'
+                          : 'bg-black/60 border-white/20 hover:border-white/40 shadow-inner'
                           }`}
                       >
-                        <div className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-transform duration-300 shadow-sm ${(profile.autoFilter ?? false) ? 'translate-x-7' : 'translate-x-1 opacity-50'}`} />
+                        <div className={`absolute inset-0 bg-gradient-to-r from-transparent to-white/20 transition-opacity duration-500 ${(profile.autoFilter ?? false) ? 'opacity-100' : 'opacity-0'}`} />
+                        <div className={`absolute top-0.5 bottom-0.5 w-5 bg-white rounded-full transition-all duration-500 shadow-[0_2px_5px_rgba(0,0,0,0.3)] ${(profile.autoFilter ?? false) ? 'translate-x-7 scale-110' : 'translate-x-1 opacity-60 scale-90'}`} />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4">
-                      <div className="space-y-2 relative group">
-                        <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Prevalent Language</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                      <div className="space-y-3 relative group">
+                        <label className="text-[11px] font-black uppercase text-white/50 tracking-widest px-2 group-hover:text-brand transition-colors">Prevalent Language</label>
                         <CustomSelect
                           value={profile.prefLanguage || 'en'}
                           onChange={(val) => handleLocalSelect('prefLanguage', val)}
                           options={tmdbLanguages.length > 0 ? tmdbLanguages : [{ value: 'en', label: 'English' }]}
-                          className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-bold group-hover:border-white/20 transition-all"
+                          className="bg-black/60 border border-white/10 rounded-[24px] p-5 text-sm font-bold group-hover:border-white/30 transition-all duration-300 shadow-inner hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
                         />
                       </div>
-                      <div className="space-y-2 relative group">
-                        <label className="text-[10px] font-black uppercase text-white/40 tracking-widest px-1">Active Watch Region</label>
+                      <div className="space-y-3 relative group">
+                        <label className="text-[11px] font-black uppercase text-white/50 tracking-widest px-2 group-hover:text-brand transition-colors">Active Watch Region</label>
                         <CustomSelect
                           value={profile.watchRegion || 'IN'}
                           onChange={(val) => handleRegionChange(val)}
                           options={tmdbRegions.length > 0 ? tmdbRegions : [{ value: 'IN', label: 'India' }]}
-                          className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-bold group-hover:border-white/20 transition-all"
+                          className="bg-black/60 border border-white/10 rounded-[24px] p-5 text-sm font-bold group-hover:border-white/30 transition-all duration-300 shadow-inner hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-8 h-8 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400">
-                        <MonitorPlay className="w-4 h-4" />
+                  <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 rounded-2xl bg-green-500/20 border border-green-500/40 flex items-center justify-center text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+                        <MonitorPlay className="w-5 h-5 drop-shadow-md" />
                       </div>
-                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Content Format Preference</h5>
+                      <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Content Format Preference</h5>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                       {[
                         { id: 'movies', label: '🎬 Movies Only' },
                         { id: 'tv', label: '📺 TV Shows Only' },
@@ -1204,7 +1208,7 @@ export default function ProfileSettingsPanel({
                           <button
                             key={item.id}
                             onClick={() => handleLocalSelect('prefContentType', item.id)}
-                            className={`flex-1 py-4 px-4 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-1 ${isActive ? 'bg-gradient-to-br from-brand/15 to-purple-500/5 border-brand/30 text-brand shadow-[0_0_15px_rgba(240,171,252,0.15)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/20 hover:bg-white/10'
+                            className={`flex-1 py-5 px-4 rounded-[24px] border text-xs font-black uppercase tracking-widest transition-all duration-300 hover:-translate-y-1 ${isActive ? 'bg-gradient-to-br from-brand/20 to-transparent border-brand/50 text-white shadow-[0_10px_20px_rgba(240,171,252,0.2)] scale-[1.02]' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/30 hover:bg-white/10 shadow-inner'
                               }`}
                           >
                             {item.label}
@@ -1214,23 +1218,23 @@ export default function ProfileSettingsPanel({
                     </div>
                   </div>
 
-                  <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none" />
+                  <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl relative overflow-hidden shadow-[inset_0_0_30px_rgba(168,85,247,0.05)]">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/20 blur-[80px] rounded-full pointer-events-none" />
                     
-                    <div className="flex items-center gap-3 mb-6 relative z-10">
-                      <div className="w-8 h-8 rounded-xl bg-brand/20 border border-brand/30 flex items-center justify-center text-brand">
-                        <Fingerprint className="w-4 h-4" />
+                    <div className="flex items-center gap-4 mb-8 relative z-10">
+                      <div className="w-12 h-12 rounded-[20px] bg-brand/20 border border-brand/40 flex items-center justify-center text-brand shadow-[0_0_20px_rgba(240,171,252,0.3)]">
+                        <Fingerprint className="w-6 h-6 drop-shadow-md" />
                       </div>
                       <div>
-                        <h5 className="text-xs font-black uppercase tracking-widest text-white">🧬 DNA Filter</h5>
-                        <p className="text-[9px] text-white/40 tracking-wider font-medium uppercase mt-0.5">Your Unique Feature</p>
+                        <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">🧬 DNA Filter</h5>
+                        <p className="text-[10px] text-white/50 tracking-widest font-bold uppercase mt-1">Your Unique Feature</p>
                       </div>
                     </div>
 
-                    <div className="space-y-6 relative z-10">
-                      <div className="space-y-3">
-                      <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Select Moods</p>
-                      <div className="flex flex-wrap gap-2">
+                    <div className="space-y-8 relative z-10">
+                      <div className="space-y-4">
+                      <p className="text-[11px] font-black uppercase text-white/60 tracking-widest px-2">Select Moods</p>
+                      <div className="flex flex-wrap gap-3">
                         {['Feel Good', 'Dark', 'Emotional', 'Family', 'Inspirational'].map((mood) => {
                           const activeMoods = profile.dnaMoods || [];
                           const isActive = activeMoods.includes(mood);
@@ -1238,7 +1242,7 @@ export default function ProfileSettingsPanel({
                             <button
                               key={mood}
                               onClick={() => handleToggleDnaMood(mood)}
-                              className={`px-4 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-1 ${isActive ? 'bg-gradient-to-r from-brand/20 to-purple-500/20 border-brand/50 text-white shadow-[0_0_15px_rgba(240,171,252,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20'
+                              className={`px-6 py-3 rounded-[20px] border text-[11px] font-black uppercase tracking-widest transition-all duration-300 hover:-translate-y-1 ${isActive ? 'bg-gradient-to-r from-brand/30 to-purple-500/30 border-brand/50 text-white shadow-[0_10px_20px_rgba(240,171,252,0.3)] scale-105' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/30 shadow-inner'
                                 }`}
                             >
                               {mood}
@@ -1247,9 +1251,9 @@ export default function ProfileSettingsPanel({
                         })}
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">Maximum Runtime</p>
-                      <div className="flex gap-2">
+                    <div className="space-y-4">
+                      <p className="text-[11px] font-black uppercase text-white/60 tracking-widest px-2">Maximum Runtime</p>
+                      <div className="flex gap-3">
                         {[
                           { id: '90m', label: 'Under 90 mins' },
                           { id: '120m', label: 'Under 2 hours' },
@@ -1260,7 +1264,7 @@ export default function ProfileSettingsPanel({
                             <button
                               key={item.id}
                               onClick={() => handleLocalSelect('dnaRuntime', item.id)}
-                              className={`flex-1 py-3 px-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-1 ${isActive ? 'bg-gradient-to-r from-brand/20 to-purple-500/20 border-brand/50 text-white shadow-[0_0_15px_rgba(240,171,252,0.3)]' : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10 hover:border-white/20'
+                              className={`flex-1 py-4 px-4 rounded-[20px] border text-[11px] font-black uppercase tracking-widest transition-all duration-300 hover:-translate-y-1 ${isActive ? 'bg-gradient-to-r from-brand/30 to-purple-500/30 border-brand/50 text-white shadow-[0_10px_20px_rgba(240,171,252,0.3)] scale-[1.02]' : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/30 shadow-inner'
                                 }`}
                             >
                               {item.label}
@@ -1270,15 +1274,15 @@ export default function ProfileSettingsPanel({
                       </div>
                     </div>
 
-                    <div className="space-y-3 pt-4 border-t border-white/5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[9px] font-black uppercase text-white/50 tracking-widest">📡 My Streaming Platforms</p>
-                        <span className="text-[8px] text-brand font-black uppercase tracking-widest bg-brand/10 border border-brand/20 px-2 py-0.5 rounded-lg">
+                    <div className="space-y-4 pt-6 border-t border-white/10">
+                      <div className="flex items-center justify-between px-2">
+                        <p className="text-[11px] font-black uppercase text-white/60 tracking-widest">📡 My Streaming Platforms</p>
+                        <span className="text-[10px] text-brand font-black uppercase tracking-widest bg-brand/10 border border-brand/30 px-3 py-1 rounded-full shadow-[0_0_10px_rgba(240,171,252,0.2)]">
                           {profile.subscriptions?.length || 0} Active
                         </span>
                       </div>
-                      <p className="text-[9px] text-white/30 font-medium -mt-1">Select platforms you subscribe to. We'll prioritize results from these services.</p>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest px-2">Select platforms you subscribe to. We'll prioritize results from these services.</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                         {STREAMING_PLATFORMS.map((platform) => {
                           const isActive = profile.subscriptions?.includes(platform.name) || false;
                           return (
@@ -1286,16 +1290,16 @@ export default function ProfileSettingsPanel({
                               key={platform.id}
                               onClick={() => handleToggleSub(platform.name)}
                               title={platform.name}
-                              className={`relative group flex flex-col items-center gap-3 p-4 rounded-[20px] border transition-all duration-300 hover:-translate-y-1 ${isActive ? `bg-gradient-to-br from-white/10 to-white/5 border-white/30 shadow-xl ${platform.glow}` : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
+                              className={`relative group flex flex-col items-center gap-4 p-5 rounded-[24px] border transition-all duration-300 hover:-translate-y-1 ${isActive ? `bg-gradient-to-br from-white/10 to-white/5 border-white/30 shadow-[0_10px_30px_rgba(255,255,255,0.1)] ${platform.glow} scale-[1.02]` : 'bg-[#0a0a0a]/50 border-white/10 hover:border-white/30 hover:bg-white/5 shadow-inner'
                                 }`}
                             >
-                              <div className={`w-10 h-10 rounded-[14px] ${platform.color} flex items-center justify-center text-white font-black text-sm shadow-md transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 ${isActive ? 'ring-2 ring-white/40 ring-offset-2 ring-offset-black/50' : ''}`}>
+                              <div className={`w-14 h-14 rounded-[20px] ${platform.color} flex items-center justify-center text-white font-black text-xl shadow-[0_5px_15px_rgba(0,0,0,0.3)] transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6 ${isActive ? 'ring-2 ring-white/50 ring-offset-4 ring-offset-[#0a0a0a]' : ''}`}>
                                 {platform.logo}
                               </div>
-                              <span className={`text-[9px] font-black uppercase tracking-widest leading-tight text-center line-clamp-2 transition-colors ${isActive ? 'text-white' : 'text-white/50 group-hover:text-white/80'}`}>{platform.name}</span>
+                              <span className={`text-[10px] font-black uppercase tracking-widest leading-tight text-center line-clamp-2 transition-colors ${isActive ? 'text-white drop-shadow-md' : 'text-white/40 group-hover:text-white/80'}`}>{platform.name}</span>
                               {isActive && (
-                                <div className="absolute top-2 right-2 w-4 h-4 bg-brand rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(240,171,252,0.8)] animate-in zoom-in">
-                                  <svg width="8" height="8" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                <div className="absolute top-3 right-3 w-5 h-5 bg-brand rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(240,171,252,1)] animate-in zoom-in duration-300">
+                                  <svg width="10" height="10" viewBox="0 0 7 7" fill="none"><path d="M1 3.5L3 5.5L6 1.5" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                                 </div>
                               )}
                             </button>
@@ -1306,14 +1310,13 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
               </div>
-              </div>
             )}
             {activeSettingTab === 'privacy' && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[50px] rounded-full pointer-events-none" />
-                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Privacy & Security</h4>
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Review active connections, secure your account details, and manage local logs.</p>
+              <div className="space-y-8 animate-fadeIn relative">
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-red-500/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Privacy & Security</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Review active connections, secure your account details, and manage local logs.</p>
                 </div>
                 {/* TEMPORARILY DISABLED - Account Security / 2FA
                 <div className="space-y-4">
@@ -1328,38 +1331,38 @@ export default function ProfileSettingsPanel({
                   </div>
                 </div>
                 */}
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                        <MonitorSmartphone className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner">
+                  <div className="flex justify-between items-center mb-8">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                        <MonitorSmartphone className="w-5 h-5 drop-shadow-md" />
                       </div>
-                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Active Sessions</h5>
+                      <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Active Sessions</h5>
                     </div>
                     <button
                       onClick={() => setIsLogoutAllModalOpen(true)}
-                      className="text-[9px] font-black text-brand uppercase tracking-widest hover:underline bg-brand/10 hover:bg-brand/20 px-3 py-1.5 rounded-lg border border-brand/20 transition-colors"
+                      className="text-[10px] font-black text-brand uppercase tracking-widest hover:text-white hover:bg-brand bg-brand/10 px-4 py-2 rounded-xl border border-brand/30 transition-all duration-300 shadow-[0_0_10px_rgba(240,171,252,0.1)] hover:shadow-[0_0_20px_rgba(240,171,252,0.4)]"
                     >
                       Logout All
                     </button>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {activeSessions.map((session) => (
                       <div
                         key={session.id}
-                        className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between hover:border-white/15 transition-colors"
+                        className="p-5 bg-white/[0.02] border border-white/5 rounded-[20px] flex items-center justify-between hover:bg-white/5 hover:border-white/10 transition-all duration-300 group shadow-inner"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="p-3 bg-white/5 rounded-xl text-white/70">
-                            {session.device.includes('iPhone') ? <Smartphone className="w-4 h-4" /> : <Laptop className="w-4 h-4" />}
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-white/5 rounded-2xl text-white/50 group-hover:text-white/80 transition-colors border border-white/5 group-hover:border-white/10">
+                            {session.device.includes('iPhone') ? <Smartphone className="w-5 h-5 drop-shadow-sm" /> : <Laptop className="w-5 h-5 drop-shadow-sm" />}
                           </div>
                           <div>
-                            <p className="text-xs font-black uppercase tracking-tight text-white">{session.device}</p>
-                            <p className="text-[9px] text-white/30 font-medium mt-0.5">{session.browser} • {session.location}</p>
+                            <p className="text-xs font-black uppercase tracking-tight text-white group-hover:text-indigo-400 transition-colors drop-shadow-sm">{session.device}</p>
+                            <p className="text-[10px] text-white/40 font-bold mt-1 tracking-widest uppercase">{session.browser} • {session.location}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-[10px] font-black text-white/40 uppercase tracking-tight">{session.lastActive}</span>
+                        <div className="flex items-center gap-5">
+                          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5">{session.lastActive}</span>
                           {!session.current && (
                             <button
                               onClick={async () => {
@@ -1370,9 +1373,8 @@ export default function ProfileSettingsPanel({
                                   toast.error('Failed to logout device.');
                                 }
                               }}
-                              className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest"
-                            >
-                              Logout
+                              className="text-[10px] font-black text-red-500/70 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-xl transition-all duration-300 uppercase tracking-widest border border-transparent hover:border-red-500/20"
+                          Logout
                             </button>
                           )}
                         </div>
@@ -1380,35 +1382,32 @@ export default function ProfileSettingsPanel({
                     ))}
                   </div>
                 </div>
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/10 blur-[60px] rounded-full pointer-events-none" />
-                  <div className="flex items-center gap-3 mb-6 relative z-10">
-                    <div className="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
-                      <Database className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl relative overflow-hidden shadow-[inset_0_0_30px_rgba(249,115,22,0.05)]">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/20 blur-[80px] rounded-full pointer-events-none" />
+                  <div className="flex items-center gap-4 mb-8 relative z-10">
+                    <div className="w-12 h-12 rounded-[20px] bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+                      <Database className="w-6 h-6 drop-shadow-md" />
                     </div>
-                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Data Controls</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Data Controls</h5>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 relative z-10">
                     {[
                       {
                         label: 'Download My Data', isPremiumOnly: true, action: async () => {
                           if (!user?.uid || !user?.email) { toast.error('No account found.'); return; }
                           const loadingToast = toast.loading('Compiling your data archive…');
                           try {
-                            // 1. Fetch audit logs from Firestore (not in component state)
                             const db = getFirestore(app);
                             const auditSnap = await getDocs(
                               collection(db, 'users', user.uid, 'audit_logs')
                             );
                             const auditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-                            // Also fetch search history
                             const searchSnap = await getDocs(
                               collection(db, 'users', user.uid, 'search_history')
                             );
                             const searchHistory = searchSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-                            // 2. Generate PDF locally with ALL data
                             const { generateUserDataPdf } = await import('@/lib/pdfGenerator');
                             const pdfData = {
                               user: {
@@ -1429,7 +1428,6 @@ export default function ProfileSettingsPanel({
                             };
                             const { blob, base64 } = generateUserDataPdf(pdfData);
 
-                            // 3. Trigger direct download
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
@@ -1439,7 +1437,6 @@ export default function ProfileSettingsPanel({
                             document.body.removeChild(a);
                             URL.revokeObjectURL(url);
 
-                            // 4. Send base64 PDF to backend for emailing
                             const res = await fetch('/api/user/export-data', {
                               method: 'POST',
                               headers: {
@@ -1469,23 +1466,18 @@ export default function ProfileSettingsPanel({
                         label: 'Clear Search History', action: async () => {
                           const loadingToast = toast.loading('Clearing search history…');
                           try {
-                            // 1. Clear all known localStorage search keys
                             const searchKeys = ['searchHistory', 'recentSearches', 'streamfind_search', 'search_history'];
                             searchKeys.forEach(k => localStorage.removeItem(k));
-                            // Also scan for any dynamic search keys
                             Object.keys(localStorage)
                               .filter(k => k.toLowerCase().includes('search'))
                               .forEach(k => localStorage.removeItem(k));
 
-                            // 2. Clear from Firestore user document (searchHistory field)
                             if (user?.uid) {
                               const db = getFirestore(app);
-                              // Delete the searchHistory field from user doc
                               await updateDoc(doc(db, `users/${user.uid}`), {
                                 searchHistory: deleteField(),
                                 recentSearches: deleteField(),
                               });
-                              // Also batch-delete search_history subcollection if it exists
                               try {
                                 const shDocs = await getDocs(collection(db, `users/${user.uid}/search_history`));
                                 if (!shDocs.empty) {
@@ -1493,7 +1485,7 @@ export default function ProfileSettingsPanel({
                                   shDocs.forEach(d => batch.delete(d.ref));
                                   await batch.commit();
                                 }
-                              } catch { /* subcollection may not exist, fine */ }
+                              } catch { }
                             }
 
                             logSecurityEvent(user?.uid, 'Search History Cleared', 'All search history wiped from local storage and Firebase.', 'bg-orange-400');
@@ -1512,15 +1504,11 @@ export default function ProfileSettingsPanel({
                           try {
                             const db = getFirestore(app);
                             const batch = writeBatch(db);
-                            // Clear Firestore watchlist
                             const wlDocs = await getDocs(collection(db, `users/${user.uid}/watchlist`));
                             wlDocs.forEach(d => batch.delete(d.ref));
-                            // Clear Firestore reviews
                             const rvDocs = await getDocs(collection(db, `users/${user.uid}/reviews`));
                             rvDocs.forEach(d => batch.delete(d.ref));
                             await batch.commit();
-                            // Clear local state via props callback if available
-                            // (parent component re-fetches from Firestore, which is now empty)
                             logSecurityEvent(user?.uid, 'Watch History Cleared', 'Watchlist and reviews wiped from Firebase and local state.', 'bg-red-500');
                             toast.dismiss(loadingToast);
                             toast.success('Watch history cleared from all sources.');
@@ -1536,14 +1524,12 @@ export default function ProfileSettingsPanel({
                           const loadingToast = toast.loading('Deleting curation data…');
                           try {
                             const db = getFirestore(app);
-                            // Clear Firestore DNA fields
                             await updateDoc(doc(db, `users/${user.uid}`), {
                               dnaMoods: deleteField(),
                               dnaRuntime: deleteField(),
 
                               top10: deleteField(),
                             });
-                            // Reset local profile state
                             setProfile(prev => ({
                               ...prev,
                               dnaMoods: [],
@@ -1573,52 +1559,60 @@ export default function ProfileSettingsPanel({
                             }
                             item.action();
                           }}
-                          className={`flex flex-col items-center justify-center p-5 rounded-[20px] border transition-all duration-300 hover:-translate-y-1 gap-3 relative overflow-hidden group ${
+                          className={`flex flex-col items-center justify-center p-6 rounded-[24px] border transition-all duration-500 hover:-translate-y-2 gap-4 relative overflow-hidden group ${
                             isLocked 
-                              ? 'bg-black/40 border-white/5 opacity-50 cursor-not-allowed' 
+                              ? 'bg-black/60 border-white/5 opacity-40 cursor-not-allowed shadow-inner' 
                               : item.label.includes('Delete') || item.label.includes('Clear') 
-                                ? 'bg-gradient-to-br from-red-500/5 to-transparent border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.15)]' 
-                                : 'bg-gradient-to-br from-white/[0.05] to-transparent border-white/10 hover:border-white/20 hover:bg-white/10 shadow-sm'
+                                ? 'bg-[#0a0a0a]/50 border-white/10 hover:border-red-500/50 hover:bg-red-500/10 shadow-[0_5px_15px_rgba(0,0,0,0.3)] hover:shadow-[0_10px_30px_rgba(239,68,68,0.3)] backdrop-blur-xl' 
+                                : 'bg-[#0a0a0a]/50 border-white/10 hover:border-brand/40 hover:bg-brand/5 shadow-[0_5px_15px_rgba(0,0,0,0.3)] hover:shadow-[0_10px_30px_rgba(240,171,252,0.2)] backdrop-blur-xl'
                           }`}
                         >
+                          {isLocked && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-brand">Premium Only</span>
+                            </div>
+                          )}
                           {isLocked ? (
-                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-                              <Lock className="w-4 h-4 text-brand/50" />
+                            <div className="w-14 h-14 rounded-[20px] bg-white/5 flex items-center justify-center border border-white/5 shadow-inner">
+                              <Lock className="w-6 h-6 text-white/30" />
                             </div>
                           ) : (
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                            <div className={`w-14 h-14 rounded-[20px] flex items-center justify-center transition-all duration-500 shadow-md ${
                               item.label.includes('Delete') || item.label.includes('Clear') 
-                                ? 'bg-red-500/10 group-hover:bg-red-500/20' 
-                                : 'bg-white/5 group-hover:bg-brand/20'
+                                ? 'bg-red-500/10 border border-red-500/20 group-hover:bg-red-500/20 group-hover:scale-110 group-hover:rotate-6' 
+                                : 'bg-brand/10 border border-brand/20 group-hover:bg-brand/20 group-hover:scale-110 group-hover:-rotate-6'
                             }`}>
-                              <item.icon className={`w-4 h-4 ${
+                              <item.icon className={`w-6 h-6 transition-colors duration-300 ${
                                 item.label.includes('Delete') || item.label.includes('Clear') 
-                                  ? 'text-red-400' 
-                                  : 'text-white/50 group-hover:text-brand'
+                                  ? 'text-red-400/80 group-hover:text-red-400 drop-shadow-md' 
+                                  : 'text-brand/80 group-hover:text-brand drop-shadow-md'
                               }`} />
                             </div>
                           )}
-                          <span className={`text-[9px] font-black uppercase tracking-widest leading-relaxed transition-colors ${
-                            item.label.includes('Delete') || item.label.includes('Clear')
-                              ? 'text-red-400/70 group-hover:text-red-400'
-                              : 'text-white/60 group-hover:text-white'
+                          <span className={`text-[10px] font-black uppercase tracking-widest text-center leading-tight transition-colors duration-300 relative z-0 ${
+                            isLocked
+                              ? 'text-white/30'
+                              : item.label.includes('Delete') || item.label.includes('Clear')
+                                ? 'text-white/60 group-hover:text-red-400'
+                                : 'text-white/60 group-hover:text-brand'
                           }`}>{item.label}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400">
-                      <UserCog className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
+                  <div className="flex items-center gap-4 mb-8 relative z-10">
+                    <div className="w-12 h-12 rounded-[20px] bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400 shadow-[0_0_20px_rgba(20,184,166,0.3)]">
+                      <UserCog className="w-6 h-6 drop-shadow-md" />
                     </div>
                     <div>
-                      <h5 className="text-xs font-black uppercase tracking-widest text-white">Account Management</h5>
-                      <p className="text-[9px] text-white/40 font-medium tracking-widest uppercase mt-0.5">Manage authentication, session, and account status.</p>
+                      <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Account Management</h5>
+                      <p className="text-[10px] text-white/50 font-bold tracking-widest uppercase mt-1">Manage authentication, session, and account status.</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative z-10">
                     <button
                       onClick={async () => {
                         try {
@@ -1630,51 +1624,44 @@ export default function ProfileSettingsPanel({
                           toast.success(`Reset link sent to ${email}`);
                         } catch { toast.error('Failed to send reset email. Try again.'); }
                       }}
-                      className="group flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/8 hover:border-brand/30 hover:bg-brand/5 transition-all text-left"
+                      className="group flex items-center gap-5 p-6 rounded-[24px] bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-[#0a0a0a] transition-all duration-300 text-left shadow-[0_5px_15px_rgba(0,0,0,0.2)] hover:shadow-[0_10px_30px_rgba(240,171,252,0.15)]"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-brand/10 group-hover:border-brand/20 transition-all shrink-0">
-                        <Lock className="w-4 h-4 text-white/40 group-hover:text-brand transition-colors" />
+                      <div className="w-14 h-14 rounded-[20px] bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-brand/10 group-hover:border-brand/30 transition-all duration-500 shrink-0 group-hover:scale-110 shadow-inner">
+                        <Lock className="w-6 h-6 text-white/40 group-hover:text-brand transition-colors drop-shadow-md" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase text-white group-hover:text-brand transition-colors">Reset Password</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">Send a reset link to your email</p>
+                        <p className="text-[11px] font-black uppercase text-white tracking-widest group-hover:text-brand transition-colors drop-shadow-sm">Reset Password</p>
+                        <p className="text-[10px] text-white/50 font-bold mt-1 tracking-widest uppercase">Send a reset link to your email</p>
                       </div>
                     </button>
                     <button
                       onClick={() => onSignOut?.()}
-                      className="group flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/8 hover:border-red-500/30 hover:bg-red-500/5 transition-all text-left"
+                      className="group flex items-center gap-5 p-6 rounded-[24px] bg-white/5 border border-white/10 hover:border-yellow-500/40 hover:bg-[#0a0a0a] transition-all duration-300 text-left shadow-[0_5px_15px_rgba(0,0,0,0.2)] hover:shadow-[0_10px_30px_rgba(234,179,8,0.15)]"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-red-500/10 group-hover:border-red-500/20 transition-all shrink-0">
-                        <LogOut className="w-4 h-4 text-white/40 group-hover:text-red-400 transition-colors" />
+                      <div className="w-14 h-14 rounded-[20px] bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-yellow-500/10 group-hover:border-yellow-500/30 transition-all duration-500 shrink-0 group-hover:scale-110 shadow-inner">
+                        <LogOut className="w-6 h-6 text-white/40 group-hover:text-yellow-400 transition-colors drop-shadow-md" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase text-white group-hover:text-red-400 transition-colors">Sign Out</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">End your current session</p>
+                        <p className="text-[11px] font-black uppercase text-white tracking-widest group-hover:text-yellow-400 transition-colors drop-shadow-sm">Sign Out</p>
+                        <p className="text-[10px] text-white/50 font-bold mt-1 tracking-widest uppercase">Securely log out of this device</p>
                       </div>
                     </button>
+                  </div>
+                  
+                  <div className="mt-8 pt-8 border-t border-white/10 flex flex-col sm:flex-row justify-end gap-4 relative z-10">
                     <button
                       onClick={() => toast.error('Account deactivation requires email verification.')}
-                      className="group flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/8 hover:border-yellow-500/30 hover:bg-yellow-500/5 transition-all text-left"
+                      className="group flex items-center justify-center gap-3 px-6 py-4 rounded-[20px] bg-white/5 border border-white/10 hover:bg-yellow-500/10 hover:border-yellow-500/30 transition-all duration-300 shadow-inner"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-yellow-500/10 group-hover:border-yellow-500/20 transition-all shrink-0">
-                        <AlertTriangle className="w-4 h-4 text-white/40 group-hover:text-yellow-400 transition-colors" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase text-white group-hover:text-yellow-400 transition-colors">Deactivate Account</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">Temporarily disable your profile</p>
-                      </div>
+                      <AlertTriangle className="w-5 h-5 text-white/40 group-hover:text-yellow-400 transition-colors drop-shadow-sm group-hover:scale-110 duration-300" />
+                      <span className="text-[11px] font-black uppercase text-white/60 tracking-widest group-hover:text-yellow-400 transition-colors">Deactivate Account</span>
                     </button>
                     <button
                       onClick={() => toast.error('Account deletion is permanent. Please contact support.')}
-                      className="group flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/8 hover:border-red-500/30 hover:bg-red-500/5 transition-all text-left"
+                      className="group flex items-center justify-center gap-3 px-6 py-4 rounded-[20px] bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 shadow-inner"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-red-500/10 group-hover:border-red-500/20 transition-all shrink-0">
-                        <UserX className="w-4 h-4 text-white/40 group-hover:text-red-400 transition-colors" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase text-white group-hover:text-red-400 transition-colors">Delete Account</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">Permanently remove your data</p>
-                      </div>
+                      <UserX className="w-5 h-5 text-red-500/60 group-hover:text-red-500 transition-colors drop-shadow-sm group-hover:scale-110 duration-300" />
+                      <span className="text-[11px] font-black uppercase text-red-500/60 tracking-widest group-hover:text-red-500 transition-colors">Delete Account Permanently</span>
                     </button>
                   </div>
                 </div>
@@ -1682,129 +1669,134 @@ export default function ProfileSettingsPanel({
             )}
 
             {activeSettingTab === 'payment' && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] rounded-full pointer-events-none" />
-                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Payment & Billing</h4>
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Manage your billing, saved methods, and premium subscriptions.</p>
+              <div className="space-y-8 animate-fadeIn relative">
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Payment & Billing</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Manage your billing, saved methods, and premium subscriptions.</p>
                 </div>
 
                 {/* Payment Security Info */}
-                {/* Payment Security Info */}
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md">
-                  <div className="flex flex-col sm:flex-row items-start gap-5">
-                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0">
-                      <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl shadow-inner relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
+                  <div className="flex flex-col sm:flex-row items-start gap-6 relative z-10">
+                    <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex-shrink-0 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                      <ShieldCheck className="w-8 h-8 text-emerald-400 drop-shadow-md" />
                     </div>
                     <div>
-                      <h5 className="text-xs font-black text-white uppercase tracking-widest mb-1">Payments secured by Razorpay</h5>
-                      <p className="text-[10px] text-white/50 leading-relaxed font-medium">
-                        Your card numbers, UPI IDs, and bank details are <span className="text-emerald-400 font-bold">never stored</span> on our servers or in your browser. 
+                      <h5 className="text-sm font-black text-white uppercase tracking-widest mb-2 drop-shadow-md">Payments secured by Razorpay</h5>
+                      <p className="text-[11px] text-white/60 leading-relaxed font-bold">
+                        Your card numbers, UPI IDs, and bank details are <span className="text-emerald-400 font-black drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]">never stored</span> on our servers or in your browser. 
                         All payment data is handled exclusively by Razorpay, which is PCI-DSS Level 1 compliant — the highest level of payment security certification.
                       </p>
-                      <div className="flex flex-wrap items-center gap-3 mt-4">
-                        <span className="text-[9px] uppercase tracking-widest font-black text-white/40 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">PCI-DSS</span>
-                        <span className="text-[9px] uppercase tracking-widest font-black text-white/40 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">256-BIT SSL</span>
-                        <span className="text-[9px] uppercase tracking-widest font-black text-white/40 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">RBI COMPLIANT</span>
+                      <div className="flex flex-wrap items-center gap-3 mt-5">
+                        <span className="text-[10px] uppercase tracking-widest font-black text-emerald-400/80 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-inner">PCI-DSS</span>
+                        <span className="text-[10px] uppercase tracking-widest font-black text-emerald-400/80 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-inner">256-BIT SSL</span>
+                        <span className="text-[10px] uppercase tracking-widest font-black text-emerald-400/80 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 shadow-inner">RBI COMPLIANT</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Billing */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-gradient-to-br from-brand/10 to-brand/5 border border-brand/20 rounded-3xl p-6 md:p-8 relative overflow-hidden flex flex-col justify-center">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-brand/20 blur-[50px] rounded-full pointer-events-none" />
-                      <p className="text-[10px] text-brand uppercase tracking-widest font-black relative z-10">Current Plan</p>
-                      <p className="text-3xl font-display font-black text-white mt-1 uppercase italic tracking-tight relative z-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-gradient-to-br from-brand/20 to-purple-500/10 border border-brand/30 rounded-[32px] p-8 md:p-10 relative overflow-hidden flex flex-col justify-center shadow-[inset_0_0_50px_rgba(240,171,252,0.1)]">
+                      <div className="absolute top-0 right-0 w-48 h-48 bg-brand/30 blur-[80px] rounded-full pointer-events-none" />
+                      <p className="text-[11px] text-brand uppercase tracking-widest font-black relative z-10 drop-shadow-md">Current Plan</p>
+                      <p className="text-4xl font-display font-black text-white mt-2 uppercase italic tracking-tight relative z-10 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]">
                         {billingPlan === 'premium' ? 'Premium' : 'Free Tier'}
                       </p>
                       {billingPlan === 'premium' ? (
-                        <p className="text-[10px] text-white/70 mt-2 font-medium tracking-wide relative z-10">You have access to all premium features.</p>
+                        <p className="text-[11px] text-white/80 mt-3 font-bold tracking-widest relative z-10">You have access to all premium features.</p>
                       ) : (
-                        <p className="text-[10px] text-white/70 mt-2 font-medium tracking-wide relative z-10">Upgrade to Premium for full features.</p>
+                        <p className="text-[11px] text-white/80 mt-3 font-bold tracking-widest relative z-10">Upgrade to Premium for full features.</p>
                       )}
                       
                       {billingPlan !== 'premium' && (
                         <button 
                           onClick={handleUpgrade}
                           disabled={isUpgrading}
-                          className="mt-6 px-8 py-4 bg-brand text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all hover:scale-105 disabled:opacity-50 relative z-10 shadow-[0_0_20px_rgba(240,171,252,0.4)]"
+                          className="mt-8 px-8 py-5 bg-gradient-to-r from-brand to-purple-500 text-white font-black uppercase tracking-widest text-[11px] rounded-2xl hover:shadow-[0_0_30px_rgba(240,171,252,0.5)] transition-all duration-300 hover:scale-105 disabled:opacity-50 relative z-10 border border-white/20"
                         >
                           {isUpgrading ? 'Loading...' : 'Upgrade Now'}
                         </button>
                       )}
                     </div>
-                    <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md space-y-5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40 uppercase font-black">Renewal Date</span>
-                        <span className="text-xs text-white font-medium">{billingPlan === 'premium' ? renewalDate : 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40 uppercase font-black">Billing History</span>
-                        <button className="text-[9px] text-brand hover:underline font-black uppercase">View All</button>
-                      </div>
-                      {invoices.length > 0 ? (
-                        invoices.slice(0, 1).map((inv, idx) => (
-                          <div key={idx} className="flex justify-between items-center pt-2 border-t border-white/5">
-                            <span className="text-[10px] text-white/40 font-mono">#{inv.id?.substring(0, 8)}</span>
-                            <span className="text-[9px] text-white/70">₹{inv.amount}</span>
-                            <button 
-                              onClick={async () => {
-                                try {
-                                  toast.loading('Generating invoice…', { id: 'invoice-dl' });
-                                  const { generateInvoicePdf } = await import('@/lib/pdfGenerator');
-                                  const blob = generateInvoicePdf(inv, {
-                                    displayName: user?.displayName,
-                                    email: user?.email,
-                                  });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `StreamFind_Invoice_${inv.id?.substring(0, 12) || 'unknown'}.pdf`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  URL.revokeObjectURL(url);
-                                  toast.success('Invoice downloaded!', { id: 'invoice-dl' });
-                                } catch (err) {
-                                  console.error('Invoice download error:', err);
-                                  toast.error('Failed to generate invoice.', { id: 'invoice-dl' });
-                                }
-                              }}
-                              className="text-[9px] bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded uppercase font-black"
-                            >Download</button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                          <span className="text-[10px] text-white/40 uppercase font-black">Invoices</span>
-                          <span className="text-[9px] text-white/40 uppercase">No invoices yet</span>
+                    
+                    <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl space-y-6 shadow-inner flex flex-col justify-between">
+                      <div className="space-y-6">
+                        <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/5">
+                          <span className="text-[11px] text-white/50 uppercase font-black tracking-widest">Renewal Date</span>
+                          <span className="text-xs text-white font-bold tracking-wider">{billingPlan === 'premium' ? renewalDate : 'N/A'}</span>
                         </div>
-                      )}
+                        <div className="flex justify-between items-center px-2">
+                          <span className="text-[11px] text-white/50 uppercase font-black tracking-widest">Billing History</span>
+                          <button className="text-[10px] text-brand hover:text-white transition-colors font-black uppercase tracking-widest bg-brand/10 hover:bg-brand/30 px-3 py-1.5 rounded-xl border border-brand/20">View All</button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                        {invoices.length > 0 ? (
+                          invoices.slice(0, 1).map((inv, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/5 transition-colors">
+                              <span className="text-[11px] text-white/50 font-mono tracking-widest">#{inv.id?.substring(0, 8)}</span>
+                              <span className="text-[11px] text-white/90 font-black tracking-widest">₹{inv.amount}</span>
+                              <button 
+                                onClick={async () => {
+                                  try {
+                                    toast.loading('Generating invoice…', { id: 'invoice-dl' });
+                                    const { generateInvoicePdf } = await import('@/lib/pdfGenerator');
+                                    const blob = generateInvoicePdf(inv, {
+                                      displayName: user?.displayName,
+                                      email: user?.email,
+                                    });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `StreamFind_Invoice_${inv.id?.substring(0, 12) || 'unknown'}.pdf`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                    toast.success('Invoice downloaded!', { id: 'invoice-dl' });
+                                  } catch (err) {
+                                    console.error('Invoice download error:', err);
+                                    toast.error('Failed to generate invoice.', { id: 'invoice-dl' });
+                                  }
+                                }}
+                                className="text-[10px] bg-white/10 hover:bg-brand/20 hover:text-brand border border-white/10 hover:border-brand/30 text-white px-4 py-2 rounded-xl uppercase font-black tracking-widest transition-all"
+                              >Download</button>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-center items-center py-8 border border-white/5 rounded-2xl bg-white/[0.02] border-dashed">
+                            <span className="text-[11px] text-white/30 uppercase font-black tracking-widest">No invoices yet</span>
+                          </div>
+                        )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                 {/* Premium Features */}
-                <div className="bg-white/[0.02] border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md mt-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center text-yellow-400">
-                      <Star className="w-4 h-4" />
+                <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-xl mt-8 shadow-inner">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-10 h-10 rounded-2xl bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                      <Star className="w-5 h-5 drop-shadow-md" />
                     </div>
-                    <h5 className="text-xs font-black uppercase tracking-widest text-white">Premium Features Included</h5>
+                    <h5 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-md">Premium Features Included</h5>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     {[
                       { title: 'Ad-Free Experience', icon: MonitorPlay },
                       { title: 'Advanced Filters', icon: Sliders },
                       { title: 'Early Access', icon: Unlock },
                       { title: 'Multiple Watchlists', icon: LayoutList }
                     ].map((feat, i) => (
-                      <div key={i} className="p-5 rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10 text-center flex flex-col items-center gap-3 hover:-translate-y-1 transition-transform">
-                        <div className="p-3 bg-brand/10 rounded-xl">
-                          <feat.icon className="w-5 h-5 text-brand" />
+                      <div key={i} className="p-6 rounded-[24px] bg-gradient-to-br from-white/5 to-transparent border border-white/10 text-center flex flex-col items-center gap-4 hover:-translate-y-2 transition-transform duration-500 hover:shadow-[0_10px_30px_rgba(255,255,255,0.05)] shadow-inner group">
+                        <div className="w-14 h-14 bg-brand/10 border border-brand/20 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:bg-brand/20 transition-all duration-500 shadow-[inset_0_0_10px_rgba(240,171,252,0.1)]">
+                          <feat.icon className="w-6 h-6 text-brand drop-shadow-md" />
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/70 leading-relaxed">{feat.title}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/60 group-hover:text-white transition-colors leading-relaxed">{feat.title}</span>
                       </div>
                     ))}
                   </div>
@@ -1813,57 +1805,57 @@ export default function ProfileSettingsPanel({
             )}
 
             {activeSettingTab === 'help' && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[50px] rounded-full pointer-events-none" />
-                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Help & Support</h4>
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Get assistance, contact support, and view legal documents.</p>
+              <div className="space-y-8 animate-fadeIn relative">
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Help & Support</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Get assistance, contact support, and view legal documents.</p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Left Column: FAQ & Legal */}
                   <div className="space-y-8">
-                    <div className="space-y-4">
-                      <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Frequently Asked Questions</h5>
-                      <div className="space-y-2">
+                    <div className="space-y-6">
+                      <h5 className="text-[11px] font-black uppercase tracking-widest text-white/50 drop-shadow-sm pl-2">Frequently Asked Questions</h5>
+                      <div className="space-y-3">
                         {[
                           { q: 'What is StreamFinds?', a: 'A universal streaming aggregator that tracks what to watch and where.' },
                           { q: 'How does availability tracking work?', a: 'We sync daily with global databases to ensure accurate streaming platforms.' },
                           { q: 'Why can\'t I play content directly?', a: 'StreamFinds redirects you to the official platform where the content is hosted.' },
                           { q: 'How often is data updated?', a: 'Pricing, availability, and trending metrics are refreshed every 24 hours.' }
                         ].map((faq, i) => (
-                          <div key={i} className="p-5 rounded-[20px] bg-white/[0.02] border border-white/10 backdrop-blur-md hover:bg-white/5 transition-colors">
-                            <p className="text-xs font-black text-white">{faq.q}</p>
-                            <p className="text-[10px] text-white/60 mt-1 leading-relaxed">{faq.a}</p>
+                          <div key={i} className="p-6 rounded-[24px] bg-[#0a0a0a]/50 border border-white/10 backdrop-blur-xl hover:bg-white/5 transition-all duration-300 shadow-inner group">
+                            <p className="text-[11px] font-black text-white uppercase tracking-wider group-hover:text-blue-400 transition-colors drop-shadow-sm">{faq.q}</p>
+                            <p className="text-[10px] text-white/50 mt-2 leading-relaxed font-bold tracking-wide">{faq.a}</p>
                           </div>
                         ))}
                       </div>
                     </div>
-
                   </div>
 
                   {/* Right Column: Contact Support */}
-                  <div className="space-y-4">
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Contact Support</h5>
+                  <div className="space-y-6">
+                    <h5 className="text-[11px] font-black uppercase tracking-widest text-white/50 drop-shadow-sm pl-2">Contact Support</h5>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <a href="https://wa.me/message/YOUR_WHATSAPP_LINK_HERE" target="_blank" rel="noreferrer" className="p-5 rounded-2xl bg-gradient-to-br from-[#25D366]/10 to-transparent border border-[#25D366]/20 flex flex-col items-center gap-3 hover:-translate-y-1 transition-all group">
-                        <div className="p-3 bg-[#25D366]/20 rounded-xl group-hover:scale-110 transition-transform">
-                          <MessageSquare className="w-5 h-5 text-[#25D366]" />
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                      <a href="https://wa.me/message/YOUR_WHATSAPP_LINK_HERE" target="_blank" rel="noreferrer" className="p-6 rounded-[24px] bg-gradient-to-br from-[#25D366]/10 to-transparent border border-[#25D366]/20 flex flex-col items-center gap-4 hover:-translate-y-2 transition-all duration-500 group shadow-[0_5px_15px_rgba(37,211,102,0.1)] hover:shadow-[0_10px_30px_rgba(37,211,102,0.2)]">
+                        <div className="w-14 h-14 bg-[#25D366]/10 border border-[#25D366]/30 rounded-[20px] flex items-center justify-center group-hover:scale-110 transition-all duration-500 shadow-inner">
+                          <MessageSquare className="w-6 h-6 text-[#25D366] drop-shadow-md" />
                         </div>
-                        <span className="text-[9px] font-black uppercase text-[#25D366] tracking-widest">WhatsApp Chat</span>
+                        <span className="text-[10px] font-black uppercase text-[#25D366] tracking-widest">WhatsApp Chat</span>
                       </a>
-                      <a href="mailto:support@streamfind.com" className="p-5 rounded-2xl bg-gradient-to-br from-white/10 to-transparent border border-white/10 flex flex-col items-center gap-3 hover:-translate-y-1 transition-all group">
-                        <div className="p-3 bg-white/10 rounded-xl group-hover:scale-110 transition-transform">
-                          <Mail className="w-5 h-5 text-white" />
+                      <a href="mailto:support@streamfind.com" className="p-6 rounded-[24px] bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 flex flex-col items-center gap-4 hover:-translate-y-2 transition-all duration-500 group shadow-[0_5px_15px_rgba(59,130,246,0.1)] hover:shadow-[0_10px_30px_rgba(59,130,246,0.2)]">
+                        <div className="w-14 h-14 bg-blue-500/10 border border-blue-500/30 rounded-[20px] flex items-center justify-center group-hover:scale-110 transition-all duration-500 shadow-inner">
+                          <Mail className="w-6 h-6 text-blue-400 drop-shadow-md" />
                         </div>
-                        <span className="text-[9px] font-black uppercase text-white/80 tracking-widest">Email Support</span>
+                        <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Email Support</span>
                       </a>
                     </div>
 
-                    <div className="p-6 rounded-2xl bg-black/20 border border-white/5 space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-white/30 uppercase tracking-widest">Inquiry Type</label>
+                    <div className="p-8 rounded-[32px] bg-[#0a0a0a]/50 border border-white/10 backdrop-blur-xl shadow-inner space-y-6 relative overflow-hidden">
+                      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-brand/10 blur-[40px] rounded-full pointer-events-none" />
+                      <div className="space-y-2 relative z-10">
+                        <label className="text-[10px] font-black text-white/50 uppercase tracking-widest pl-1">Inquiry Type</label>
                         <CustomSelect
                           value={supportMessage.startsWith('Type:') ? supportMessage.split(':')[1] : 'Submit Ticket'}
                           onChange={(val) => setSupportMessage(`Type:${val}`)}
@@ -1875,15 +1867,15 @@ export default function ProfileSettingsPanel({
                             { value: 'Suggest New Streaming Service', label: 'Suggest New Streaming Service' },
                             { value: 'Feature Requests', label: 'Feature Requests' }
                           ]}
-                          className="bg-white/5 rounded-xl p-3 text-xs"
+                          className="bg-white/5 border border-white/10 rounded-2xl p-4 text-[11px] font-bold tracking-widest text-white shadow-inner focus-within:border-brand/50 transition-colors"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-white/30 uppercase tracking-widest">Your Message</label>
+                      <div className="space-y-2 relative z-10">
+                        <label className="text-[10px] font-black text-white/50 uppercase tracking-widest pl-1">Your Message</label>
                         <textarea
                           value={supportMessage}
                           onChange={(e) => setSupportMessage(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand h-24 resize-none"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-[11px] font-bold tracking-widest text-white placeholder-white/20 focus:outline-none focus:border-brand/50 h-32 resize-none shadow-inner transition-colors"
                           placeholder="Describe your issue or request..."
                         />
                       </div>
@@ -1915,7 +1907,7 @@ export default function ProfileSettingsPanel({
                           }
                         }}
                         disabled={isSubmittingSupport}
-                        className="w-full py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-colors disabled:opacity-50"
+                        className="w-full py-4 bg-brand hover:bg-white text-black font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all duration-300 disabled:opacity-50 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(240,171,252,0.4)] relative z-10"
                       >
                         {isSubmittingSupport ? 'Sending...' : 'Submit Request'}
                       </button>
@@ -1924,9 +1916,9 @@ export default function ProfileSettingsPanel({
                 </div>
 
                 {/* Full Width Legal Section */}
-                <div className="space-y-4 pt-8 mt-8 border-t border-white/5 w-full">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Legal & Policies</h5>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="space-y-6 pt-10 mt-10 border-t border-white/10 w-full">
+                  <h5 className="text-[11px] font-black uppercase tracking-widest text-white/50 drop-shadow-sm pl-2">Legal & Policies</h5>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {[
                       { title: 'Terms of Service', path: '/terms' },
                       { title: 'Privacy Policy', path: '/privacy' },
@@ -1934,10 +1926,12 @@ export default function ProfileSettingsPanel({
                       { title: 'DMCA Policy', path: '/dmca' },
                       { title: 'Data Disclaimer', path: '/data-disclaimer' }
                     ].map((doc, i) => (
-                      <Link key={i} href={doc.path} className="p-5 bg-white/[0.02] border border-white/10 rounded-2xl text-[10px] font-black uppercase text-white/60 hover:text-white hover:bg-white/5 transition-all text-left flex flex-col justify-between h-full gap-2 group hover:-translate-y-1 backdrop-blur-sm">
-                        <div className="flex justify-between items-start w-full">
-                          <span>{doc.title}</span>
-                          <ExternalLink className="w-3 h-3 opacity-30 group-hover:opacity-100 transition-opacity" />
+                      <Link key={i} href={doc.path} className="p-6 bg-[#0a0a0a]/50 border border-white/10 rounded-[24px] text-[10px] font-black uppercase text-white/60 hover:text-white hover:border-white/30 hover:bg-white/5 transition-all duration-300 text-left flex flex-col justify-between h-full gap-4 group hover:-translate-y-1 backdrop-blur-xl shadow-inner">
+                        <div className="flex justify-between items-center w-full">
+                          <span className="tracking-widest">{doc.title}</span>
+                          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                            <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity" />
+                          </div>
                         </div>
                       </Link>
                     ))}
@@ -1947,45 +1941,50 @@ export default function ProfileSettingsPanel({
             )}
 
             {activeSettingTab === 'tracking' && (
-              <div className="space-y-8 animate-fadeIn">
-                <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-md relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none" />
-                  <h4 className="text-2xl font-display font-black uppercase italic text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Watchlists & Tracking</h4>
-                  <p className="text-white/40 text-[10px] font-medium tracking-widest uppercase mt-2">Organize your movies, monitor watch history, and track releases.</p>
+              <div className="space-y-8 animate-fadeIn relative">
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Watchlists & Tracking</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Organize your movies, monitor watch history, and track releases.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Left Column: My Watchlists */}
-                  <div className="space-y-6">
-                    <div className="space-y-4">
-                      <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">My Watchlists</h5>
-                      <div className="p-6 bg-white/[0.02] border border-white/10 rounded-[24px] space-y-4 backdrop-blur-md">
-                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                          <div className="flex items-center gap-3">
-                            <CheckCircle2 className="w-4 h-4 text-brand" />
-                            <span className="text-xs font-black text-white uppercase">Watched Content</span>
+                  <div className="space-y-8">
+                    <div className="space-y-6">
+                      <h5 className="text-[11px] font-black uppercase tracking-widest text-white/50 drop-shadow-sm pl-2">My Watchlists</h5>
+                      <div className="p-8 bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] space-y-4 backdrop-blur-xl shadow-inner relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 blur-[40px] rounded-full pointer-events-none" />
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors relative z-10 group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <CheckCircle2 className="w-5 h-5 text-brand drop-shadow-md" />
+                            </div>
+                            <span className="text-xs font-black text-white uppercase tracking-wider">Watched Content</span>
                           </div>
-                          <span className="text-[10px] text-white/40">{watchlist.length} titles</span>
+                          <span className="text-[11px] font-black text-white/50 tracking-widest bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">{watchlist.length} titles</span>
                         </div>
-                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                          <div className="flex items-center gap-3">
-                            <Clock className="w-4 h-4 text-yellow-400" />
-                            <span className="text-xs font-black text-white uppercase">Continue Tracking</span>
+                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors relative z-10 group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <Clock className="w-5 h-5 text-yellow-400 drop-shadow-md" />
+                            </div>
+                            <span className="text-xs font-black text-white uppercase tracking-wider">Continue Tracking</span>
                           </div>
-                          <span className="text-[10px] text-white/40">Active</span>
+                          <span className="text-[11px] font-black text-white/50 tracking-widest bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">Active</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4 pt-4 border-t border-white/5">
-                      <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Custom Lists</h5>
+                    <div className="space-y-6 pt-6 border-t border-white/10">
+                      <h5 className="text-[11px] font-black uppercase tracking-widest text-white/50 drop-shadow-sm pl-2">Custom Lists</h5>
                       <div className="flex items-end gap-3">
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-2">
                           <input
                             type="text"
                             value={newWatchlistName}
                             onChange={(e) => setNewWatchlistName(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand"
+                            className="w-full bg-[#0a0a0a]/50 border border-white/10 rounded-2xl p-4 text-[11px] font-bold text-white placeholder-white/20 focus:outline-none focus:border-brand/50 shadow-inner tracking-widest transition-colors"
                             placeholder="e.g., Sci-Fi Classics"
                           />
                         </div>
@@ -2000,18 +1999,18 @@ export default function ProfileSettingsPanel({
                               toast.error('Failed to create watchlist');
                             }
                           }}
-                          className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-colors"
+                          className="px-6 py-4 bg-white/10 hover:bg-brand/20 hover:text-brand border border-white/10 hover:border-brand/30 text-white font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all shadow-inner h-[50px] flex items-center"
                         >
                           Add
                         </button>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {customWatchlists.map(list => (
-                          <div key={list.id} className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between group">
+                          <div key={list.id} className="p-5 rounded-2xl bg-[#0a0a0a]/50 border border-white/10 flex items-center justify-between group backdrop-blur-md shadow-inner hover:bg-white/5 transition-colors">
                             <div>
-                              <p className="text-xs font-black text-white">{list.name}</p>
-                              <p className="text-[9px] text-white/40 font-medium">{list.count} items</p>
+                              <p className="text-xs font-black text-white uppercase tracking-wider">{list.name}</p>
+                              <p className="text-[10px] text-white/50 font-bold tracking-widest mt-1">{list.count} items</p>
                             </div>
                             <button
                               onClick={async () => {
@@ -2022,7 +2021,7 @@ export default function ProfileSettingsPanel({
                                   toast.error('Failed to delete watchlist');
                                 }
                               }}
-                              className="p-2 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              className="p-3 bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500 hover:text-white opacity-0 group-hover:opacity-100 transition-all border border-red-500/20"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -2033,37 +2032,42 @@ export default function ProfileSettingsPanel({
                   </div>
 
                   {/* Right Column: Release Calendar */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-[10px] font-black uppercase tracking-widest text-white/40">Release Calendar</h5>
-                      <span className="text-[9px] px-2 py-1 bg-brand/10 text-brand rounded uppercase font-black tracking-widest">Live</span>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                      <h5 className="text-[11px] font-black uppercase tracking-widest text-white/50 drop-shadow-sm">Release Calendar</h5>
+                      <span className="text-[9px] px-3 py-1.5 bg-brand/20 border border-brand/30 text-brand rounded-xl uppercase font-black tracking-widest shadow-[0_0_15px_rgba(240,171,252,0.2)] animate-pulse">Live</span>
                     </div>
 
-                    <div className="p-6 bg-white/[0.02] border border-white/10 rounded-[24px] space-y-5 backdrop-blur-md">
-                      <div className="flex items-center gap-3 pb-4 border-b border-white/5">
-                        <Calendar className="w-8 h-8 text-white/40" />
+                    <div className="p-8 bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] space-y-6 backdrop-blur-xl shadow-inner relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-40 h-40 bg-brand/10 blur-[50px] rounded-full pointer-events-none" />
+                      <div className="flex items-center gap-4 pb-6 border-b border-white/10 relative z-10">
+                        <div className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
+                          <Calendar className="w-7 h-7 text-white/60 drop-shadow-md" />
+                        </div>
                         <div>
-                          <p className="text-xs font-black text-white uppercase tracking-widest">Upcoming Releases</p>
-                          <p className="text-[10px] text-white/40 mt-0.5">Click 🔔 to get notified when released.</p>
+                          <p className="text-sm font-black text-white uppercase tracking-widest">Upcoming Releases</p>
+                          <p className="text-[10px] font-bold tracking-widest text-white/50 mt-1">Click 🔔 to get notified when released.</p>
                         </div>
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h6 className="text-[9px] font-black uppercase tracking-widest text-brand">In Theaters Soon</h6>
+                      <div className="space-y-4 relative z-10">
+                        <div className="flex items-center justify-between px-1">
+                          <h6 className="text-[10px] font-black uppercase tracking-widest text-brand drop-shadow-sm">In Theaters Soon</h6>
                           {trackedReleases.length > 0 && (
-                            <span className="text-[9px] text-white/40 font-medium">{trackedReleases.length} tracked</span>
+                            <span className="text-[10px] text-white/50 font-black tracking-widest bg-white/5 px-2 py-1 rounded-lg border border-white/10">{trackedReleases.length} tracked</span>
                           )}
                         </div>
-                        <div className="space-y-2 max-h-[340px] overflow-y-auto custom-scrollbar pr-1" data-lenis-prevent>
+                        <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-2" data-lenis-prevent>
                           {isLoadingCalendar ? (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {[1,2,3].map(i => (
-                                <div key={i} className="h-14 rounded-xl bg-white/5 animate-pulse" />
+                                <div key={i} className="h-16 rounded-2xl bg-white/5 border border-white/5 animate-pulse" />
                               ))}
                             </div>
                           ) : upcomingMovies.length === 0 ? (
-                            <p className="text-[10px] text-white/30 text-center py-4">No upcoming movies found.</p>
+                            <div className="py-8 text-center bg-white/[0.02] border border-white/5 rounded-2xl border-dashed">
+                              <p className="text-[11px] font-black tracking-widest text-white/30 uppercase">No upcoming movies found.</p>
+                            </div>
                           ) : (
                             upcomingMovies.map((movie) => {
                               const isTracked = trackedReleases.includes(movie.id);
@@ -2071,10 +2075,10 @@ export default function ProfileSettingsPanel({
                                 ? new Date(movie.release_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                 : 'TBA';
                               return (
-                                <div key={movie.id} className={`flex justify-between items-center p-3 rounded-xl border transition-all group ${isTracked ? 'bg-brand/10 border-brand/30' : 'bg-black/40 border-white/5 hover:border-white/10'}`}>
-                                  <div className="flex items-center gap-3 min-w-0">
+                                <div key={movie.id} className={`flex justify-between items-center p-4 rounded-2xl border transition-all duration-300 group ${isTracked ? 'bg-brand/10 border-brand/30 shadow-[0_0_15px_rgba(240,171,252,0.1)]' : 'bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`}>
+                                  <div className="flex items-center gap-4 min-w-0">
                                     {movie.poster_path && (
-                                      <div className="relative w-8 h-11 rounded-md overflow-hidden shrink-0">
+                                      <div className="relative w-10 h-14 rounded-lg overflow-hidden shrink-0 shadow-md">
                                         <Image
                                           src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
                                           alt={movie.title}
@@ -2084,14 +2088,14 @@ export default function ProfileSettingsPanel({
                                         />
                                       </div>
                                     )}
-                                    <div className="min-w-0">
-                                      <p className="text-[10px] font-black text-white uppercase truncate">{movie.title}</p>
-                                      <p className="text-[9px] text-white/40">{releaseDate}</p>
+                                    <div className="min-w-0 pr-2">
+                                      <p className="text-[11px] font-black text-white uppercase truncate tracking-wider">{movie.title}</p>
+                                      <p className="text-[10px] font-bold tracking-widest text-white/50 mt-1">{releaseDate}</p>
                                     </div>
                                   </div>
                                   <button
                                     onClick={() => handleToggleTrackedRelease(movie.id, movie.title)}
-                                    className={`p-1.5 rounded-lg shrink-0 transition-all ${isTracked ? 'text-brand bg-brand/10' : 'text-white/20 hover:text-brand hover:bg-brand/10'}`}
+                                    className={`p-3 rounded-xl shrink-0 transition-all duration-300 ${isTracked ? 'text-brand bg-brand/20 border border-brand/30' : 'text-white/40 bg-white/5 border border-white/10 hover:text-brand hover:bg-brand/10 hover:border-brand/30'}`}
                                     title={isTracked ? 'Remove reminder' : 'Set reminder'}
                                   >
                                     <svg
@@ -2099,7 +2103,7 @@ export default function ProfileSettingsPanel({
                                       viewBox="0 0 24 24"
                                       className="w-4 h-4 transition-all"
                                       stroke="currentColor"
-                                      strokeWidth={2}
+                                      strokeWidth={2.5}
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                       fill={isTracked ? 'currentColor' : 'none'}
@@ -2114,9 +2118,11 @@ export default function ProfileSettingsPanel({
                           )}
                         </div>
                         {trackedReleases.length > 0 && (
-                          <p className="text-[9px] text-center text-white/30 pt-1">
-                            ✅ Notifications enabled via <span className="text-brand cursor-pointer" onClick={() => setActiveSettingTab('notifications')}>Notifications tab</span>
-                          </p>
+                          <div className="p-4 bg-brand/5 border border-brand/10 rounded-2xl text-center">
+                            <p className="text-[10px] font-bold tracking-widest text-white/60">
+                              ✅ Notifications enabled via <span className="text-brand font-black cursor-pointer hover:underline" onClick={() => setActiveSettingTab('notifications')}>Notifications tab</span>
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2129,18 +2135,22 @@ export default function ProfileSettingsPanel({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-8"
+                className="space-y-8 relative"
               >
-                <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-widest mb-1">Activity & Badges</h3>
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Track your journey and unlock milestones.</p>
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 blur-[60px] rounded-full pointer-events-none" />
+                  <h3 className="text-3xl font-display font-black text-white uppercase italic tracking-tight drop-shadow-md mb-2">Activity & Badges</h3>
+                  <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Track your journey and unlock milestones.</p>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-black/20 border border-white/5 rounded-3xl p-8 shadow-xl">
-                    <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center gap-3">
-                        <History className="w-5 h-5 text-white/30" />
-                        <h3 className="text-xs font-black uppercase tracking-widest">Timeline</h3>
+                  <div className="bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] p-8 shadow-inner backdrop-blur-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-brand/10 blur-[40px] rounded-full pointer-events-none" />
+                    <div className="flex items-center justify-between mb-8 relative z-10">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
+                          <History className="w-6 h-6 text-white/40 drop-shadow-md" />
+                        </div>
+                        <h3 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-sm">Timeline</h3>
                       </div>
                       {isOwner && (
                         <button
@@ -2150,26 +2160,28 @@ export default function ProfileSettingsPanel({
                             localStorage.setItem('streamfind_cleared_timeline_ids', JSON.stringify(idsToClear));
                             clearUserActivities();
                           }}
-                          className="text-[10px] font-black text-white/20 hover:text-white transition-colors"
+                          className="text-[10px] font-black tracking-widest text-white/40 hover:text-white transition-colors bg-white/5 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 hover:border-white/20"
                         >
                           Clear All
                         </button>
                       )}
                     </div>
-                    <div className="max-h-[300px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
+                    <div className="max-h-[300px] overflow-y-auto pr-4 custom-scrollbar relative z-10" data-lenis-prevent>
                       <div className="space-y-8 relative">
-                        <div className="absolute left-2.5 top-0 bottom-4 w-px bg-white/5" />
+                        <div className="absolute left-2.5 top-0 bottom-4 w-px bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.2)]" />
                         {watchHistory.length === 0 ? (
-                          <div className="py-6 text-center text-white/25 text-[10px] uppercase font-bold tracking-wider">Timeline empty. Save ratings/watchlist.</div>
+                          <div className="py-12 text-center bg-white/[0.02] border border-white/5 rounded-2xl border-dashed">
+                            <span className="text-white/30 text-[11px] uppercase font-black tracking-widest">Timeline empty. Save ratings/watchlist.</span>
+                          </div>
                         ) : (
                           watchHistory.map((item) => (
-                            <div key={item.id} className="relative pl-10 group">
-                              <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-surface border border-white/10 flex items-center justify-center z-10 transition-colors group-hover:border-brand">
-                                <div className="w-1.5 h-1.5 bg-white/20 rounded-full group-hover:bg-brand" />
+                            <div key={item.id} className="relative pl-12 group">
+                              <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-[#0a0a0a] border-2 border-white/10 flex items-center justify-center z-10 transition-all duration-300 group-hover:border-brand shadow-[0_0_10px_rgba(255,255,255,0.05)] group-hover:shadow-[0_0_15px_rgba(240,171,252,0.3)] group-hover:scale-110">
+                                <div className="w-2 h-2 bg-white/30 rounded-full group-hover:bg-brand transition-colors duration-300" />
                               </div>
-                              <p className="text-[10px] font-black text-brand uppercase tracking-tight">{item.action}</p>
-                              <p className="text-sm font-bold text-white/80 mt-1">{item.title}</p>
-                              <p className="text-[10px] text-white/30 mt-1 font-medium">{item.time}</p>
+                              <p className="text-[11px] font-black text-brand uppercase tracking-widest drop-shadow-sm">{item.action}</p>
+                              <p className="text-sm font-black text-white mt-1 group-hover:text-white/80 transition-colors">{item.title}</p>
+                              <p className="text-[10px] text-white/40 mt-1.5 font-bold tracking-widest">{item.time}</p>
                             </div>
                           ))
                         )}
@@ -2178,35 +2190,39 @@ export default function ProfileSettingsPanel({
                     {isOwner && (
                       <button
                         onClick={() => setShowActivityPopup(true)}
-                        className="w-full mt-8 py-3 bg-white/5 hover:bg-brand/10 hover:text-brand rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/20 transition-all"
+                        className="w-full mt-8 py-4 bg-white/5 hover:bg-brand/20 hover:text-brand rounded-2xl text-[11px] font-black uppercase tracking-widest text-white/40 border border-white/10 hover:border-brand/30 transition-all duration-300 shadow-inner relative z-10 hover:shadow-[0_0_20px_rgba(240,171,252,0.2)]"
                       >
                         Show Recent Activity
                       </button>
                     )}
                   </div>
-                  <div className="p-8 bg-black/20 border border-white/5 rounded-3xl shadow-xl">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-xs font-black uppercase tracking-widest">Binge Badges</h3>
-                      <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{badges.filter(b => b.unlocked).length} / {badges.length} Unlocked</span>
+                  <div className="p-8 bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] shadow-inner backdrop-blur-xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-500/10 blur-[40px] rounded-full pointer-events-none" />
+                    <div className="flex items-center justify-between mb-8 relative z-10">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-white drop-shadow-sm">Binge Badges</h3>
+                      <span className="text-[11px] font-black text-white/50 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                        <span className="text-yellow-400">{badges.filter(b => b.unlocked).length}</span> / {badges.length}
+                      </span>
                     </div>
-                    <div className="max-h-[360px] overflow-y-auto pr-4 custom-scrollbar" data-lenis-prevent>
+                    <div className="max-h-[380px] overflow-y-auto pr-2 custom-scrollbar relative z-10" data-lenis-prevent>
                       <div className="space-y-4">
                         {badges.map((badge) => (
-                          <div key={badge.title} className={`p-4 rounded-2xl border flex items-center justify-between group transition-all ${badge.unlocked ? 'bg-surface/50 border-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale'}`}>
-                            <div className="flex items-center gap-4">
-                              <div className={`p-3 rounded-xl bg-surface border border-white/5 group-hover:scale-110 transition-transform flex items-center justify-center w-11 h-11 ${badge.color}`}>
+                          <div key={badge.title} className={`p-5 rounded-[24px] border flex items-center justify-between group transition-all duration-300 ${badge.unlocked ? 'bg-white/5 border-white/10 shadow-[0_5px_15px_rgba(0,0,0,0.2)] hover:bg-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale hover:grayscale-0 hover:opacity-100'}`}>
+                            <div className="flex items-center gap-5">
+                              <div className={`p-4 rounded-2xl border border-white/10 group-hover:scale-110 transition-transform duration-500 flex items-center justify-center w-14 h-14 shadow-inner relative overflow-hidden ${badge.color}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-50" />
                                 {badge.isCustomIcon ? (
-                                  <Image width={20} height={20} src={badge.icon as string} alt={badge.title} className="w-5 h-5 object-contain" />
+                                  <Image width={24} height={24} src={badge.icon as string} alt={badge.title} className="w-6 h-6 object-contain relative z-10 drop-shadow-md" />
                                 ) : (
-                                  <badge.icon className="w-5 h-5" />
+                                  <badge.icon className="w-6 h-6 relative z-10 drop-shadow-md" />
                                 )}
                               </div>
                               <div>
-                                <p className="text-xs font-black text-white uppercase">{badge.title}</p>
-                                <p className="text-[10px] text-white/30 font-medium">{badge.desc}</p>
+                                <p className="text-[11px] font-black text-white uppercase tracking-wider">{badge.title}</p>
+                                <p className="text-[10px] text-white/50 font-bold tracking-widest mt-1">{badge.desc}</p>
                               </div>
                             </div>
-                            {badge.unlocked && <CheckCircle2 className="w-4 h-4 text-brand" />}
+                            {badge.unlocked && <CheckCircle2 className="w-6 h-6 text-brand drop-shadow-[0_0_10px_rgba(240,171,252,0.5)]" />}
                           </div>
                         ))}
                       </div>
@@ -2220,18 +2236,22 @@ export default function ProfileSettingsPanel({
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="space-y-8"
+                className="space-y-8 relative"
               >
-                <div className="border-b border-white/5 pb-4">
-                  <h4 className="text-xl font-display font-black uppercase italic text-white tracking-tight">Director&apos;s Notes</h4>
-                  <p className="text-white/40 text-xs mt-1">Your detailed reviews and cinematic critiques.</p>
+                <div className="bg-gradient-to-br from-white/[0.05] to-transparent border border-white/10 rounded-[32px] p-6 md:p-8 backdrop-blur-2xl relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/20 blur-[60px] rounded-full pointer-events-none" />
+                  <h4 className="text-3xl font-display font-black uppercase italic text-white tracking-tight drop-shadow-md">Director&apos;s Notes</h4>
+                  <p className="text-white/50 text-[10px] font-bold tracking-widest uppercase mt-2">Your detailed reviews and cinematic critiques.</p>
                 </div>
 
                 <div className="relative">
                   {userReviews.length === 0 ? (
-                    <div className="py-16 bg-surface/30 border border-dashed border-white/10 rounded-[40px] text-center text-white/30 flex flex-col items-center justify-center gap-4">
-                      <Film className="w-12 h-12 text-white/10" />
-                      <p className="text-sm uppercase font-black tracking-widest leading-relaxed">No custom written notes submitted yet.<br />Leave reviews on details pages to fill your diary!</p>
+                    <div className="py-20 bg-[#0a0a0a]/50 border border-dashed border-white/10 rounded-[40px] text-center flex flex-col items-center justify-center gap-6 backdrop-blur-xl shadow-inner relative overflow-hidden">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-white/5 blur-[80px] rounded-full pointer-events-none" />
+                      <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-[24px] flex items-center justify-center shadow-inner relative z-10">
+                        <Film className="w-10 h-10 text-white/30 drop-shadow-md" />
+                      </div>
+                      <p className="text-[11px] uppercase font-black tracking-widest leading-relaxed text-white/50 relative z-10 max-w-sm">No custom written notes submitted yet.<br />Leave reviews on details pages to fill your diary!</p>
                     </div>
                   ) : (
                     <div className="relative group/carousel">
@@ -2246,55 +2266,57 @@ export default function ProfileSettingsPanel({
                         {userReviews.map((review) => (
                           <div
                             key={review.movieId}
-                            className="w-full sm:w-[450px] shrink-0 snap-start p-6 bg-surface/30 border border-white/5 rounded-[32px] hover:bg-surface/40 transition-colors group flex flex-col gap-6"
+                            className="w-full sm:w-[500px] shrink-0 snap-start p-8 bg-[#0a0a0a]/50 border border-white/10 rounded-[32px] hover:bg-white/5 transition-all duration-300 group flex flex-col gap-6 backdrop-blur-xl shadow-inner relative overflow-hidden"
                           >
-                            <div className="flex gap-4">
-                              <div className="w-16 shrink-0 h-24 bg-white/5 rounded-xl overflow-hidden shadow-md relative">
+                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand/10 blur-[50px] rounded-full pointer-events-none transition-all duration-500 group-hover:bg-brand/20" />
+                            
+                            <div className="flex gap-6 relative z-10">
+                              <div className="w-20 shrink-0 h-32 bg-white/5 rounded-2xl overflow-hidden shadow-[0_10px_20px_rgba(0,0,0,0.5)] border border-white/10 relative">
                                 <Image
                                   src={review.moviePoster || 'https://placehold.co/200x300?text=No+Image'}
-                                  className="object-cover"
+                                  className="object-cover transition-transform duration-700 group-hover:scale-110"
                                   fill
                                   sizes="100px"
                                   alt={review.movieTitle}
                                 />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-2">
+                              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                <div className="flex items-center justify-between mb-3">
                                   <div>
-                                    <p className="text-sm font-black uppercase text-white/80 line-clamp-1">{review.movieTitle}</p>
-                                    <div className="flex gap-1 mt-1">
+                                    <p className="text-sm font-black uppercase text-white tracking-wider line-clamp-1 drop-shadow-sm">{review.movieTitle}</p>
+                                    <div className="flex gap-1 mt-2 bg-black/40 w-fit px-3 py-1.5 rounded-full border border-white/5">
                                       {Array.from({ length: 5 }).map((_, s) => (
                                         <Star
                                           key={s}
-                                          className={`w-3 h-3 ${s < review.rating ? 'text-brand fill-brand' : 'text-white/10'}`}
+                                          className={`w-3.5 h-3.5 ${s < review.rating ? 'text-brand fill-brand drop-shadow-[0_0_8px_rgba(240,171,252,0.8)]' : 'text-white/20'}`}
                                         />
                                       ))}
                                     </div>
                                   </div>
                                 </div>
-                                <p className="text-white/60 text-xs leading-relaxed font-medium italic line-clamp-3">
+                                <p className="text-white/60 text-[11px] leading-relaxed font-bold italic line-clamp-3">
                                   {review.reviewText ? `"${review.reviewText}"` : "Rated only, no written critique submitted."}
                                 </p>
                               </div>
                             </div>
 
                             {additionalDetails[review.movieId] && (
-                              <div className="space-y-3 border-t border-white/5 pt-4">
+                              <div className="space-y-4 border-t border-white/10 pt-6 relative z-10">
                                 {additionalDetails[review.movieId].director && (
-                                  <div className="p-3 rounded-2xl bg-brand/5 border border-brand/20">
-                                    <p className="text-[9px] font-black uppercase text-brand tracking-widest mb-1">Director's Note</p>
-                                    <p className="text-white/80 text-[10px] italic font-medium">
-                                      Directed by <span className="text-white font-bold">{additionalDetails[review.movieId].director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
+                                  <div className="p-4 rounded-[20px] bg-brand/5 border border-brand/20 shadow-inner">
+                                    <p className="text-[10px] font-black uppercase text-brand tracking-widest mb-2 drop-shadow-sm">Director's Note</p>
+                                    <p className="text-white/70 text-[11px] italic font-bold leading-relaxed">
+                                      Directed by <span className="text-white font-black">{additionalDetails[review.movieId].director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
                                     </p>
                                   </div>
                                 )}
                                 {additionalDetails[review.movieId].topCriticReview && (
-                                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <p className="text-[9px] font-black uppercase text-white/40 tracking-widest">Top Critic Insight</p>
-                                      <span className="text-[8px] font-black text-brand uppercase tracking-widest truncate max-w-[100px]">By {additionalDetails[review.movieId].topCriticReview!.author}</span>
+                                  <div className="p-4 rounded-[20px] bg-white/5 border border-white/10 shadow-inner">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <p className="text-[10px] font-black uppercase text-white/50 tracking-widest">Top Critic Insight</p>
+                                      <span className="text-[9px] font-black text-white/80 bg-white/10 px-2 py-1 rounded-lg uppercase tracking-widest truncate max-w-[120px]">By {additionalDetails[review.movieId].topCriticReview!.author}</span>
                                     </div>
-                                    <p className="text-white/60 text-[10px] italic leading-relaxed line-clamp-2">
+                                    <p className="text-white/60 text-[11px] italic leading-relaxed line-clamp-2 font-medium">
                                       "{additionalDetails[review.movieId].topCriticReview!.content}"
                                     </p>
                                   </div>
@@ -2302,14 +2324,14 @@ export default function ProfileSettingsPanel({
                               </div>
                             )}
 
-                            <div className="mt-auto pt-4 border-t border-white/5 flex items-center gap-6">
+                            <div className="mt-auto pt-6 border-t border-white/10 flex items-center gap-6 relative z-10">
                               {handleToggleLike && (
                                 <button
                                   onClick={() => handleToggleLike(review.movieId, !!review.liked)}
-                                  className="flex items-center gap-1.5 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
+                                  className="flex items-center gap-2 text-[10px] font-black uppercase text-white/40 hover:text-brand transition-colors bg-white/5 hover:bg-brand/10 border border-white/10 hover:border-brand/30 px-4 py-2 rounded-xl"
                                 >
-                                  <Heart className={`w-3.5 h-3.5 transition-colors ${review.liked ? 'text-brand fill-brand' : 'text-white/20'}`} />
-                                  <span className={review.liked ? 'text-brand' : 'text-white/40'}>
+                                  <Heart className={`w-4 h-4 transition-colors ${review.liked ? 'text-brand fill-brand drop-shadow-[0_0_8px_rgba(240,171,252,0.8)]' : 'text-white/40'}`} />
+                                  <span className={review.liked ? 'text-brand' : ''}>
                                     {review.liked ? 'Liked' : 'Like'}
                                   </span>
                                 </button>
@@ -2317,9 +2339,9 @@ export default function ProfileSettingsPanel({
                               {handleShareNote && (
                                 <button
                                   onClick={() => handleShareNote(review.movieId, review.movieTitle)}
-                                  className="flex items-center gap-1.5 text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors"
+                                  className="flex items-center gap-2 text-[10px] font-black uppercase text-white/40 hover:text-white transition-colors bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 px-4 py-2 rounded-xl"
                                 >
-                                  <Share2 className="w-3.5 h-3.5" /> Share Note
+                                  <Share2 className="w-4 h-4" /> Share Note
                                 </button>
                               )}
                             </div>
@@ -2331,15 +2353,15 @@ export default function ProfileSettingsPanel({
                         <>
                           <button
                             onClick={() => scrollCarousel('left')}
-                            className="absolute left-[-10px] top-1/2 -translate-y-1/2 p-2.5 rounded-full glass hover:bg-brand hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl z-10"
+                            className="absolute left-[-15px] top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/60 backdrop-blur-md border border-white/10 hover:bg-brand hover:text-white hover:border-brand/50 transition-all duration-300 opacity-0 group-hover/carousel:opacity-100 shadow-[0_0_20px_rgba(0,0,0,0.5)] z-20"
                           >
-                            <ChevronLeft className="w-4 h-4 text-white" />
+                            <ChevronLeft className="w-5 h-5 text-white" />
                           </button>
                           <button
                             onClick={() => scrollCarousel('right')}
-                            className="absolute right-[-10px] top-1/2 -translate-y-1/2 p-2.5 rounded-full glass hover:bg-brand hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl z-10"
+                            className="absolute right-[-15px] top-1/2 -translate-y-1/2 p-4 rounded-full bg-black/60 backdrop-blur-md border border-white/10 hover:bg-brand hover:text-white hover:border-brand/50 transition-all duration-300 opacity-0 group-hover/carousel:opacity-100 shadow-[0_0_20px_rgba(0,0,0,0.5)] z-20"
                           >
-                            <ChevronRight className="w-4 h-4 text-white" />
+                            <ChevronRight className="w-5 h-5 text-white" />
                           </button>
                         </>
                       )}
