@@ -123,6 +123,31 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
   return unique;
 };
 
+import { Redis } from '@upstash/redis';
+
+let redis: Redis | null = null;
+let zlibModule: any = null;
+
+if (typeof window === 'undefined') {
+  try {
+    const req = eval('require');
+    zlibModule = req('zlib');
+  } catch (e) {
+    console.warn("Failed to load zlib module dynamically", e);
+  }
+
+  try {
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to initialize Redis", e);
+  }
+}
+
 let genresMap: Record<number, string> = {};
 
 const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Promise<any> => {
@@ -134,10 +159,30 @@ const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Prom
     finalPathAndParams += '&include_video_language=en,te,ta,hi,ml,kn,mr,bn,gu,pa,ur,zh,ja,ko,es,fr,de,it,pt,ru,null';
   }
 
+  let cacheKey = '';
   if (isServer) {
     const apiKey = process.env.TMDB_API_KEY || process.env.NEXT_PUBLIC_TMDB_API_KEY;
     const separator = finalPathAndParams.includes('?') ? '&' : '?';
     url = `${BASE_URL}/${finalPathAndParams}${separator}api_key=${apiKey}`;
+    
+    // Check Redis Cache
+    if (redis && (!options || options.method === 'GET' || !options.method)) {
+      cacheKey = `tmdb-z:${finalPathAndParams}`;
+      try {
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData && typeof cachedData === 'string') {
+          console.log(`[REDIS HIT - SERVER] ${finalPathAndParams}`);
+          if (zlibModule) {
+            const decompressed = zlibModule.gunzipSync(Buffer.from(cachedData, 'base64')).toString('utf-8');
+            return JSON.parse(decompressed);
+          } else {
+            return JSON.parse(cachedData); // Fallback if not compressed
+          }
+        }
+      } catch (e) {
+        console.error("Redis get error", e);
+      }
+    }
   } else {
     url = `/api/tmdb/${finalPathAndParams}`;
   }
@@ -159,7 +204,25 @@ const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Prom
     }
     throw new Error(errorMsg);
   }
-  return response.json();
+  
+  const data = await response.json();
+  
+  // Save to Redis Cache
+  if (isServer && redis && cacheKey) {
+    try {
+      let dataToSave = JSON.stringify(data);
+      if (zlibModule) {
+        dataToSave = zlibModule.gzipSync(Buffer.from(dataToSave)).toString('base64');
+      }
+      // Cache for 24 hours (86400 seconds)
+      await redis.setex(cacheKey, 86400, dataToSave);
+      console.log(`[REDIS MISS -> CACHED] ${finalPathAndParams}`);
+    } catch (e) {
+      console.error("Redis set error", e);
+    }
+  }
+  
+  return data;
 };
 
 const fetchGenres = async (options?: RequestInit) => {

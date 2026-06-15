@@ -10,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.0",
     "dotenv": "^17.4.2",
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",

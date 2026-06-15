@@ -82,7 +82,57 @@ export async function GET(
     // Mask API key for logging
     const logQuery = new URLSearchParams(query.toString());
     if (logQuery.has('api_key')) logQuery.set('api_key', '***HIDDEN***');
-    console.log('[TMDB PROXY] Fetching:', `https://api.themoviedb.org/3/${path}?${logQuery.toString()}`);
+
+    // Redis Initialization
+    let redis = null;
+    let zlibModule: any = null;
+    try {
+      if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+        const { Redis } = await import('@upstash/redis');
+        redis = new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        });
+        const req = eval('require');
+        zlibModule = req('zlib');
+      }
+    } catch (e) {
+      console.warn("Failed to init Redis or zlib in proxy", e);
+    }
+
+    const cacheKey = `tmdb-z:${path}?${query.toString()}`;
+
+    // Check Redis Cache
+    if (redis) {
+      try {
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData && typeof cachedData === 'string') {
+          console.log(`[REDIS HIT - PROXY] ${path}?${logQuery.toString()}`);
+          const headers = new Headers();
+          headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+          headers.set('Content-Type', 'application/json');
+          
+          let decompressedData = cachedData;
+          if (zlibModule) {
+            try {
+              decompressedData = zlibModule.gunzipSync(Buffer.from(cachedData, 'base64')).toString('utf-8');
+            } catch (e) {
+               // Fallback if it wasn't compressed properly
+               decompressedData = cachedData;
+            }
+          }
+          
+          return new NextResponse(decompressedData, {
+            status: 200,
+            headers,
+          });
+        }
+      } catch (e) {
+        console.error("Redis get error in proxy", e);
+      }
+    }
+
+    console.log('[TMDB PROXY - MISS] Fetching:', targetUrl.replace(apiKey, '***HIDDEN***'));
 
     // Disable caching to prevent stale 404s or 401s from persisting
     const response = await fetch(targetUrl, { cache: 'no-store' });
@@ -109,8 +159,24 @@ export async function GET(
     }
 
     let data;
+    let dataText;
     try {
-      data = await response.json();
+      dataText = await response.text();
+      data = JSON.parse(dataText);
+      
+      // Save to Redis Cache
+      if (redis) {
+        try {
+          let dataToSave = dataText;
+          if (zlibModule) {
+            dataToSave = zlibModule.gzipSync(Buffer.from(dataText)).toString('base64');
+          }
+          await redis.setex(cacheKey, 86400, dataToSave);
+          console.log(`[REDIS MISS -> CACHED - PROXY] ${path}?${logQuery.toString()}`);
+        } catch (e) {
+          console.error("Redis set error in proxy", e);
+        }
+      }
     } catch (e: any) {
       return NextResponse.json({
         error: 'Failed to parse TMDB response as JSON.',
