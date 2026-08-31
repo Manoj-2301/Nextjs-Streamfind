@@ -66,6 +66,7 @@ export default function Navbar() {
           { path: '/browse', label: 'Browse' },
           { path: '/watchlist', label: 'Watchlist', count: watchlist.length },
           { path: '/search', label: 'Search' },
+          { path: '/pricing', label: 'Pricing' },
         ].map((item) => {
           const isActive = pathname === item.path;
           return (
@@ -274,6 +275,13 @@ export default function Navbar() {
               className={getMobileLinkClass('/search')}
             >
               Search
+            </Link>
+            <Link
+              href="/pricing"
+              onClick={() => setIsMenuOpen(false)}
+              className={getMobileLinkClass('/pricing')}
+            >
+              Pricing
             </Link>
 
             <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
