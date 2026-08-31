@@ -163,6 +163,7 @@ export default function CastDetails({
                 height={480}
                 className="w-full h-auto aspect-[2/3] object-cover"
                 priority
+                unoptimized={true}
               />
             </motion.div>
 
@@ -249,6 +250,7 @@ export default function CastDetails({
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                           className="object-cover transition-transform duration-500 group-hover:scale-110"
                           draggable={false}
+                          unoptimized={true}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
                           <span className="text-white font-bold text-sm tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">View</span>
@@ -327,6 +329,7 @@ export default function CastDetails({
                 className="object-contain"
                 quality={100}
                 priority
+                unoptimized={true}
               />
             </motion.div>
 

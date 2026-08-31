@@ -110,7 +110,7 @@ export default function Navbar() {
               >
                 <div className="w-9 h-9 rounded-full p-[2px] bg-gradient-to-tr from-brand via-rose-500 to-purple-600 shadow-[0_0_10px_rgba(255,40,78,0.3)] group-hover:shadow-[0_0_20px_rgba(255,40,78,0.6)] transition-all shrink-0">
                   {user.photoURL ? (
-                    <Image src={user.photoURL} alt="Profile" width={36} height={36} className="w-full h-full rounded-full object-cover border border-[#0a0a0a]" referrerPolicy="no-referrer" />
+                    <Image src={user.photoURL} alt="Profile" width={36} height={36} className="w-full h-full rounded-full object-cover border border-[#0a0a0a]" referrerPolicy="no-referrer" unoptimized={true} />
                   ) : (
                     <div className="w-full h-full rounded-full bg-[#0a0a0a] flex items-center justify-center border border-[#0a0a0a]">
                       <UserIcon className="w-4 h-4 text-white/80" />
@@ -225,7 +225,7 @@ export default function Navbar() {
             {user && (
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
                 {user.photoURL ? (
-                  <Image src={user.photoURL} alt="Profile" width={40} height={40} className="w-10 h-10 rounded-full border border-white/20 object-cover" referrerPolicy="no-referrer" />
+                  <Image src={user.photoURL} alt="Profile" width={40} height={40} className="w-10 h-10 rounded-full border border-white/20 object-cover" referrerPolicy="no-referrer" unoptimized={true} />
                 ) : (
                   <div className="w-10 h-10 rounded-full border border-white/20 bg-white/5 flex items-center justify-center">
                     <UserIcon className="w-5 h-5 text-white/60" />

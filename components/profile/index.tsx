@@ -746,7 +746,7 @@ export default function ProfileComponent() {
                 src={heroBackdrop}
                 alt="Profile Cinematic Background"
                 fill
-                unoptimized
+                unoptimized={true}
                 className="object-cover opacity-30 mix-blend-screen blur-[40px] md:blur-[80px]"
                 priority
               />
@@ -857,7 +857,7 @@ export default function ProfileComponent() {
                   <Image
                     src={isOwner ? (user?.photoURL || profile.photoURL || "") : (profile.photoURL || "")}
                     fill
-                    unoptimized
+                    unoptimized={true}
                     sizes="224px"
                     className="object-cover"
                     alt="Avatar"

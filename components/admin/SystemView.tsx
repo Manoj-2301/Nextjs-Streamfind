@@ -137,7 +137,7 @@ export default function SystemView() {
 
   const getIcon = (name: string) => {
     if (name.startsWith('http')) {
-      return <Image src={name} alt="Icon" width={16} height={16} className="w-4 h-4 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />;
+      return <Image src={name} alt="Icon" width={16} height={16} className="w-4 h-4 object-contain opacity-70 group-hover:opacity-100 transition-opacity" unoptimized={true} />;
     }
     switch(name) {
       case 'Zap': return <Zap className="w-4 h-4 text-white/20 group-hover:text-brand transition-colors" />;
@@ -286,7 +286,7 @@ export default function SystemView() {
                             className="group relative w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"
                             title={`Rename: ${icon.name}`}
                           >
-                            <Image src={icon.url} width={24} height={24} className="w-6 h-6 object-contain opacity-70 group-hover:opacity-100 transition-opacity" alt={icon.name} />
+                            <Image src={icon.url} width={24} height={24} className="w-6 h-6 object-contain opacity-70 group-hover:opacity-100 transition-opacity" alt={icon.name} unoptimized={true} />
                             <button 
                               onClick={(e) => { e.stopPropagation(); deleteCustomIcon(icon.id); }} 
                               className="absolute -top-2 -right-2 bg-red-500/90 hover:bg-red-500 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

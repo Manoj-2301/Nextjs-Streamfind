@@ -145,6 +145,7 @@ export default function GlobalSearch() {
                             sizes="56px"
                             className="object-cover group-hover:scale-110 transition-transform"
                             referrerPolicy="no-referrer"
+                            unoptimized={true}
                           />
                         ) : (
                           <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand/20 to-purple-900/20 border border-white/5 ${searchType === 'people' ? 'rounded-full' : ''}`}>

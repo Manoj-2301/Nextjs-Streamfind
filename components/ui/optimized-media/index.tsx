@@ -23,7 +23,7 @@ export function OptimizedImage({
       src={src}
       alt={alt}
       priority={priority}
-      unoptimized={isTmdb} // Bypasses slow next/image processing for LCP image
+      unoptimized={true} // Bypasses slow next/image processing
       placeholder="blur"
       blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
       // Add a subtle fade-in ONLY if it's not a priority image (LCP element)

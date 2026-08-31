@@ -167,6 +167,7 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
           height={80}
           className="w-full h-full object-contain"
           referrerPolicy="no-referrer"
+          unoptimized={true}
         />
       </div>
       

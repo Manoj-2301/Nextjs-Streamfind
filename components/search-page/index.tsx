@@ -110,6 +110,7 @@ export default function SearchPage() {
                           fill 
                           className="object-cover group-hover:scale-110 transition-transform duration-500"
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                          unoptimized={true}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-brand/20 to-purple-900/20">

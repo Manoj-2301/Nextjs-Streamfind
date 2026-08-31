@@ -2127,7 +2127,7 @@ export default function ProfileSettingsPanel({
                                           alt={movie.title}
                                           fill
                                           className="object-cover"
-                                          unoptimized
+                                          unoptimized={true}
                                         />
                                       </div>
                                     )}
@@ -2255,7 +2255,7 @@ export default function ProfileSettingsPanel({
                               <div className={`p-4 rounded-2xl border border-white/10 group-hover:scale-110 transition-transform duration-500 flex items-center justify-center w-14 h-14 shadow-inner relative overflow-hidden ${badge.color}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-50" />
                                 {badge.isCustomIcon ? (
-                                  <Image width={24} height={24} src={badge.icon as string} alt={badge.title} className="w-6 h-6 object-contain relative z-10 drop-shadow-md" />
+                                  <Image width={24} height={24} src={badge.icon as string} alt={badge.title} className="w-6 h-6 object-contain relative z-10 drop-shadow-md" unoptimized={true} />
                                 ) : (
                                   <badge.icon className="w-6 h-6 relative z-10 drop-shadow-md" />
                                 )}
@@ -2321,6 +2321,7 @@ export default function ProfileSettingsPanel({
                                   fill
                                   sizes="100px"
                                   alt={review.movieTitle}
+                                  unoptimized={true}
                                 />
                               </div>
                               <div className="flex-1 min-w-0 flex flex-col justify-center">

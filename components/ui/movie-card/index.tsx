@@ -88,6 +88,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
             onError={handleImgError}
             sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             priority={priority}
+            unoptimized={true}
             placeholder="blur"
             blurDataURL={BLUR_DATA_URL}
           />

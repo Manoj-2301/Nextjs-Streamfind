@@ -906,6 +906,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                                 height={64}
                                 className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all scale-110 group-hover:scale-100"
                                 referrerPolicy="no-referrer"
+                                unoptimized={true}
                               />
                             ) : (
                               <span>{initials}</span>
@@ -955,6 +956,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                               height={64}
                               className="w-full h-full object-cover grayscale transition-transform duration-700 scale-100 group-hover:scale-105"
                               referrerPolicy="no-referrer"
+                              unoptimized={true}
                             />
                           ) : (
                             <span>{initials}</span>
@@ -1189,7 +1191,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                           <div key={rev.userId + '-' + index} className="p-6 bg-surface/30 border border-white/5 rounded-2xl flex gap-4 items-start hover:bg-surface/40 transition-colors">
                             <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center font-black text-brand text-xs uppercase shadow-md relative">
                               {rev.userPhoto ? (
-                                <Image src={rev.userPhoto} fill sizes="40px" className="object-cover" alt={rev.userName} />
+                                <Image src={rev.userPhoto} fill sizes="40px" className="object-cover" alt={rev.userName} unoptimized={true} />
                               ) : (
                                 rev.userName.slice(0, 2)
                               )}

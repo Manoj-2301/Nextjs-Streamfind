@@ -69,7 +69,7 @@ export default function AddToListModal() {
             width={48}
             height={64}
             className="w-12 h-16 object-cover rounded-md border border-white/10"
-            unoptimized // Since TMDB images are external
+            unoptimized={true} // Since TMDB images are external
           />
           <div className="flex-1">
             <h4 className="text-white font-bold line-clamp-1">{movieToAdd.title}</h4>
