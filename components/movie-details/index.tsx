@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { Star, Clock, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil, Sparkles, Zap, Flame, Crown, PawPrint } from 'lucide-react';
+import { Star, Clock, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil, Sparkles, Zap, Flame, Crown, PawPrint, ChevronDown } from 'lucide-react';
 import WatchProviderCard from '@/components/ui/watch-provider-card';
 import ErrorMessage from '@/components/ui/error-message';
 import Link from 'next/link';
@@ -206,6 +206,10 @@ const UserScore = ({ rating }: { rating: number }) => {
     </div>
   );
 };
+const LANGUAGE_MAP: Record<string, string> = {
+  en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil',
+  kn: 'Kannada', ml: 'Malayalam', mr: 'Marathi', bn: 'Bengali', gu: 'Gujarati'
+};
 
 export default function MovieDetails({ initialMovie }: { initialMovie?: Movie }) {
   const params = useParams<{ id: string }>(); const id = params.id;
@@ -218,8 +222,14 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const [isLoading, setIsLoading] = useState(!initialMovie);
   const [error, setError] = useState(false);
   const [movie, setMovie] = useState<Movie | null>(initialMovie || null);
+  const [selectedTrailer, setSelectedTrailer] = useState<{ key: string, site: string } | null>(
+    initialMovie?.trailerYoutubeId ? { key: initialMovie.trailerYoutubeId, site: initialMovie.trailerSite || 'YouTube' } : null
+  );
+
+  const [isTrailerDropdownOpen, setIsTrailerDropdownOpen] = useState(false);
   const [showAllCast, setShowAllCast] = useState(false);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
   const reviewTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -231,6 +241,27 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (movie && id) {
+      // Lazy load regional trailers in the background
+      fetch(`/api/trailers?id=${id}&type=${typeParam || 'movie'}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.availableTrailers && data.availableTrailers.length > 0) {
+            setMovie(prev => {
+              if (!prev) return prev;
+              // Only update if we found new trailers to avoid unnecessary re-renders
+              if (JSON.stringify(prev.availableTrailers) !== JSON.stringify(data.availableTrailers)) {
+                return { ...prev, availableTrailers: data.availableTrailers };
+              }
+              return prev;
+            });
+          }
+        })
+        .catch(err => console.error('Error fetching regional trailers:', err));
+    }
+  }, [id, typeParam, movie?.id]);
 
   useEffect(() => {
     return () => {
@@ -387,6 +418,9 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       try {
         const details = await getMovieDetails(Number(id), typeParam || undefined);
         setMovie(details);
+        setSelectedTrailer(
+          details?.trailerYoutubeId ? { key: details.trailerYoutubeId, site: details.trailerSite || 'YouTube' } : null
+        );
       } catch (err) {
         console.error('Error fetching details:', err);
         setError(true);
@@ -651,7 +685,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       {/* Backdrop Section */}
       <div className="relative w-full h-[40vh] md:h-[70vh] overflow-hidden bg-black">
         <AnimatePresence mode="wait">
-          {movie.trailerYoutubeId ? (
+          {selectedTrailer?.key ? (
             <motion.div
               key="trailer"
               initial={{ opacity: 0 }}
@@ -662,9 +696,9 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
               <OptimizedIframe
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
-                src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                  ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
-                  : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                src={selectedTrailer.site?.toLowerCase() === 'vimeo'
+                  ? `https://player.vimeo.com/video/${selectedTrailer.key}?autoplay=1&loop=1&muted=1&background=1`
+                  : `https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${selectedTrailer.key}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                 }
                 title={movie.title}
                 frameBorder="0"
@@ -684,7 +718,9 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
           )}
         </AnimatePresence>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+        {selectedTrailer?.key && (
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none" />
+        )}
 
         {movie.trailerYoutubeId && (
           <button
@@ -958,16 +994,68 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               </div>
 
               {/* Trailer Section */}
-              {movie.trailerYoutubeId && (
+              {selectedTrailer?.key && (
                 <div className="mb-12 md:mb-16">
-                  <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
-                    <span className="w-1 h-3 bg-brand"></span> <Play className="w-3 h-3" /> OFFICIAL TRAILER
-                  </h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
+                      <span className="w-1 h-3 bg-brand"></span> <Play className="w-3 h-3" /> OFFICIAL TRAILER
+                    </h3>
+                    
+                    {movie.availableTrailers && movie.availableTrailers.length > 1 && (
+                      <div 
+                        className="relative z-50"
+                        tabIndex={0}
+                        onBlur={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget)) {
+                            setIsTrailerDropdownOpen(false);
+                          }
+                        }}
+                      >
+                        <button
+                          onClick={() => setIsTrailerDropdownOpen(!isTrailerDropdownOpen)}
+                          className="flex items-center gap-2 bg-surface/80 border border-white/10 text-white/90 text-[10px] md:text-xs font-semibold px-4 py-2 rounded-xl focus:outline-none focus:border-brand/50 hover:border-white/20 transition-all cursor-pointer shadow-lg hover:shadow-brand/10"
+                        >
+                          {LANGUAGE_MAP[movie.availableTrailers.find(t => t.key === selectedTrailer.key)?.language || ''] || 'Trailer'} 
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isTrailerDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        <AnimatePresence>
+                          {isTrailerDropdownOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute right-0 top-full mt-2 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl py-1 z-50"
+                            >
+                              {movie.availableTrailers.map(t => (
+                                <button
+                                  key={t.key}
+                                  onClick={() => {
+                                    setSelectedTrailer({ key: t.key, site: t.site });
+                                    setIsTrailerDropdownOpen(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
+                                    selectedTrailer.key === t.key 
+                                      ? 'bg-brand/20 text-brand' 
+                                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                                  }`}
+                                >
+                                  {LANGUAGE_MAP[t.language] || t.language.toUpperCase()} Trailer
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="relative aspect-video rounded-xl overflow-hidden border border-white/5 shadow-2xl">
                     <iframe
-                      src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                        ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=0`
-                        : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1`
+                      src={selectedTrailer.site?.toLowerCase() === 'vimeo'
+                        ? `https://player.vimeo.com/video/${selectedTrailer.key}?autoplay=0`
+                        : `https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=0&rel=0&enablejsapi=1`
                       }
                       title={`${movie.title} Trailer`}
                       className="absolute inset-0 w-full h-full"

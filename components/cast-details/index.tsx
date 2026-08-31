@@ -4,8 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Loader2, Calendar, MapPin, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Loader2, Calendar, MapPin, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { getCastDetails, getCastMovies } from '@/services/tmdbService';
 import { Movie, CastMember } from '@/types';
 import ErrorMessage from '@/components/ui/error-message';
@@ -35,6 +35,32 @@ export default function CastDetails({
   const [error, setError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeftState = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDragging.current = true;
+    if (scrollRef.current) {
+      startX.current = e.pageX - scrollRef.current.offsetLeft;
+      scrollLeftState.current = scrollRef.current.scrollLeft;
+    }
+  };
+  const handleMouseLeave = () => {
+    isDragging.current = false;
+  };
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 2; 
+    scrollRef.current.scrollLeft = scrollLeftState.current - walk;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -164,7 +190,7 @@ export default function CastDetails({
           </div>
 
           {/* Details */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <motion.div
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -201,12 +227,20 @@ export default function CastDetails({
                   <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
                     <span className="w-1 h-3 bg-brand"></span> GALLERY
                   </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div 
+                    ref={scrollRef}
+                    className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar cursor-grab active:cursor-grabbing"
+                    onMouseDown={handleMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                  >
                     {cast.images.slice(0, 8).map((img, idx) => (
                       <div 
                         key={idx} 
-                        className="aspect-[2/3] relative rounded-xl overflow-hidden cursor-pointer group"
+                        className="w-40 sm:w-48 md:w-56 shrink-0 aspect-[2/3] relative rounded-xl overflow-hidden cursor-pointer group snap-start"
                         onClick={() => setSelectedImage(img)}
+                        draggable={false}
                       >
                         <Image
                           src={img}
@@ -214,8 +248,9 @@ export default function CastDetails({
                           fill
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                           className="object-cover transition-transform duration-500 group-hover:scale-110"
+                          draggable={false}
                         />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
                           <span className="text-white font-bold text-sm tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">View</span>
                         </div>
                       </div>
@@ -264,6 +299,20 @@ export default function CastDetails({
             >
               <X className="w-6 h-6" />
             </button>
+
+            {/* Left Nav Button */}
+            {cast.images && cast.images.indexOf(selectedImage) > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedImage(cast.images![cast.images!.indexOf(selectedImage) - 1]);
+                }}
+                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-brand hover:text-black rounded-full text-white transition-all z-50 group"
+              >
+                <ChevronLeft className="w-6 h-6 md:w-8 md:h-8 group-hover:-translate-x-1 transition-transform" />
+              </button>
+            )}
+
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -280,6 +329,19 @@ export default function CastDetails({
                 priority
               />
             </motion.div>
+
+            {/* Right Nav Button */}
+            {cast.images && cast.images.indexOf(selectedImage) < cast.images.length - 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedImage(cast.images![cast.images!.indexOf(selectedImage) + 1]);
+                }}
+                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-brand hover:text-black rounded-full text-white transition-all z-50 group"
+              >
+                <ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-hover:translate-x-1 transition-transform" />
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
