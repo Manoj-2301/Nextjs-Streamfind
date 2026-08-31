@@ -301,7 +301,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                     className="w-full h-full scale-110 md:scale-125 pointer-events-none"
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
                       ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=0&background=1`
-                      : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                      : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                     }
                     title={movie.title}
                     frameBorder="0"
@@ -348,26 +348,22 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                     rel="noopener noreferrer"
                     className="w-full sm:w-auto"
                   >
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all uppercase flex items-center justify-center gap-2 ${getPartnerStyles(primaryPlatform)}`}
+                    <button
+                      className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 uppercase flex items-center justify-center gap-2 ${getPartnerStyles(primaryPlatform)}`}
                     >
                       <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
-                    </motion.button>
+                    </button>
                   </a>
                 )}
 
 
 
                 <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="w-full sm:w-auto glass px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest hover:bg-white/10 transition-all text-white uppercase flex items-center justify-center gap-2"
+                  <button
+                    className="w-full sm:w-auto glass px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 text-white uppercase flex items-center justify-center gap-2"
                   >
                     VIEW DETAILS
-                  </motion.button>
+                  </button>
                 </Link>
               </div>
             </div>

@@ -183,13 +183,11 @@ export default function Navbar() {
             </div>
           ) : (
             <Link href="/auth">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-brand to-rose-500 shadow-[0_0_20px_rgba(255,40,78,0.3)] text-white px-6 py-2.5 rounded-full text-xs font-black flex items-center gap-2 uppercase tracking-widest"
+              <button
+                className="bg-gradient-to-r from-brand to-rose-500 shadow-[0_0_20px_rgba(255,40,78,0.3)] text-white px-6 py-2.5 rounded-full text-xs font-black flex items-center gap-2 uppercase tracking-widest transition-transform duration-300 hover:scale-105 active:scale-95"
               >
                 <LogIn className="w-4 h-4" /> SIGN IN
-              </motion.button>
+              </button>
             </Link>
           )}
 

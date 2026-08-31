@@ -390,9 +390,7 @@ export default function Home({
                 </div>
               )
             ) : (
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <button 
                 onClick={async (e) => {
                   e.stopPropagation();
                   if (profile.plan !== 'premium') {
@@ -407,7 +405,7 @@ export default function Home({
                     console.error(e);
                   }
                 }}
-                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 backdrop-blur-md animate-bounce-subtle ${
+                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] backdrop-blur-md animate-bounce-subtle ${
                   profile.plan !== 'premium'
                     ? 'border-white/5 text-white/40 cursor-not-allowed opacity-80'
                     : 'border-white/10 text-white/80 hover:text-brand hover:bg-black/100 cursor-pointer'
@@ -416,7 +414,7 @@ export default function Home({
                 <span>🍿</span>
                 <span>Enable Subs DNA Filter</span>
                 {profile.plan !== 'premium' && <span className="ml-1 opacity-50">🔒</span>}
-              </motion.button>
+              </button>
             )}
           </motion.div>
         )}

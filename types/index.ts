@@ -36,6 +36,7 @@ export interface Movie {
   crew?: CastMember[];
   trailerYoutubeId?: string;
   trailerSite?: string;
+  availableTrailers?: { language: string; key: string; site: string; name: string }[];
   type?: 'movie' | 'tv';
   originalLanguage?: string;
   language?: string;
@@ -65,8 +66,7 @@ export interface ProfileSettings {
   notifyWatchHistoryRecs?: boolean;
   notifySimilarContent?: boolean;
   channelEmail?: boolean;
-  channelPush?: boolean;
-  channelBrowser?: boolean;
+
   prefLanguage?: string;
   prefContentType?: 'movies' | 'tv' | 'both';
   dnaMoods?: string[];
@@ -75,6 +75,6 @@ export interface ProfileSettings {
   securityAlertSuspicious?: boolean;
   securityAlertProfileChange?: boolean;
   securityAlertWeeklyDigest?: boolean;
-  plan?: 'free' | 'premium';
+  plan?: 'free' | 'premium' | 'ultimate';
   loginStreak?: number;
 }

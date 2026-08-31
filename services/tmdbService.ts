@@ -137,7 +137,7 @@ if (typeof window === 'undefined') {
   }
 
   try {
-    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    if (process.env.USE_REDIS === 'true' && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
       redis = new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL,
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
@@ -150,24 +150,22 @@ if (typeof window === 'undefined') {
 
 let genresMap: Record<number, string> = {};
 
-const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Promise<any> => {
+export const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit): Promise<any> => {
   const isServer = typeof window === 'undefined';
   let url = '';
 
   let finalPathAndParams = pathAndParams;
-  if (finalPathAndParams.includes('append_to_response=') && finalPathAndParams.includes('videos')) {
-    finalPathAndParams += '&include_video_language=en,te,ta,hi,ml,kn,mr,bn,gu,pa,ur,zh,ja,ko,es,fr,de,it,pt,ru,null';
-  }
+  // Removed include_video_language to allow fast default trailer loading on initial fetch
 
   let cacheKey = '';
   if (isServer) {
     const apiKey = process.env.TMDB_API_KEY || process.env.NEXT_PUBLIC_TMDB_API_KEY;
     const separator = finalPathAndParams.includes('?') ? '&' : '?';
-    url = `${BASE_URL}/${finalPathAndParams}${separator}api_key=${apiKey}`;
+    url = `${BASE_URL}/${finalPathAndParams}${separator}api_key=${apiKey}&_cb=3`;
     
     // Check Redis Cache
     if (redis && (!options || options.method === 'GET' || !options.method)) {
-      cacheKey = `tmdb-z:${finalPathAndParams}`;
+      cacheKey = `tmdb-w:${finalPathAndParams}`;
       try {
         const cachedData = await redis.get(cacheKey);
         if (cachedData && typeof cachedData === 'string') {
@@ -259,21 +257,39 @@ const extractTrailer = (videosObj: any, originalLanguage?: string): { key?: stri
   }
 
   // 1. Look for type === 'Trailer' (YouTube first, then Vimeo, then others)
+  const officialTrailerYoutube = results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube' && v.official);
+  if (officialTrailerYoutube) return { key: officialTrailerYoutube.key, site: 'YouTube' };
+
   const trailerYoutube = results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube');
   if (trailerYoutube) return { key: trailerYoutube.key, site: 'YouTube' };
 
+  const officialTrailerVimeo = results.find((v: any) => v.type === 'Trailer' && v.site === 'Vimeo' && v.official);
+  if (officialTrailerVimeo) return { key: officialTrailerVimeo.key, site: 'Vimeo' };
+
   const trailerVimeo = results.find((v: any) => v.type === 'Trailer' && v.site === 'Vimeo');
   if (trailerVimeo) return { key: trailerVimeo.key, site: 'Vimeo' };
+
+  const officialTrailerAny = results.find((v: any) => v.type === 'Trailer' && v.official);
+  if (officialTrailerAny) return { key: officialTrailerAny.key, site: officialTrailerAny.site };
 
   const trailerAny = results.find((v: any) => v.type === 'Trailer');
   if (trailerAny) return { key: trailerAny.key, site: trailerAny.site };
 
   // 2. Look for type === 'Teaser' (YouTube first, then Vimeo, then others)
+  const officialTeaserYoutube = results.find((v: any) => v.type === 'Teaser' && v.site === 'YouTube' && v.official);
+  if (officialTeaserYoutube) return { key: officialTeaserYoutube.key, site: 'YouTube' };
+
   const teaserYoutube = results.find((v: any) => v.type === 'Teaser' && v.site === 'YouTube');
   if (teaserYoutube) return { key: teaserYoutube.key, site: 'YouTube' };
 
+  const officialTeaserVimeo = results.find((v: any) => v.type === 'Teaser' && v.site === 'Vimeo' && v.official);
+  if (officialTeaserVimeo) return { key: officialTeaserVimeo.key, site: 'Vimeo' };
+
   const teaserVimeo = results.find((v: any) => v.type === 'Teaser' && v.site === 'Vimeo');
   if (teaserVimeo) return { key: teaserVimeo.key, site: 'Vimeo' };
+
+  const officialTeaserAny = results.find((v: any) => v.type === 'Teaser' && v.official);
+  if (officialTeaserAny) return { key: officialTeaserAny.key, site: officialTeaserAny.site };
 
   const teaserAny = results.find((v: any) => v.type === 'Teaser');
   if (teaserAny) return { key: teaserAny.key, site: teaserAny.site };
@@ -290,6 +306,41 @@ const extractTrailer = (videosObj: any, originalLanguage?: string): { key?: stri
   if (firstVideo) return { key: firstVideo.key, site: firstVideo.site };
 
   return {};
+};
+
+export const extractAllTrailers = (videosObj: any): { language: string; key: string; site: string; name: string }[] => {
+  if (!videosObj || !videosObj.results || videosObj.results.length === 0) {
+    return [];
+  }
+  const results = videosObj.results;
+  const available: { language: string; key: string; site: string; name: string }[] = [];
+  const addedLangs = new Set<string>();
+
+  // Prioritize Official Trailers
+  for (const v of results) {
+    if (v.type === 'Trailer' && v.official && v.iso_639_1 && !addedLangs.has(v.iso_639_1)) {
+      available.push({ language: v.iso_639_1, key: v.key, site: v.site, name: v.name });
+      addedLangs.add(v.iso_639_1);
+    }
+  }
+
+  // Fallback to any Trailer
+  for (const v of results) {
+    if (v.type === 'Trailer' && v.iso_639_1 && !addedLangs.has(v.iso_639_1)) {
+      available.push({ language: v.iso_639_1, key: v.key, site: v.site, name: v.name });
+      addedLangs.add(v.iso_639_1);
+    }
+  }
+
+  // Fallback to Teaser
+  for (const v of results) {
+    if (v.type === 'Teaser' && v.iso_639_1 && !addedLangs.has(v.iso_639_1)) {
+      available.push({ language: v.iso_639_1, key: v.key, site: v.site, name: v.name });
+      addedLangs.add(v.iso_639_1);
+    }
+  }
+
+  return available;
 };
 
 const mapTmdbMovie = (tmdbMovie: any): Movie => {
@@ -325,6 +376,7 @@ const mapTmdbMovie = (tmdbMovie: any): Movie => {
     cast: [],
     trailerYoutubeId: trailerInfo.key,
     trailerSite: trailerInfo.site,
+    availableTrailers: extractAllTrailers(tmdbMovie.videos),
     type: 'movie',
     originalLanguage: fullLanguage,
     language: tmdbMovie.original_language?.toUpperCase()
@@ -368,6 +420,7 @@ const mapTmdbTvShow = (tmdbTv: any): Movie => {
     cast: [],
     trailerYoutubeId: trailerInfo.key,
     trailerSite: trailerInfo.site,
+    availableTrailers: extractAllTrailers(tmdbTv.videos),
     type: 'tv',
     originalLanguage: fullLanguage,
     language: tmdbTv.original_language?.toUpperCase()

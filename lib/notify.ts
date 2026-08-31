@@ -28,7 +28,7 @@ export const notify = {
     return toast.success(message, opts);
   },
   error: (message: string, opts?: ToastOptions) => {
-    // Always show errors regardless of channel setting — errors are critical
+    if (!isBrowserEnabled()) return '';
     return toast.error(message, opts);
   },
   loading: (message: string, opts?: ToastOptions) => {

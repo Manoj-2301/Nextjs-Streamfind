@@ -78,14 +78,12 @@ export default function Sponsorship() {
               <label className="block text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Platform Details</label>
               <textarea required rows={4} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-brand transition-colors resize-none" placeholder="Tell us about your platform and goals..."></textarea>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               type="submit"
-              className="w-full bg-brand py-3 rounded-xl font-black text-[13px] tracking-[0.2em] text-white uppercase shadow-lg shadow-brand/20"
+              className="w-full bg-brand py-3 rounded-xl font-black text-[13px] tracking-[0.2em] text-white uppercase shadow-lg shadow-brand/20 transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
             >
               SUBMIT PARTNERSHIP INQUIRY
-            </motion.button>
+            </button>
           </form>
         )}
       </div>

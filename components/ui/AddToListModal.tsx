@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { X, CheckCircle2, List as ListIcon, Plus } from 'lucide-react';
 import { notify as toast } from '@/lib/notify';
@@ -62,10 +63,13 @@ export default function AddToListModal() {
 
         {/* Movie Info */}
         <div className="p-5 flex items-center gap-4 bg-white/[0.02]">
-          <img 
+          <Image 
             src={movieToAdd.posterUrl} 
             alt={movieToAdd.title} 
+            width={48}
+            height={64}
             className="w-12 h-16 object-cover rounded-md border border-white/10"
+            unoptimized // Since TMDB images are external
           />
           <div className="flex-1">
             <h4 className="text-white font-bold line-clamp-1">{movieToAdd.title}</h4>

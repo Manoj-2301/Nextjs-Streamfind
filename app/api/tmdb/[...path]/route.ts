@@ -87,7 +87,7 @@ export async function GET(
     let redis = null;
     let zlibModule: any = null;
     try {
-      if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      if (process.env.USE_REDIS === 'true' && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
         const { Redis } = await import('@upstash/redis');
         redis = new Redis({
           url: process.env.UPSTASH_REDIS_REST_URL,

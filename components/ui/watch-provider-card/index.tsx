@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { Platform } from '@/types';
 import React, { useState, useEffect } from 'react';
@@ -129,9 +128,8 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
   const watchUrl = resolveWatchUrl(platform.name, standardWatchUrl, affiliateLinks);
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className={`relative p-6 rounded-2xl flex flex-col items-center gap-4 transition-all group overflow-hidden ${
+    <div
+      className={`relative p-6 rounded-2xl flex flex-col items-center gap-4 transition-all hover:scale-[1.02] duration-300 group overflow-hidden ${
         isPartner 
           ? 'bg-brand/10 border border-brand/30 shadow-[0_0_25px_rgba(229,9,20,0.15)] hover:border-brand/60' 
           : isAvailableInIndia
@@ -191,6 +189,6 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
       >
         Watch Now <ExternalLink className="w-4 h-4" />
       </a>
-    </motion.div>
+    </div>
   );
 }

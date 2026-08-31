@@ -30,22 +30,19 @@ export default function ErrorMessage({
 
       <div className="flex flex-col sm:flex-row gap-4">
         {onRetry && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={onRetry}
-            className="bg-brand px-6 py-2.5 rounded-md font-bold text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-brand/90 transition-all text-white"
+            className="bg-brand px-6 py-2.5 rounded-md font-bold text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-brand/90 transition-all duration-300 hover:scale-105 active:scale-95 text-white"
           >
             <RefreshCcw className="w-4 h-4" /> RETRY LOAD
-          </motion.button>
+          </button>
         )}
         <Link href="/">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            className="glass px-6 py-2.5 rounded-md font-bold text-xs tracking-widest hover:bg-white/10 transition-all text-white flex items-center justify-center gap-2"
+          <button
+            className="glass px-6 py-2.5 rounded-md font-bold text-xs tracking-widest hover:bg-white/10 transition-all duration-300 hover:scale-105 text-white flex items-center justify-center gap-2"
           >
             <Home className="w-4 h-4" /> BACK TO HOME
-          </motion.button>
+          </button>
         </Link>
       </div>
     </div>

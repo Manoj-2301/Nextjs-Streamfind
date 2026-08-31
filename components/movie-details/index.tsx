@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { Star, Clock, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil, Sparkles, Zap, Flame, Crown, PawPrint } from 'lucide-react';
+import { Star, Clock, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil, Sparkles, Zap, Flame, Crown, PawPrint, ChevronDown } from 'lucide-react';
 import WatchProviderCard from '@/components/ui/watch-provider-card';
 import ErrorMessage from '@/components/ui/error-message';
 import Link from 'next/link';
@@ -13,7 +13,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
 import { Movie, Platform } from '@/types';
 import { app } from '@/lib/firebase';
-import { collection, query, onSnapshot, collectionGroup, where , getFirestore } from 'firebase/firestore';
+import { collection, query, onSnapshot, collectionGroup, where, getFirestore } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import Pagination from '@/components/ui/pagination';
@@ -151,7 +151,7 @@ const UserScore = ({ rating }: { rating: number }) => {
   let strokeColor = '#21d07a'; // Green
   let trackColor = '#204529';
   let glowColor = 'drop-shadow-[0_0_8px_rgba(33,208,122,0.4)]';
-  
+
   if (percentage < 70 && percentage > 0) {
     strokeColor = '#d2d531'; // Yellow
     trackColor = '#423d0f';
@@ -206,6 +206,10 @@ const UserScore = ({ rating }: { rating: number }) => {
     </div>
   );
 };
+const LANGUAGE_MAP: Record<string, string> = {
+  en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil',
+  kn: 'Kannada', ml: 'Malayalam', mr: 'Marathi', bn: 'Bengali', gu: 'Gujarati'
+};
 
 export default function MovieDetails({ initialMovie }: { initialMovie?: Movie }) {
   const params = useParams<{ id: string }>(); const id = params.id;
@@ -218,8 +222,14 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const [isLoading, setIsLoading] = useState(!initialMovie);
   const [error, setError] = useState(false);
   const [movie, setMovie] = useState<Movie | null>(initialMovie || null);
+  const [selectedTrailer, setSelectedTrailer] = useState<{ key: string, site: string } | null>(
+    initialMovie?.trailerYoutubeId ? { key: initialMovie.trailerYoutubeId, site: initialMovie.trailerSite || 'YouTube' } : null
+  );
+
+  const [isTrailerDropdownOpen, setIsTrailerDropdownOpen] = useState(false);
   const [showAllCast, setShowAllCast] = useState(false);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
   const reviewTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -228,9 +238,30 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeftState = useRef(0);
-  
+
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (movie && id) {
+      // Lazy load regional trailers in the background
+      fetch(`/api/trailers?id=${id}&type=${typeParam || 'movie'}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.availableTrailers && data.availableTrailers.length > 0) {
+            setMovie(prev => {
+              if (!prev) return prev;
+              // Only update if we found new trailers to avoid unnecessary re-renders
+              if (JSON.stringify(prev.availableTrailers) !== JSON.stringify(data.availableTrailers)) {
+                return { ...prev, availableTrailers: data.availableTrailers };
+              }
+              return prev;
+            });
+          }
+        })
+        .catch(err => console.error('Error fetching regional trailers:', err));
+    }
+  }, [id, typeParam, movie?.id]);
 
   useEffect(() => {
     return () => {
@@ -387,6 +418,9 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       try {
         const details = await getMovieDetails(Number(id), typeParam || undefined);
         setMovie(details);
+        setSelectedTrailer(
+          details?.trailerYoutubeId ? { key: details.trailerYoutubeId, site: details.trailerSite || 'YouTube' } : null
+        );
       } catch (err) {
         console.error('Error fetching details:', err);
         setError(true);
@@ -554,10 +588,10 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       updateScrollStatus(localScrollRef, setLocalScrollStatus);
       updateScrollStatus(otherScrollRef, setOtherScrollStatus);
     };
-    
+
     const timer = setTimeout(handleResize, 100);
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       clearTimeout(timer);
       window.removeEventListener('resize', handleResize);
@@ -632,7 +666,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const currentYear = new Date().getFullYear();
   const isUpcomingOrNew = movie ? movie.year >= currentYear : false;
-  
+
   // Check if movie is currently in theaters (released in the last 60 days or in the future)
   const isRunningInTheaters = (() => {
     if (!movie || !movie.releaseDate || movie.type === 'tv') return false;
@@ -651,7 +685,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       {/* Backdrop Section */}
       <div className="relative w-full h-[40vh] md:h-[70vh] overflow-hidden bg-black">
         <AnimatePresence mode="wait">
-          {movie.trailerYoutubeId ? (
+          {selectedTrailer?.key ? (
             <motion.div
               key="trailer"
               initial={{ opacity: 0 }}
@@ -659,26 +693,17 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               exit={{ opacity: 0 }}
               className="w-full h-full relative"
             >
-              {/* <iframe
-                className="w-full h-full scale-110 md:scale-125 pointer-events-none"
-                src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`}
-                title={movie.title}
-                frameBorder="0"
-                allow="autoplay; encrypted-media;fullscreen;"
-                referrerPolicy="no-referrer"
-              /> */}
+
               <OptimizedIframe
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
-                src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                  ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=1&background=1`
-                  : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                src={selectedTrailer.site?.toLowerCase() === 'vimeo'
+                  ? `https://player.vimeo.com/video/${selectedTrailer.key}?autoplay=1&loop=1&muted=1&background=1`
+                  : `https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${selectedTrailer.key}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                 }
                 title={movie.title}
                 frameBorder="0"
                 allow="autoplay; encrypted-media; fullscreen;"
               />
-              {/* Overlay to ensure readability and standard cinema look */}
-              {/* <div className="absolute inset-0 bg-black/20" /> */}
             </motion.div>
           ) : (
             <OptimizedImage
@@ -693,7 +718,9 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
           )}
         </AnimatePresence>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+        {selectedTrailer?.key && (
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none" />
+        )}
 
         {movie.trailerYoutubeId && (
           <button
@@ -902,61 +929,62 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                   {(showAllCast ? movie.cast : movie.cast.slice(0, 4)).map((actor, i) => {
                     const hasImage = actor.imageUrl && !actor.imageUrl.includes('placehold.co');
                     const initials = actor.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                    
+
                     const theme = ACTOR_THEMES[actor.name];
                     const glowClass = theme ? theme.glowClass : "shadow-lg hover:shadow-[0_0_15px_rgba(var(--brand-color-rgb),0.15)]";
                     const borderClass = theme ? theme.borderClass : "hover:border-brand/40";
                     const bgClass = theme ? theme.bgClass : "group-hover:to-brand/5";
                     const Icon = theme?.icon;
-                    
-                    return (
-                    <Link key={i} href={`/cast/${actor.id}-${actor.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className={`flex items-center gap-3 md:gap-4 group cursor-pointer bg-[#151515] p-2.5 md:p-3 rounded-xl md:rounded-2xl hover:bg-[#1a1a1a] transition-all border border-[#222] relative overflow-hidden ${borderClass} ${glowClass}`}>
-                      <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity ${bgClass}`} />
-                      
-                      {theme && Icon && (
-                        <div className="absolute top-1/2 -translate-y-1/2 -right-4 md:-right-8 opacity-10 group-hover:opacity-30 transition-opacity pointer-events-none transform scale-110 group-hover:scale-125 duration-700">
-                          <Icon className={`w-28 h-28 md:w-36 md:h-36 ${theme.colorClass} drop-shadow-2xl`} strokeWidth={1} />
-                        </div>
-                      )}
 
-                      <div className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden shrink-0 border border-white/5 transition-all bg-black/40 flex items-center justify-center text-white/40 font-black text-xs md:text-sm z-10 ${theme ? theme.borderClass : 'group-hover:border-brand/50'}`}>
-                        {hasImage ? (
-                          <Image
-                            src={actor.imageUrl}
-                            alt={actor.name}
-                            width={64}
-                            height={64}
-                            className="w-full h-full object-cover grayscale transition-transform duration-700 scale-100 group-hover:scale-105"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <span>{initials}</span>
-                        )}
-                      </div>
-                      <div className="relative min-w-0 flex flex-col justify-center flex-1 z-10">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-xs md:text-sm font-black text-[#f0f0f0] uppercase tracking-tight leading-tight truncate transition-colors ${theme ? 'group-hover:' + theme.colorClass : ''}`}>{actor.name}</p>
-                          {theme && Icon && <Icon className={`w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity ${theme.colorClass} drop-shadow-md`} />}
-                        </div>
-                        <p className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-[#dc2626] mt-0.5 truncate font-black">{actor.role}</p>
-                        
-                        {(actor.birthday || actor.placeOfBirth) && (
-                          <div className="flex items-center gap-1.5 md:gap-2 mt-1.5 md:mt-2 text-[7px] md:text-[8px] text-[#666] uppercase tracking-widest font-black">
-                            {actor.birthday && (
-                              <span className="flex items-center gap-1 shrink-0"><Calendar className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555]" /> {new Date(actor.birthday).getFullYear()}</span>
-                            )}
-                            {actor.birthday && actor.placeOfBirth && <span className="opacity-40">•</span>}
-                            {actor.placeOfBirth && (
-                              <span className="flex items-center gap-1 truncate"><MapPin className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555] shrink-0" /> <span className="truncate">{actor.placeOfBirth.split(',').pop()?.trim() || actor.placeOfBirth}</span></span>
-                            )}
+                    return (
+                      <Link key={i} href={`/cast/${actor.id}-${actor.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className={`flex items-center gap-3 md:gap-4 group cursor-pointer bg-[#151515] p-2.5 md:p-3 rounded-xl md:rounded-2xl hover:bg-[#1a1a1a] transition-all border border-[#222] relative overflow-hidden ${borderClass} ${glowClass}`}>
+                        <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity ${bgClass}`} />
+
+                        {theme && Icon && (
+                          <div className="absolute top-1/2 -translate-y-1/2 -right-4 md:-right-8 opacity-10 group-hover:opacity-30 transition-opacity pointer-events-none transform scale-110 group-hover:scale-125 duration-700">
+                            <Icon className={`w-28 h-28 md:w-36 md:h-36 ${theme.colorClass} drop-shadow-2xl`} strokeWidth={1} />
                           </div>
                         )}
-                      </div>
-                    </Link>
-                  )})}
+
+                        <div className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden shrink-0 border border-white/5 transition-all bg-black/40 flex items-center justify-center text-white/40 font-black text-xs md:text-sm z-10 ${theme ? theme.borderClass : 'group-hover:border-brand/50'}`}>
+                          {hasImage ? (
+                            <Image
+                              src={actor.imageUrl}
+                              alt={actor.name}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover grayscale transition-transform duration-700 scale-100 group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span>{initials}</span>
+                          )}
+                        </div>
+                        <div className="relative min-w-0 flex flex-col justify-center flex-1 z-10">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-xs md:text-sm font-black text-[#f0f0f0] uppercase tracking-tight leading-tight truncate transition-colors ${theme ? 'group-hover:' + theme.colorClass : ''}`}>{actor.name}</p>
+                            {theme && Icon && <Icon className={`w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity ${theme.colorClass} drop-shadow-md`} />}
+                          </div>
+                          <p className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-[#dc2626] mt-0.5 truncate font-black">{actor.role}</p>
+
+                          {(actor.birthday || actor.placeOfBirth) && (
+                            <div className="flex items-center gap-1.5 md:gap-2 mt-1.5 md:mt-2 text-[7px] md:text-[8px] text-[#666] uppercase tracking-widest font-black">
+                              {actor.birthday && (
+                                <span className="flex items-center gap-1 shrink-0"><Calendar className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555]" /> {new Date(actor.birthday).getFullYear()}</span>
+                              )}
+                              {actor.birthday && actor.placeOfBirth && <span className="opacity-40">•</span>}
+                              {actor.placeOfBirth && (
+                                <span className="flex items-center gap-1 truncate"><MapPin className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555] shrink-0" /> <span className="truncate">{actor.placeOfBirth.split(',').pop()?.trim() || actor.placeOfBirth}</span></span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
                 {movie.cast.length > 4 && (
-                  <button 
+                  <button
                     onClick={() => setShowAllCast(!showAllCast)}
                     className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs md:text-sm font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 text-white/60 hover:text-white"
                   >
@@ -966,16 +994,68 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               </div>
 
               {/* Trailer Section */}
-              {movie.trailerYoutubeId && (
+              {selectedTrailer?.key && (
                 <div className="mb-12 md:mb-16">
-                  <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
-                    <span className="w-1 h-3 bg-brand"></span> <Play className="w-3 h-3" /> OFFICIAL TRAILER
-                  </h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
+                      <span className="w-1 h-3 bg-brand"></span> <Play className="w-3 h-3" /> OFFICIAL TRAILER
+                    </h3>
+                    
+                    {movie.availableTrailers && movie.availableTrailers.length > 1 && (
+                      <div 
+                        className="relative z-50"
+                        tabIndex={0}
+                        onBlur={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget)) {
+                            setIsTrailerDropdownOpen(false);
+                          }
+                        }}
+                      >
+                        <button
+                          onClick={() => setIsTrailerDropdownOpen(!isTrailerDropdownOpen)}
+                          className="flex items-center gap-2 bg-surface/80 border border-white/10 text-white/90 text-[10px] md:text-xs font-semibold px-4 py-2 rounded-xl focus:outline-none focus:border-brand/50 hover:border-white/20 transition-all cursor-pointer shadow-lg hover:shadow-brand/10"
+                        >
+                          {LANGUAGE_MAP[movie.availableTrailers.find(t => t.key === selectedTrailer.key)?.language || ''] || 'Trailer'} 
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isTrailerDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        <AnimatePresence>
+                          {isTrailerDropdownOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute right-0 top-full mt-2 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl py-1 z-50"
+                            >
+                              {movie.availableTrailers.map(t => (
+                                <button
+                                  key={t.key}
+                                  onClick={() => {
+                                    setSelectedTrailer({ key: t.key, site: t.site });
+                                    setIsTrailerDropdownOpen(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
+                                    selectedTrailer.key === t.key 
+                                      ? 'bg-brand/20 text-brand' 
+                                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                                  }`}
+                                >
+                                  {LANGUAGE_MAP[t.language] || t.language.toUpperCase()} Trailer
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="relative aspect-video rounded-xl overflow-hidden border border-white/5 shadow-2xl">
                     <iframe
-                      src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                        ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=0`
-                        : `https://www.youtube-nocookie.com/embed/${movie.trailerYoutubeId}?autoplay=0&rel=0&enablejsapi=1`
+                      src={selectedTrailer.site?.toLowerCase() === 'vimeo'
+                        ? `https://player.vimeo.com/video/${selectedTrailer.key}?autoplay=0`
+                        : `https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=0&rel=0&enablejsapi=1`
                       }
                       title={`${movie.title} Trailer`}
                       className="absolute inset-0 w-full h-full"

@@ -85,12 +85,11 @@ function VerifyEmailSection({ oobCode }: { oobCode: string }) {
             <span className="text-brand font-bold">StreamFind</span> account.
           </p>
           <Link href="/auth">
-            <motion.button
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+            <button
+              className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center gap-2"
             >
               <Mail className="w-5 h-5" /> Sign In Now <ArrowRight className="w-4 h-4" />
-            </motion.button>
+            </button>
           </Link>
         </>
       )}
@@ -102,12 +101,11 @@ function VerifyEmailSection({ oobCode }: { oobCode: string }) {
           <p className="text-white/60 leading-relaxed mb-8">{errorMsg}</p>
           <div className="flex flex-col gap-3">
             <Link href="/auth">
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+              <button
+                className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center gap-2"
               >
                 <Mail className="w-5 h-5" /> Back to Sign Up
-              </motion.button>
+              </button>
             </Link>
             <Link href="/">
               <button className="w-full text-white/40 hover:text-white text-sm transition-colors py-2">
@@ -230,16 +228,14 @@ function ResetPasswordSection({ oobCode }: { oobCode: string }) {
               </button>
             </div>
 
-            <motion.button
+            <button
               type="submit" disabled={isSubmitting}
-              whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
-              whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
-              className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
             >
               {isSubmitting
                 ? <Loader2 className="w-5 h-5 animate-spin" />
                 : <><Lock className="w-5 h-5" /> Set New Password</>}
-            </motion.button>
+            </button>
           </form>
         </>
       )}
@@ -252,12 +248,11 @@ function ResetPasswordSection({ oobCode }: { oobCode: string }) {
             Your password has been reset. You can now sign in with your new password.
           </p>
           <Link href="/auth">
-            <motion.button
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+            <button
+              className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center gap-2"
             >
               Sign In Now <ArrowRight className="w-5 h-5" />
-            </motion.button>
+            </button>
           </Link>
         </div>
       )}
@@ -269,12 +264,11 @@ function ResetPasswordSection({ oobCode }: { oobCode: string }) {
           <p className="text-white/60 leading-relaxed mb-8">{errorMsg}</p>
           <div className="flex flex-col gap-3">
             <Link href="/auth">
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+              <button
+                className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center gap-2"
               >
                 Request New Link <ArrowRight className="w-5 h-5" />
-              </motion.button>
+              </button>
             </Link>
             <Link href="/">
               <button className="w-full text-white/40 hover:text-white text-sm transition-colors py-2">
@@ -321,12 +315,11 @@ export default function AuthActionPage() {
                 This link is invalid or missing required parameters. Please use the link from your email.
               </p>
               <Link href="/">
-                <motion.button
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-colors"
+                <button
+                  className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
                 >
                   Go to Home
-                </motion.button>
+                </button>
               </Link>
             </div>
           )}

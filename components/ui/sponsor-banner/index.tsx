@@ -38,16 +38,15 @@ export default function SponsorBanner({ movieName, providerName, offerText, affi
           
           <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-10 relative z-10 w-full lg:w-auto text-center lg:text-left">
             {/* Badge */}
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              className="flex flex-col items-center justify-center w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-white/10 to-transparent border border-white/20 rounded-full shadow-[inset_0_4px_20px_rgba(255,255,255,0.05)] shrink-0 relative"
+            <div 
+              className="flex flex-col items-center justify-center w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-white/10 to-transparent border border-white/20 rounded-full shadow-[inset_0_4px_20px_rgba(255,255,255,0.05)] shrink-0 relative transition-transform duration-300 hover:scale-105"
             >
               <div className="absolute inset-0 bg-brand/10 rounded-full animate-ping opacity-20" style={{ animationDuration: '3s' }} />
               <Sparkles className="w-5 h-5 text-brand mb-1.5" />
               <span className="text-[8px] uppercase tracking-[0.2em] font-black text-white text-center leading-tight">
                 Featured<br/>Partner
               </span>
-            </motion.div>
+            </div>
             
             {/* Typography */}
             <div className="max-w-lg">
@@ -72,13 +71,11 @@ export default function SponsorBanner({ movieName, providerName, offerText, affi
           </div>
           
           {/* CTA Button */}
-          <motion.a 
+          <a 
             href={affiliateUrl}
             target="_blank"
             rel="noopener noreferrer"
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative group/btn z-10 shrink-0 w-full lg:w-auto"
+            className="relative group/btn z-10 shrink-0 w-full lg:w-auto transition-transform duration-300 hover:scale-[1.05] hover:-translate-y-0.5 active:scale-95"
           >
             <div className="absolute -inset-0.5 bg-gradient-to-r from-brand to-white/50 rounded-xl blur opacity-30 group-hover/btn:opacity-60 transition-opacity duration-500" />
             <div className="relative flex items-center justify-center gap-3 bg-white text-black px-6 py-3 rounded-xl overflow-hidden shadow-lg">
@@ -90,7 +87,7 @@ export default function SponsorBanner({ movieName, providerName, offerText, affi
                 <span className="text-white text-[10px] group-hover/btn:translate-x-0.5 transition-transform">→</span>
               </div>
             </div>
-          </motion.a>
+          </a>
         </div>
       </motion.div>
     </div>
