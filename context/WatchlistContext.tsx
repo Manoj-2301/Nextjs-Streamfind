@@ -8,7 +8,11 @@ import { app } from '@/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 import { logUserActivity } from '@/lib/genreTracker';
 import { notify as toast } from '../lib/notify';
-import AddToListModal from '@/components/ui/AddToListModal';
+import dynamic from 'next/dynamic';
+
+const AddToListModal = dynamic(() => import('@/components/ui/AddToListModal'), {
+  ssr: false
+});
 
 export interface CustomWatchlist {
   id: string;
@@ -148,24 +152,11 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
-  const requestAddToList = (movie: Movie) => {
-    if (!user || customWatchlists.length === 0) {
-      // Direct add
-      addToWatchlist(movie);
-      toast.success(`Added to Watchlist`);
-    } else {
-      // Open modal
-      setMovieToAdd(movie);
-      setIsModalOpen(true);
-    }
-  };
+  const isInWatchlist = React.useCallback((movieId: number) => {
+    return watchlist.some(m => m.id === movieId);
+  }, [watchlist]);
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setTimeout(() => setMovieToAdd(null), 200);
-  };
-
-  const addToWatchlist = async (movie: Movie) => {
+  const addToWatchlist = React.useCallback(async (movie: Movie) => {
     logUserActivity("Watchlist", `Added "${movie.title}" to watchlist`);
     if (!user) {
       if (typeof window !== 'undefined') {
@@ -202,9 +193,9 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
-  };
+  }, [user, watchlist, isInWatchlist]);
 
-  const removeFromWatchlist = async (movieId: number) => {
+  const removeFromWatchlist = React.useCallback(async (movieId: number) => {
     const targetMovie = watchlist.find(m => m.id === movieId);
     if (targetMovie) {
       logUserActivity("Watchlist", `Removed "${targetMovie.title}" from watchlist`);
@@ -229,14 +220,27 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
-  };
+  }, [user, watchlist]);
 
-  const isInWatchlist = (movieId: number) => {
-    return watchlist.some(m => m.id === movieId);
-  };
+  const requestAddToList = React.useCallback((movie: Movie) => {
+    if (!user || customWatchlists.length === 0) {
+      // Direct add
+      addToWatchlist(movie);
+      toast.success(`Added to Watchlist`);
+    } else {
+      // Open modal
+      setMovieToAdd(movie);
+      setIsModalOpen(true);
+    }
+  }, [user, customWatchlists, addToWatchlist]);
+
+  const closeModal = React.useCallback(() => {
+    setIsModalOpen(false);
+    setTimeout(() => setMovieToAdd(null), 200);
+  }, []);
 
   // Custom List Functions
-  const createCustomWatchlist = async (name: string) => {
+  const createCustomWatchlist = React.useCallback(async (name: string) => {
     if (!user) return;
     try {
       const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
@@ -248,9 +252,9 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to create custom watchlist", error);
       throw error;
     }
-  };
+  }, [user]);
 
-  const deleteCustomWatchlist = async (id: string) => {
+  const deleteCustomWatchlist = React.useCallback(async (id: string) => {
     if (!user) return;
     try {
       const { doc, deleteDoc } = await import('firebase/firestore');
@@ -259,9 +263,9 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to delete custom watchlist", error);
       throw error;
     }
-  };
+  }, [user]);
 
-  const addToCustomWatchlist = async (listId: string, movie: Movie) => {
+  const addToCustomWatchlist = React.useCallback(async (listId: string, movie: Movie) => {
     if (!user) return;
     try {
       const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
@@ -274,9 +278,9 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to add to custom watchlist", error);
       throw error;
     }
-  };
+  }, [user]);
 
-  const removeFromCustomWatchlist = async (listId: string, movieId: number) => {
+  const removeFromCustomWatchlist = React.useCallback(async (listId: string, movieId: number) => {
     if (!user) return;
     try {
       const { doc, deleteDoc } = await import('firebase/firestore');
@@ -286,24 +290,30 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to remove from custom watchlist", error);
       throw error;
     }
-  };
+  }, [user]);
+
+  const value = React.useMemo(() => ({
+    watchlist, 
+    addToWatchlist, 
+    removeFromWatchlist, 
+    isInWatchlist,
+    customWatchlists,
+    createCustomWatchlist,
+    deleteCustomWatchlist,
+    addToCustomWatchlist,
+    removeFromCustomWatchlist,
+    requestAddToList,
+    isModalOpen,
+    closeModal,
+    movieToAdd
+  }), [
+    watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist, customWatchlists,
+    createCustomWatchlist, deleteCustomWatchlist, addToCustomWatchlist, removeFromCustomWatchlist,
+    requestAddToList, isModalOpen, closeModal, movieToAdd
+  ]);
 
   return (
-    <WatchlistContext.Provider value={{ 
-      watchlist, 
-      addToWatchlist, 
-      removeFromWatchlist, 
-      isInWatchlist,
-      customWatchlists,
-      createCustomWatchlist,
-      deleteCustomWatchlist,
-      addToCustomWatchlist,
-      removeFromCustomWatchlist,
-      requestAddToList,
-      isModalOpen,
-      closeModal,
-      movieToAdd
-    }}>
+    <WatchlistContext.Provider value={value}>
       {children}
       <AddToListModal />
     </WatchlistContext.Provider>

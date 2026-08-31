@@ -65,8 +65,7 @@ export interface ProfileSettings {
   notifyWatchHistoryRecs?: boolean;
   notifySimilarContent?: boolean;
   channelEmail?: boolean;
-  channelPush?: boolean;
-  channelBrowser?: boolean;
+
   prefLanguage?: string;
   prefContentType?: 'movies' | 'tv' | 'both';
   dnaMoods?: string[];

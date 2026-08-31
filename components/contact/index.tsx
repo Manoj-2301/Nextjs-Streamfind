@@ -143,19 +143,17 @@ export default function Contact() {
                 ></textarea>
               </div>
               
-              <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <button 
                 disabled={isSubmitting}
                 type="submit"
-                className="w-full bg-brand text-white py-5 rounded-2xl font-black text-xs tracking-widest uppercase flex items-center justify-center gap-3 shadow-[0_20px_40px_rgba(var(--color-brand),0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-brand text-white py-5 rounded-2xl font-black text-xs tracking-widest uppercase flex items-center justify-center gap-3 shadow-[0_20px_40px_rgba(var(--color-brand),0.2)] transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
               >
                 {isSubmitting ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> SENDING...</>
                 ) : (
                   <><Send className="w-4 h-4" /> SEND MESSAGE</>
                 )}
-              </motion.button>
+              </button>
             </motion.form>
           </div>
         </div>

@@ -38,6 +38,7 @@ interface ProfileSettingsPanelProps {
   handleRegionChange: (region: string) => Promise<void>;
   handleToggleSub: (platformName: string) => Promise<void>;
   onSignOut?: () => void;
+  onDirectSignOut?: () => void;
   systemAchievements?: { id: string; label: string; val: string; icon: string }[];
   additionalDetails?: Record<number, any>;
   handleToggleLike?: (movieId: number, currentLiked: boolean) => Promise<void>;
@@ -81,6 +82,7 @@ export default function ProfileSettingsPanel({
   handleRegionChange,
   handleToggleSub,
   onSignOut,
+  onDirectSignOut,
   systemAchievements = [],
   additionalDetails = {},
   handleToggleLike,
@@ -93,6 +95,26 @@ export default function ProfileSettingsPanel({
   const router = useRouter();
   
   const { customWatchlists, createCustomWatchlist, deleteCustomWatchlist } = useWatchlist();
+
+  const [localBrowserEnabled, setLocalBrowserEnabled] = useState(true);
+  const [localPushEnabled, setLocalPushEnabled] = useState(false);
+
+  useEffect(() => {
+    // Read local browser pref
+    const browserPref = localStorage.getItem('streamfind_channel_browser');
+    setLocalBrowserEnabled(browserPref === null ? true : browserPref === 'true');
+
+    // Check if we have an FCM token for this device
+    const checkPush = async () => {
+      try {
+        const token = localStorage.getItem('fcm_token');
+        if (token && 'Notification' in window && Notification.permission === 'granted') {
+          setLocalPushEnabled(true);
+        }
+      } catch (e) {}
+    };
+    checkPush();
+  }, []);
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -119,10 +141,6 @@ export default function ProfileSettingsPanel({
   
   const signOutTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    // Default to true if not explicitly set to false
-    syncBrowserChannelPref(profile.channelBrowser !== false);
-  }, [profile.channelBrowser]);
 
   useEffect(() => {
     return () => {
@@ -801,50 +819,75 @@ export default function ProfileSettingsPanel({
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
-                      { key: 'channelEmail' as const, title: 'Email', icon: '📧', desc: 'Alerts to your inbox.' },
-                      { key: 'channelPush' as const, title: 'Push', icon: '📱', desc: 'Mobile device alerts.' },
-                      { key: 'channelBrowser' as const, title: 'Browser', icon: '🖥️', desc: 'Desktop toast updates.' }
+                      { key: 'channelEmail', title: 'Email', icon: '📧', desc: 'Alerts to your inbox.' },
+                      { key: 'channelPush', title: 'Push', icon: '📱', desc: 'Mobile device alerts.' },
+                      { key: 'channelBrowser', title: 'Browser', icon: '🖥️', desc: 'Desktop toast updates.' }
                     ].map((c) => {
-                      const isActive = profile[c.key] ?? true;
+                      const isActive = 
+                        c.key === 'channelBrowser' ? localBrowserEnabled :
+                        c.key === 'channelPush' ? localPushEnabled :
+                        (profile[c.key as keyof ProfileSettings] as boolean | undefined) ?? true;
+                        
                       return (
                         <button
                           key={c.key}
                           onClick={async () => {
-                            if (c.key === 'channelPush' && !isActive) {
-                              try {
-                                if (!('Notification' in window)) {
-                                  toast.error('This browser does not support push notifications.');
-                                  return;
-                                }
-                                const permission = await Notification.requestPermission();
-                                if (permission === 'granted') {
-                                  const { getMessagingInstance } = await import('../../lib/firebase');
-                                  const messaging = await getMessagingInstance();
-                                  if (messaging) {
-                                    const { getToken } = await import('firebase/messaging');
-                                    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-                                    if (!vapidKey) {
-                                      toast.error('VAPID key missing. Setup incomplete.');
-                                      return;
-                                    }
-                                    const token = await getToken(messaging, { vapidKey });
-                                    if (token && user) {
-                                      const db = getFirestore(app);
-                                      // Using a subcollection fcmTokens to store multiple devices if needed
-                                      const docRef = doc(db, `users/${user.uid}/fcmTokens/${token}`);
-                                      await setDoc(docRef, { token, device: navigator.userAgent, createdAt: new Date() });
-                                    }
+                            if (c.key === 'channelBrowser') {
+                              const newVal = !localBrowserEnabled;
+                              setLocalBrowserEnabled(newVal);
+                              syncBrowserChannelPref(newVal);
+                              toast.success(newVal ? 'Browser toasts enabled' : 'Browser toasts disabled');
+                            } else if (c.key === 'channelPush') {
+                              if (!isActive) {
+                                try {
+                                  if (!('Notification' in window)) {
+                                    toast.error('This browser does not support push notifications.');
+                                    return;
                                   }
-                                  await handleTogglePref(c.key);
-                                } else {
-                                  toast.error('Notification permission denied by user/browser.');
+                                  const permission = await Notification.requestPermission();
+                                  if (permission === 'granted') {
+                                    const { getMessagingInstance } = await import('../../lib/firebase');
+                                    const messaging = await getMessagingInstance();
+                                    if (messaging) {
+                                      const { getToken } = await import('firebase/messaging');
+                                      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+                                      if (!vapidKey) {
+                                        toast.error('VAPID key missing. Setup incomplete.');
+                                        return;
+                                      }
+                                      const token = await getToken(messaging, { vapidKey });
+                                      if (token && user) {
+                                        const db = getFirestore(app);
+                                        const docRef = doc(db, `users/${user.uid}/fcmTokens/${token}`);
+                                        await setDoc(docRef, { token, device: navigator.userAgent, createdAt: new Date() });
+                                        localStorage.setItem('fcm_token', token);
+                                        setLocalPushEnabled(true);
+                                        toast.success('Push notifications enabled for this device.');
+                                      }
+                                    }
+                                  } else {
+                                    toast.error('Notification permission denied by user/browser.');
+                                  }
+                                } catch (e: any) {
+                                  console.error('Push setup error:', e);
+                                  toast.error(`Push error: ${e.message || 'Unknown error'}`);
                                 }
-                              } catch (e: any) {
-                                console.error('Push setup error:', e);
-                                toast.error(`Push error: ${e.message || 'Unknown error'}`);
+                              } else {
+                                try {
+                                  const token = localStorage.getItem('fcm_token');
+                                  if (token && user) {
+                                    const db = getFirestore(app);
+                                    const docRef = doc(db, `users/${user.uid}/fcmTokens/${token}`);
+                                    await deleteDoc(docRef);
+                                  }
+                                  localStorage.removeItem('fcm_token');
+                                  setLocalPushEnabled(false);
+                                  toast.success('Push notifications disabled for this device.');
+                                } catch (e) {
+                                  console.error('Error disabling push:', e);
+                                }
                               }
                             } else {
-                              // Standard toggle for other channels, or disabling push
                               await handleTogglePref(c.key);
                             }
                           }}
@@ -1082,17 +1125,19 @@ export default function ProfileSettingsPanel({
                             if (!user?.uid) return;
                             const t = toast.loading('Terminating all sessions…');
                             try {
+                              const token = await user.getIdToken();
                               const res = await fetch('/api/user/revoke-sessions', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                },
                                 body: JSON.stringify({ uid: user.uid }),
                               });
                               if (!res.ok) throw new Error();
                               logSecurityEvent(user?.uid, 'All Sessions Terminated', 'All refresh tokens revoked via Firebase Admin.', 'bg-red-500');
                               toast.dismiss(t);
-                              toast.success('All sessions terminated. Signing you out…');
-                              if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
-                              signOutTimerRef.current = setTimeout(() => onSignOut?.(), 1500);
+                              toast.success('All other active sessions have been terminated.');
                             } catch {
                               toast.dismiss(t);
                               toast.error('Failed to terminate sessions.');
@@ -1619,11 +1664,14 @@ export default function ProfileSettingsPanel({
                     <button
                       onClick={async () => {
                         try {
-                          const { sendPasswordResetEmail } = await import('firebase/auth');
-                          const { auth } = await import('@/lib/firebase');
                           const email = profile.email || '';
                           if (!email) { toast.error('No email found on your account.'); return; }
-                          await sendPasswordResetEmail(auth, email);
+                          const res = await fetch('/api/auth/send-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'reset', email })
+                          });
+                          if (!res.ok) throw new Error('Failed');
                           toast.success(`Reset link sent to ${email}`);
                         } catch { toast.error('Failed to send reset email. Try again.'); }
                       }}
@@ -1967,15 +2015,7 @@ export default function ProfileSettingsPanel({
                           </div>
                           <span className="text-[11px] font-black text-white/50 tracking-widest bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">{watchlist.length} titles</span>
                         </div>
-                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors relative z-10 group">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <Clock className="w-5 h-5 text-yellow-400 drop-shadow-md" />
-                            </div>
-                            <span className="text-xs font-black text-white uppercase tracking-wider">Continue Tracking</span>
-                          </div>
-                          <span className="text-[11px] font-black text-white/50 tracking-widest bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">Active</span>
-                        </div>
+
                       </div>
                     </div>
 
@@ -2060,7 +2100,7 @@ export default function ProfileSettingsPanel({
                             <span className="text-[10px] text-white/50 font-black tracking-widest bg-white/5 px-2 py-1 rounded-lg border border-white/10">{trackedReleases.length} tracked</span>
                           )}
                         </div>
-                        <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-2" data-lenis-prevent>
+                        <div className="space-y-3 max-h-[380px] overflow-y-auto overscroll-contain custom-scrollbar pr-2" data-lenis-prevent="true" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                           {isLoadingCalendar ? (
                             <div className="space-y-3">
                               {[1,2,3].map(i => (
@@ -2169,7 +2209,7 @@ export default function ProfileSettingsPanel({
                         </button>
                       )}
                     </div>
-                    <div className="max-h-[300px] overflow-y-auto pr-4 custom-scrollbar relative z-10" data-lenis-prevent>
+                    <div className="max-h-[300px] overflow-y-auto overscroll-contain pr-4 custom-scrollbar relative z-10" data-lenis-prevent="true" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                       <div className="space-y-8 relative">
                         <div className="absolute left-2.5 top-0 bottom-4 w-px bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.2)]" />
                         {watchHistory.length === 0 ? (
@@ -2207,7 +2247,7 @@ export default function ProfileSettingsPanel({
                         <span className="text-yellow-400">{badges.filter(b => b.unlocked).length}</span> / {badges.length}
                       </span>
                     </div>
-                    <div className="max-h-[380px] overflow-y-auto pr-2 custom-scrollbar relative z-10" data-lenis-prevent>
+                    <div className="max-h-[380px] overflow-y-auto overscroll-contain pr-2 custom-scrollbar relative z-10" data-lenis-prevent="true" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                       <div className="space-y-4">
                         {badges.map((badge) => (
                           <div key={badge.title} className={`p-5 rounded-[24px] border flex items-center justify-between group transition-all duration-300 ${badge.unlocked ? 'bg-white/5 border-white/10 shadow-[0_5px_15px_rgba(0,0,0,0.2)] hover:bg-white/10' : 'bg-black/20 border-dashed border-white/5 opacity-40 grayscale hover:grayscale-0 hover:opacity-100'}`}>
@@ -2403,7 +2443,7 @@ export default function ProfileSettingsPanel({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar" data-lenis-prevent>
+              <div className="p-6 max-h-[350px] overflow-y-auto overscroll-contain pr-2 custom-scrollbar" data-lenis-prevent="true" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                 {recentActivities.length === 0 ? (
                   <div className="py-12 text-center">
                     <Activity className="w-8 h-8 text-white/10 mx-auto mb-3" />
@@ -2542,7 +2582,7 @@ export default function ProfileSettingsPanel({
                       if (!keepCurrentDevice) {
                         toast.success('All sessions revoked. Signing you out…');
                         if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
-                        signOutTimerRef.current = setTimeout(() => onSignOut?.(), 1500);
+                        signOutTimerRef.current = setTimeout(() => onDirectSignOut?.(), 1500);
                       } else {
                         toast.success(`Revoked ${revokedCount} session(s).`);
                       }

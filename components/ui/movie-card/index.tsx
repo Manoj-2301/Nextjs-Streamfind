@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'motion/react';
 import { Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -72,9 +71,8 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
 
   return (
     <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`}>
-      <motion.div
-        whileHover={{ scale: 1.03 }}
-        className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all flex-shrink-0"
+      <div
+        className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all hover:scale-[1.03] duration-300 flex-shrink-0"
       >
         {/* Background Image / Fallback */}
         {imgError || !currentPoster ? (
@@ -142,7 +140,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
     </Link>
   );
 }

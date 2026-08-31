@@ -13,7 +13,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
 import { Movie, Platform } from '@/types';
 import { app } from '@/lib/firebase';
-import { collection, query, onSnapshot, collectionGroup, where , getFirestore } from 'firebase/firestore';
+import { collection, query, onSnapshot, collectionGroup, where, getFirestore } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import Pagination from '@/components/ui/pagination';
@@ -151,7 +151,7 @@ const UserScore = ({ rating }: { rating: number }) => {
   let strokeColor = '#21d07a'; // Green
   let trackColor = '#204529';
   let glowColor = 'drop-shadow-[0_0_8px_rgba(33,208,122,0.4)]';
-  
+
   if (percentage < 70 && percentage > 0) {
     strokeColor = '#d2d531'; // Yellow
     trackColor = '#423d0f';
@@ -228,7 +228,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeftState = useRef(0);
-  
+
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -554,10 +554,10 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       updateScrollStatus(localScrollRef, setLocalScrollStatus);
       updateScrollStatus(otherScrollRef, setOtherScrollStatus);
     };
-    
+
     const timer = setTimeout(handleResize, 100);
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       clearTimeout(timer);
       window.removeEventListener('resize', handleResize);
@@ -632,7 +632,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const currentYear = new Date().getFullYear();
   const isUpcomingOrNew = movie ? movie.year >= currentYear : false;
-  
+
   // Check if movie is currently in theaters (released in the last 60 days or in the future)
   const isRunningInTheaters = (() => {
     if (!movie || !movie.releaseDate || movie.type === 'tv') return false;
@@ -659,14 +659,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               exit={{ opacity: 0 }}
               className="w-full h-full relative"
             >
-              {/* <iframe
-                className="w-full h-full scale-110 md:scale-125 pointer-events-none"
-                src={`https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`}
-                title={movie.title}
-                frameBorder="0"
-                allow="autoplay; encrypted-media;fullscreen;"
-                referrerPolicy="no-referrer"
-              /> */}
+
               <OptimizedIframe
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
                 src={movie.trailerSite?.toLowerCase() === 'vimeo'
@@ -677,8 +670,6 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                 frameBorder="0"
                 allow="autoplay; encrypted-media; fullscreen;"
               />
-              {/* Overlay to ensure readability and standard cinema look */}
-              {/* <div className="absolute inset-0 bg-black/20" /> */}
             </motion.div>
           ) : (
             <OptimizedImage
@@ -902,61 +893,62 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                   {(showAllCast ? movie.cast : movie.cast.slice(0, 4)).map((actor, i) => {
                     const hasImage = actor.imageUrl && !actor.imageUrl.includes('placehold.co');
                     const initials = actor.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                    
+
                     const theme = ACTOR_THEMES[actor.name];
                     const glowClass = theme ? theme.glowClass : "shadow-lg hover:shadow-[0_0_15px_rgba(var(--brand-color-rgb),0.15)]";
                     const borderClass = theme ? theme.borderClass : "hover:border-brand/40";
                     const bgClass = theme ? theme.bgClass : "group-hover:to-brand/5";
                     const Icon = theme?.icon;
-                    
-                    return (
-                    <Link key={i} href={`/cast/${actor.id}-${actor.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className={`flex items-center gap-3 md:gap-4 group cursor-pointer bg-[#151515] p-2.5 md:p-3 rounded-xl md:rounded-2xl hover:bg-[#1a1a1a] transition-all border border-[#222] relative overflow-hidden ${borderClass} ${glowClass}`}>
-                      <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity ${bgClass}`} />
-                      
-                      {theme && Icon && (
-                        <div className="absolute top-1/2 -translate-y-1/2 -right-4 md:-right-8 opacity-10 group-hover:opacity-30 transition-opacity pointer-events-none transform scale-110 group-hover:scale-125 duration-700">
-                          <Icon className={`w-28 h-28 md:w-36 md:h-36 ${theme.colorClass} drop-shadow-2xl`} strokeWidth={1} />
-                        </div>
-                      )}
 
-                      <div className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden shrink-0 border border-white/5 transition-all bg-black/40 flex items-center justify-center text-white/40 font-black text-xs md:text-sm z-10 ${theme ? theme.borderClass : 'group-hover:border-brand/50'}`}>
-                        {hasImage ? (
-                          <Image
-                            src={actor.imageUrl}
-                            alt={actor.name}
-                            width={64}
-                            height={64}
-                            className="w-full h-full object-cover grayscale transition-transform duration-700 scale-100 group-hover:scale-105"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <span>{initials}</span>
-                        )}
-                      </div>
-                      <div className="relative min-w-0 flex flex-col justify-center flex-1 z-10">
-                        <div className="flex items-center gap-2">
-                          <p className={`text-xs md:text-sm font-black text-[#f0f0f0] uppercase tracking-tight leading-tight truncate transition-colors ${theme ? 'group-hover:' + theme.colorClass : ''}`}>{actor.name}</p>
-                          {theme && Icon && <Icon className={`w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity ${theme.colorClass} drop-shadow-md`} />}
-                        </div>
-                        <p className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-[#dc2626] mt-0.5 truncate font-black">{actor.role}</p>
-                        
-                        {(actor.birthday || actor.placeOfBirth) && (
-                          <div className="flex items-center gap-1.5 md:gap-2 mt-1.5 md:mt-2 text-[7px] md:text-[8px] text-[#666] uppercase tracking-widest font-black">
-                            {actor.birthday && (
-                              <span className="flex items-center gap-1 shrink-0"><Calendar className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555]" /> {new Date(actor.birthday).getFullYear()}</span>
-                            )}
-                            {actor.birthday && actor.placeOfBirth && <span className="opacity-40">•</span>}
-                            {actor.placeOfBirth && (
-                              <span className="flex items-center gap-1 truncate"><MapPin className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555] shrink-0" /> <span className="truncate">{actor.placeOfBirth.split(',').pop()?.trim() || actor.placeOfBirth}</span></span>
-                            )}
+                    return (
+                      <Link key={i} href={`/cast/${actor.id}-${actor.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className={`flex items-center gap-3 md:gap-4 group cursor-pointer bg-[#151515] p-2.5 md:p-3 rounded-xl md:rounded-2xl hover:bg-[#1a1a1a] transition-all border border-[#222] relative overflow-hidden ${borderClass} ${glowClass}`}>
+                        <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity ${bgClass}`} />
+
+                        {theme && Icon && (
+                          <div className="absolute top-1/2 -translate-y-1/2 -right-4 md:-right-8 opacity-10 group-hover:opacity-30 transition-opacity pointer-events-none transform scale-110 group-hover:scale-125 duration-700">
+                            <Icon className={`w-28 h-28 md:w-36 md:h-36 ${theme.colorClass} drop-shadow-2xl`} strokeWidth={1} />
                           </div>
                         )}
-                      </div>
-                    </Link>
-                  )})}
+
+                        <div className={`relative w-12 h-12 md:w-16 md:h-16 rounded-full overflow-hidden shrink-0 border border-white/5 transition-all bg-black/40 flex items-center justify-center text-white/40 font-black text-xs md:text-sm z-10 ${theme ? theme.borderClass : 'group-hover:border-brand/50'}`}>
+                          {hasImage ? (
+                            <Image
+                              src={actor.imageUrl}
+                              alt={actor.name}
+                              width={64}
+                              height={64}
+                              className="w-full h-full object-cover grayscale transition-transform duration-700 scale-100 group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span>{initials}</span>
+                          )}
+                        </div>
+                        <div className="relative min-w-0 flex flex-col justify-center flex-1 z-10">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-xs md:text-sm font-black text-[#f0f0f0] uppercase tracking-tight leading-tight truncate transition-colors ${theme ? 'group-hover:' + theme.colorClass : ''}`}>{actor.name}</p>
+                            {theme && Icon && <Icon className={`w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity ${theme.colorClass} drop-shadow-md`} />}
+                          </div>
+                          <p className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-[#dc2626] mt-0.5 truncate font-black">{actor.role}</p>
+
+                          {(actor.birthday || actor.placeOfBirth) && (
+                            <div className="flex items-center gap-1.5 md:gap-2 mt-1.5 md:mt-2 text-[7px] md:text-[8px] text-[#666] uppercase tracking-widest font-black">
+                              {actor.birthday && (
+                                <span className="flex items-center gap-1 shrink-0"><Calendar className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555]" /> {new Date(actor.birthday).getFullYear()}</span>
+                              )}
+                              {actor.birthday && actor.placeOfBirth && <span className="opacity-40">•</span>}
+                              {actor.placeOfBirth && (
+                                <span className="flex items-center gap-1 truncate"><MapPin className="w-2 h-2 md:w-2.5 md:h-2.5 text-[#555] shrink-0" /> <span className="truncate">{actor.placeOfBirth.split(',').pop()?.trim() || actor.placeOfBirth}</span></span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
                 {movie.cast.length > 4 && (
-                  <button 
+                  <button
                     onClick={() => setShowAllCast(!showAllCast)}
                     className="mt-6 w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs md:text-sm font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 text-white/60 hover:text-white"
                   >

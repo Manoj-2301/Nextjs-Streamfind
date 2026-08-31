@@ -557,7 +557,7 @@ export default function ProfileComponent() {
     | 'notifyPlatformAdded' | 'notifyNewFeatures'
     | 'notifyWatchHistoryRecs' | 'notifySimilarContent'
     | 'notifyTrendingGenres'
-    | 'channelEmail' | 'channelPush' | 'channelBrowser'
+    | 'channelEmail'
   ) => {
     if (!user) return;
     try {
@@ -1012,6 +1012,7 @@ export default function ProfileComponent() {
               handleToggleLike={handleToggleLike}
               handleShareNote={handleShareNote}
               onSignOut={() => setIsSignOutModalOpen(true)}
+              onDirectSignOut={logout}
               systemAchievements={systemAchievements}
             />
           )}

@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [db]);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = React.useCallback(async () => {
     try {
       // Use popup on ALL devices — works on mobile too
       const result = await signInWithPopup(auth, googleProvider);
@@ -169,18 +169,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Login failed:", error);
       throw error;
     }
-  };
+  }, []);
 
-  const loginWithEmail = async (email: string, pass: string) => {
+  const loginWithEmail = React.useCallback(async (email: string, pass: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, pass);
     if (!userCredential.user.emailVerified) {
       await signOut(auth);
       throw new Error("Please verify your email before logging in. Check your inbox.");
     }
     // The onAuthStateChanged listener handles updating lastActive and loginStreak
-  };
+  }, []);
 
-  const signupWithEmail = async (email: string, pass: string, name: string) => {
+  const signupWithEmail = React.useCallback(async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
     // Sign out immediately — email must be verified before login
@@ -196,9 +196,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { data = await res.json(); } catch(e) {}
       throw new Error(data?.error || 'Failed to send verification email.');
     }
-  };
+  }, []);
 
-  const sendPasswordReset = async (email: string) => {
+  const sendPasswordReset = React.useCallback(async (email: string) => {
     // Send our custom-themed reset email via our API
     const res = await fetch('/api/auth/send-email', {
       method: 'POST',
@@ -209,9 +209,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       throw new Error(data.error || 'Failed to send reset email.');
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = React.useCallback(async () => {
     try {
       if (user) {
         const sessionId = localStorage.getItem(SESSION_KEY);
@@ -225,10 +225,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  };
+  }, [user, db]);
+
+  const value = React.useMemo(() => ({
+    user,
+    loading,
+    loginWithGoogle,
+    loginWithEmail,
+    signupWithEmail,
+    logout,
+    sendPasswordReset
+  }), [user, loading, loginWithGoogle, loginWithEmail, signupWithEmail, logout, sendPasswordReset]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, loginWithEmail, signupWithEmail, logout, sendPasswordReset }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

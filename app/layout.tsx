@@ -21,6 +21,7 @@ import Footer from './footer';
 import NewsletterPopupLoader from '@/components/ui/newsletter-popup-loader';
 import MaintenanceGuard from '@/components/ui/maintenance-guard';
 import CookieConsent from '@/components/ui/cookie-consent';
+import SmoothScroll from '@/components/ui/smooth-scroll';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -96,6 +97,7 @@ export default function RootLayout({
             <Footer />
             <NewsletterPopupLoader />
             <CookieConsent />
+            <SmoothScroll />
           </MaintenanceGuard>
         </Providers>
       </body>

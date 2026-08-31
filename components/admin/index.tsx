@@ -312,9 +312,12 @@ export default function AdminComponent() {
   const handleSendResetPassword = async (email: string) => {
     if (!email) return;
     try {
-      const { auth } = await import('@/lib/firebase');
-      const { sendPasswordResetEmail } = await import('firebase/auth');
-      await sendPasswordResetEmail(auth, email);
+      const res = await fetch('/api/auth/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'reset', email })
+      });
+      if (!res.ok) throw new Error('Failed to send');
       toast.success(`Password reset link sent to ${email} successfully.`);
     } catch (err) {
       console.error("Error sending reset password:", err);
