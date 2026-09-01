@@ -8,6 +8,8 @@ import { Space_Grotesk, Bebas_Neue } from 'next/font/google';
 import './globals.css';
 import 'react-lite-youtube-embed/dist/LiteYouTubeEmbed.css';
 
+
+
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   display: 'swap',
@@ -20,15 +22,17 @@ const bebasNeue = Bebas_Neue({
   display: 'swap',
   variable: '--font-accent',
 });
+
+import dynamic from 'next/dynamic';
 import Providers from './providers';
 import Navbar from '@/components/ui/navbar';
 import Footer from './footer';
-import NewsletterPopupLoader from '@/components/ui/newsletter-popup-loader';
 import MaintenanceGuard from '@/components/ui/maintenance-guard';
-import CookieConsent from '@/components/ui/cookie-consent';
-import SmoothScroll from '@/components/ui/smooth-scroll';
-
 import { Toaster } from 'react-hot-toast';
+
+const NewsletterPopupLoader = dynamic(() => import('@/components/ui/newsletter-popup-loader'));
+const CookieConsent = dynamic(() => import('@/components/ui/cookie-consent'));
+const SmoothScroll = dynamic(() => import('@/components/ui/smooth-scroll'));
 
 export const metadata: Metadata = {
   title: 'StreamFind - Find Where to Stream Movies & Shows',

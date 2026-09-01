@@ -577,11 +577,9 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-          <AnimatePresence>
-            {currentMovies.map(movie => (
-              <MovieCard key={movie.id} movie={movie} activeGenre={genre} />
-            ))}
-          </AnimatePresence>
+          {currentMovies.map((movie, index) => (
+            <MovieCard key={movie.id} movie={movie} activeGenre={genre} priority={index < 4} />
+          ))}
 
           {movies.length === 0 && (
             <div className="col-span-full py-20 text-center">

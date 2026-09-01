@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { AlertCircle, Cpu, Trophy, Zap, Award, Globe, History, Plus, Trash2, Edit2, X, Save, Coffee, Clock } from 'lucide-react';
+import { AlertCircle, Cpu, Trophy, Zap, Award, Globe, History, Plus, Trash2, Edit2, X, Save, Coffee, Clock, Play } from 'lucide-react';
 import { useSystemConfig } from '@/hooks/firebase/useSystemConfig';
 import {
   setMaintenanceMode,
@@ -324,6 +324,7 @@ export default function SystemView() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
+            { id: 'heroAutoplay', label: 'Hero Autoplay', desc: 'Auto-play trailer in hero', icon: Play },
             { id: 'share', label: 'Public Sharing', desc: 'Allows profile URL sharing', icon: Globe },
             { id: 'analytics', label: 'Smart Analytics', desc: 'Advanced usage tracking', icon: History },
             { id: 'realTime', label: 'Real-time Hub', desc: 'Multiplayer watch hooks', icon: Zap }

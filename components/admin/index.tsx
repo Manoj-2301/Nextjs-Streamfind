@@ -24,7 +24,12 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-import AnalyticsView from './AnalyticsView';
+import dynamic from 'next/dynamic';
+
+const AnalyticsView = dynamic(() => import('./AnalyticsView'), {
+  ssr: false,
+  loading: () => <div className="w-full h-64 bg-surface/30 animate-pulse rounded-2xl flex items-center justify-center text-brand">Loading Analytics...</div>
+});
 import UsersView from './UsersView';
 import ContentView from './ContentView';
 import SystemView from './SystemView';

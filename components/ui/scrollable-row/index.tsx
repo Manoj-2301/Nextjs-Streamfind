@@ -13,6 +13,7 @@ import { Movie } from '@/types';
 import Link from 'next/link';
 
 
+
 /*
  * ============================================================
  * TYPES
@@ -23,6 +24,7 @@ interface ScrollableRowProps {
   movies: Movie[];
   className?: string;
   viewAllLink?: string;
+  priorityImages?: boolean;
 }
 
 
@@ -31,7 +33,7 @@ interface ScrollableRowProps {
  * COMPONENT
  * ============================================================
  */
-export default function ScrollableRow({ title, movies, className = "", viewAllLink }: ScrollableRowProps) {
+export default function ScrollableRow({ title, movies, className = "", viewAllLink, priorityImages = false }: ScrollableRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -137,7 +139,7 @@ export default function ScrollableRow({ title, movies, className = "", viewAllLi
       >
         {movies.map((movie, index) => (
           <div key={movie.id} className="w-[140px] sm:w-[180px] md:w-[220px] shrink-0">
-            <MovieCard movie={movie} priority={index < 4} />
+            <MovieCard movie={movie} priority={priorityImages && index < 4} />
           </div>
         ))}
       </div>

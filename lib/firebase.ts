@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, updateProfile, sendPasswordResetEmail, applyActionCode, verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -21,7 +21,13 @@ export const getDb = async () => {
   });
   return firestoreDb;
 };
-export const storage = getStorage(app);
+let appStorage: any = null;
+export const getAppStorage = async () => {
+  if (appStorage) return appStorage;
+  const { getStorage } = await import('firebase/storage');
+  appStorage = getStorage(app);
+  return appStorage;
+};
 export const auth = getAuth(app);
 
 // Initialize Messaging only on the client and if supported
