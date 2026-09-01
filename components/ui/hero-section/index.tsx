@@ -446,7 +446,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
 
           {/* Trailer Controls */}
           {movie.trailerYoutubeId && (
-            <div className="absolute right-6 md:right-12 bottom-32 md:bottom-48 z-50 flex flex-col gap-4">
+            <div className="absolute right-6 md:right-12 bottom-12 md:bottom-48 z-50 flex flex-row md:flex-col gap-3 md:gap-4">
               <button
                 onClick={togglePlay}
                 className="w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
