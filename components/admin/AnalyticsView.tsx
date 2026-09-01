@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
@@ -18,6 +23,12 @@ import {
 } from 'recharts';
 import { AdminUser, AdminRating } from './types';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AnalyticsView({
   users,
   ratings,
@@ -190,6 +201,12 @@ export default function AnalyticsView({
     { label: "Global Rating Avg", value: stats.globalAvg, trend: stats.avgTrend, icon: Star, color: "text-purple-400" },
   ];
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

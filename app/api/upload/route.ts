@@ -1,12 +1,38 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextRequest, NextResponse } from 'next/server';
+import { admin } from '@/lib/firebaseAdmin';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Verify Authentication
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    try {
+      await admin.auth().verifyIdToken(token);
+    } catch (error) {
+      return NextResponse.json({ error: 'Unauthorized: Token verification failed' }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get('image') as File | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No image file provided' }, { status: 400 });
+    }
+
+    // 2. Enforce File Size Limit (5MB)
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File size exceeds 5MB limit' }, { status: 413 });
     }
 
     // Prepare form data for ImgBB

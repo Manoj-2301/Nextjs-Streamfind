@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
@@ -7,6 +12,12 @@ import MovieCard from '@/components/ui/movie-card';
 import { Movie } from '@/types';
 import Link from 'next/link';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface ScrollableRowProps {
   title: string;
   movies: Movie[];
@@ -14,12 +25,24 @@ interface ScrollableRowProps {
   viewAllLink?: string;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ScrollableRow({ title, movies, className = "", viewAllLink }: ScrollableRowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeftState = useRef(0);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollRef.current) return;
     isDragging.current = true;
@@ -58,11 +81,21 @@ export default function ScrollableRow({ title, movies, className = "", viewAllLi
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div
       className={`py-1 group outline-none ${className}`}
       onKeyDown={handleKeyDown}
       tabIndex={0}
+      style={{ 
+        contentVisibility: 'auto', 
+        containIntrinsicSize: 'auto 400px' 
+      } as React.CSSProperties}
     >
       {title && (
         <div className="flex items-center justify-between mb-1 px-1 lg:px-12">

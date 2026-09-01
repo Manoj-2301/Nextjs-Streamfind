@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import type { Metadata } from 'next';
 import { Space_Grotesk, Bebas_Neue } from 'next/font/google';
 import './globals.css';
@@ -42,11 +47,23 @@ export const metadata: Metadata = {
   },
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${bebasNeue.variable}`}>
       <head>
@@ -98,6 +115,22 @@ export default function RootLayout({
             <NewsletterPopupLoader />
             <CookieConsent />
             <SmoothScroll />
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  '@context': 'https://schema.org',
+                  '@type': 'WebSite',
+                  name: 'StreamFind',
+                  url: 'https://streamfinds.vercel.app',
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: 'https://streamfinds.vercel.app/search?q={search_term_string}',
+                    'query-input': 'required name=search_term_string',
+                  },
+                }),
+              }}
+            />
           </MaintenanceGuard>
         </Providers>
       </body>

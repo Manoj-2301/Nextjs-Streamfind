@@ -1,7 +1,18 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { Search, X } from 'lucide-react';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface SearchBarProps {
   value: string;
   onChange: (val: string) => void;
@@ -9,7 +20,19 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SearchBar({ value, onChange, className = "", placeholder = "Search for movies, actors, genres..." }: SearchBarProps) {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className={`relative ${className}`}>
       <div className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 text-white/40">

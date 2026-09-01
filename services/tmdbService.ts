@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { Movie, Platform, CastMember, ProfileSettings } from '@/types';
 
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || process.env.TMDB_API_KEY;
@@ -223,7 +224,7 @@ export const fetchFromTmdb = async (pathAndParams: string, options?: RequestInit
   return data;
 };
 
-const fetchGenres = async (options?: RequestInit) => {
+const fetchGenres = cache(async (options?: RequestInit) => {
   if (Object.keys(genresMap).length > 0) return;
   try {
     const [movieGenres, tvGenres] = await Promise.all([
@@ -241,7 +242,7 @@ const fetchGenres = async (options?: RequestInit) => {
       console.error('Error fetching genres:', error);
     }
   }
-};
+});
 
 const extractTrailer = (videosObj: any, originalLanguage?: string): { key?: string; site?: string } => {
   if (!videosObj || !videosObj.results || videosObj.results.length === 0) {
@@ -558,29 +559,10 @@ export const getTrendingMovies = async (profile?: ProfileSettings, options?: Req
     const combined = [...movieResults, ...tvResults];
     combined.sort((a, b) => b.popularity - a.popularity);
 
-    const itemsToProcess = combined.slice(0, 10);
-
-    const moviesWithTrailers = await Promise.all(
-      itemsToProcess.map(async (item) => {
-        try {
-          const isTv = item.media_type === 'tv';
-          const detailData = await fetchFromTmdb(`${isTv ? 'tv' : 'movie'}/${item.id}?append_to_response=videos,watch/providers,images`, options);
-          const mapped = isTv ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-
-          return {
-            ...mapped,
-            runtime: isTv
-              ? (detailData.episode_run_time && detailData.episode_run_time.length > 0 ? `${detailData.episode_run_time[0]} Min` : 'N/A')
-              : (detailData.runtime ? `${Math.floor(detailData.runtime / 60)}H ${detailData.runtime % 60}M` : 'N/A'),
-          };
-        } catch (error) {
-          console.error(`Error fetching details for trending item ${item.id}:`, error);
-          const isTv = item.media_type === 'tv' || (!item.media_type && !!(item.name || item.first_air_date));
-          return isTv ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-        }
-      })
-    );
-    return moviesWithTrailers;
+    return combined.slice(0, 10).map((item: any) => {
+      const isTv = item.media_type === 'tv' || (!item.media_type && !!(item.name || item.first_air_date));
+      return isTv ? mapTmdbTvShow(item) : mapTmdbMovie(item);
+    });
   } catch (error: any) {
     if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
       console.error('Error fetching trending movies:', error);
@@ -589,9 +571,9 @@ export const getTrendingMovies = async (profile?: ProfileSettings, options?: Req
   }
 };
 
-export const getTvDetails = async (id: number): Promise<Movie> => {
-  await fetchGenres();
-  const tvData = await fetchFromTmdb(`tv/${id}?append_to_response=videos,credits,watch/providers,images`);
+export const getTvDetails = async (id: number, options?: RequestInit): Promise<Movie> => {
+  await fetchGenres(options);
+  const tvData = await fetchFromTmdb(`tv/${id}?append_to_response=videos,credits,watch/providers,images`, options);
 
   let basicCast = tvData.credits?.cast || [];
 
@@ -599,7 +581,7 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
   // fall back to fetching the aggregate_credits endpoint (matching TMDB website behavior)
   if (basicCast.length === 0) {
     try {
-      const aggCredits = await fetchFromTmdb(`tv/${id}/aggregate_credits`);
+      const aggCredits = await fetchFromTmdb(`tv/${id}/aggregate_credits`, options);
       if (aggCredits && aggCredits.cast) {
         basicCast = aggCredits.cast.map((c: any) => ({
           ...c,
@@ -645,19 +627,19 @@ export const getTvDetails = async (id: number): Promise<Movie> => {
   };
 };
 
-export const getMovieDetails = async (id: number, type?: 'movie' | 'tv'): Promise<Movie> => {
-  await fetchGenres();
+export const getMovieDetails = cache(async (id: number, type?: 'movie' | 'tv', options?: RequestInit): Promise<Movie> => {
+  await fetchGenres(options);
 
   if (type === 'tv') {
     try {
-      return await getTvDetails(id);
+      return await getTvDetails(id, options);
     } catch (e) {
       console.error(`Error fetching TV details for ${id}:`, e);
     }
   }
 
   try {
-    const movieData = await fetchFromTmdb(`movie/${id}?append_to_response=videos,credits,watch/providers,images`);
+    const movieData = await fetchFromTmdb(`movie/${id}?append_to_response=videos,credits,watch/providers,images`, options);
 
     const basicCast = movieData.credits?.cast?.slice(0, 10) || [];
     const cast: CastMember[] = basicCast.map((c: any) => ({
@@ -704,19 +686,19 @@ export const getMovieDetails = async (id: number, type?: 'movie' | 'tv'): Promis
     }
     throw error;
   }
-};
+});
 
-export const searchMovies = async (query: string): Promise<Movie[]> => {
+export const searchMovies = async (query: string, options?: RequestInit): Promise<Movie[]> => {
   if (!query) return [];
-  await fetchGenres();
+  await fetchGenres(options);
   try {
-    const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(query)}`);
+    const data = await fetchFromTmdb(`search/multi?query=${encodeURIComponent(query)}`, options);
 
     const person = data.results?.find((item: any) => item.media_type === 'person');
     let personCredits: any[] = [];
     if (person) {
       try {
-        const creditsData = await fetchFromTmdb(`person/${person.id}/combined_credits`);
+        const creditsData = await fetchFromTmdb(`person/${person.id}/combined_credits`, options);
         const castCredits = creditsData.cast || [];
         const crewCredits = creditsData.crew || [];
         personCredits = [...castCredits, ...crewCredits].map((c: any) => ({
@@ -781,10 +763,10 @@ export const searchMovies = async (query: string): Promise<Movie[]> => {
   }
 };
 
-export const searchPeople = async (query: string): Promise<CastMember[]> => {
+export const searchPeople = async (query: string, options?: RequestInit): Promise<CastMember[]> => {
   if (!query) return [];
   try {
-    const data = await fetchFromTmdb(`search/person?query=${encodeURIComponent(query)}`);
+    const data = await fetchFromTmdb(`search/person?query=${encodeURIComponent(query)}`, options);
     return (data.results || [])
       .map((person: any) => ({
         id: person.id,
@@ -825,17 +807,9 @@ export const getMoviesByGenre = async (genreId: number, profile?: ProfileSetting
     ];
     combined.sort((a, b) => b.popularity - a.popularity);
 
-    const itemsWithDetails = await Promise.all(
-      combined.slice(0, 10).map(async (item: any) => {
-        try {
-          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`, options);
-          return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-        } catch (e) {
-          return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-        }
-      })
-    );
-    return itemsWithDetails;
+    return combined.slice(0, 10).map((item: any) => {
+      return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
+    });
   } catch (error: any) {
     if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
       console.error('Error fetching items by genre:', error);
@@ -1008,22 +982,13 @@ export const browseSearchMovies = async (query: string, page: number = 1, yearRa
       }
     }
 
-    const moviesWithDetails = await Promise.all(
-      dataResults
-        .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
-        .slice(0, 20)
-        .map(async (item: any) => {
-          try {
-            const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
-            return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-          } catch (e) {
-            return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-          }
-        })
-    );
+    const mappedMovies = dataResults
+      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      .slice(0, 20)
+      .map((item: any) => item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item));
 
     return {
-      movies: moviesWithDetails,
+      movies: mappedMovies,
       totalPages: Math.min(totalPages, 500)
     };
   } catch (error) {
@@ -1125,19 +1090,12 @@ export const browseDiscoverMovies = async (
 
     const pageResults = combinedResults.slice(0, 20);
 
-    const moviesWithDetails = await Promise.all(
-      pageResults.map(async (item: any) => {
-        try {
-          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`);
-          return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-        } catch (e) {
-          return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-        }
-      })
+    const finalMovies = pageResults.map((item: any) => 
+      item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item)
     );
 
     return {
-      movies: moviesWithDetails,
+      movies: finalMovies,
       totalPages: Math.min(Math.max(movieData.total_pages || 0, tvData.total_pages || 0), 500)
     };
   } catch (error) {
@@ -1146,16 +1104,16 @@ export const browseDiscoverMovies = async (
   }
 };
 
-export const getRecommendations = async (movieId: number, type?: 'movie' | 'tv'): Promise<Movie[]> => {
-  await fetchGenres();
+export const getRecommendations = async (movieId: number, type?: 'movie' | 'tv', options?: RequestInit): Promise<Movie[]> => {
+  await fetchGenres(options);
   const resolvedType = type || 'movie';
   try {
-    const data = await fetchFromTmdb(`${resolvedType}/${movieId}/recommendations`);
+    const data = await fetchFromTmdb(`${resolvedType}/${movieId}/recommendations`, options);
 
     const moviesWithDetails = await Promise.all(
       data.results.map(async (item: any) => {
         try {
-          const detailData = await fetchFromTmdb(`${resolvedType}/${item.id}?append_to_response=watch/providers,images`);
+          const detailData = await fetchFromTmdb(`${resolvedType}/${item.id}?append_to_response=watch/providers,images`, options);
           return resolvedType === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
         } catch (e) {
           return resolvedType === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
@@ -1199,17 +1157,9 @@ export const getPopularMovies = async (profile?: ProfileSettings, options?: Requ
     const combined = [...movieResults, ...tvResults];
     combined.sort((a, b) => b.popularity - a.popularity);
 
-    const itemsWithDetails = await Promise.all(
-      combined.slice(0, 20).map(async (item: any) => {
-        try {
-          const detailData = await fetchFromTmdb(`${item.media_type}/${item.id}?append_to_response=watch/providers,images`, options);
-          return item.media_type === 'tv' ? mapTmdbTvShow(detailData) : mapTmdbMovie(detailData);
-        } catch (e) {
-          return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
-        }
-      })
-    );
-    return itemsWithDetails;
+    return combined.slice(0, 20).map((item: any) => {
+      return item.media_type === 'tv' ? mapTmdbTvShow(item) : mapTmdbMovie(item);
+    });
   } catch (error: any) {
     if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
       console.error('Error fetching popular items:', error);
@@ -1230,17 +1180,7 @@ export const getUpcomingMovies = async (profile?: ProfileSettings, options?: Req
     // We only have movies in upcoming, no TV shows
     const itemsToProcess = data.results.slice(0, 20);
 
-    const moviesWithTrailers = await Promise.all(
-      itemsToProcess.map(async (item: any) => {
-        try {
-          const detailData = await fetchFromTmdb(`movie/${item.id}?append_to_response=videos,watch/providers,images`, options);
-          return mapTmdbMovie(detailData);
-        } catch (e) {
-          return mapTmdbMovie(item);
-        }
-      })
-    );
-    return moviesWithTrailers;
+    return itemsToProcess.map((item: any) => mapTmdbMovie(item));
   } catch (error: any) {
     if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
       console.error('Error fetching upcoming movies:', error);
@@ -1260,17 +1200,7 @@ export const getNowPlayingMovies = async (profile?: ProfileSettings, options?: R
 
     const itemsToProcess = data.results.slice(0, 20);
 
-    const moviesWithTrailers = await Promise.all(
-      itemsToProcess.map(async (item: any) => {
-        try {
-          const detailData = await fetchFromTmdb(`movie/${item.id}?append_to_response=videos,watch/providers,images`, options);
-          return mapTmdbMovie(detailData);
-        } catch (e) {
-          return mapTmdbMovie(item);
-        }
-      })
-    );
-    return moviesWithTrailers;
+    return itemsToProcess.map((item: any) => mapTmdbMovie(item));
   } catch (error: any) {
     if (error !== 'Component unmounted' && error?.name !== 'AbortError') {
       console.error('Error fetching now playing movies:', error);

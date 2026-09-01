@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,13 +14,31 @@ import { toast } from 'react-hot-toast';
 
 const STORAGE_KEY = 'sf_newsletter_popup_date';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function NewsletterPopup() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     // Only show on home page
     if (typeof window === 'undefined') return;
@@ -33,6 +56,12 @@ export default function NewsletterPopup() {
     return () => clearTimeout(timer);
   }, []);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSubscribe = async () => {
     const emailToUse = user?.email || email.trim();
     if (!emailToUse || !/\S+@\S+\.\S+/.test(emailToUse)) {
@@ -87,6 +116,12 @@ export default function NewsletterPopup() {
 
   const handleClose = () => setIsOpen(false);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <AnimatePresence>
       {isOpen && (
@@ -94,14 +129,14 @@ export default function NewsletterPopup() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={handleClose}
         >
           <motion.div
-            initial={{ opacity: 0, y: 60, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             onClick={e => e.stopPropagation()}
             className="relative w-full max-w-lg rounded-[32px] overflow-hidden shadow-2xl"

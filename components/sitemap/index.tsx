@@ -1,9 +1,20 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { LayoutGrid, Film, User, Search, Settings, HelpCircle } from 'lucide-react';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Sitemap() {
   const sections = [
     {
@@ -46,6 +57,12 @@ export default function Sitemap() {
     }
   ];
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-6xl px-6 py-20">

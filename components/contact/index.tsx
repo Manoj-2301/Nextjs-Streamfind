@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState } from 'react';
@@ -7,7 +12,19 @@ import { toast } from 'react-hot-toast';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Contact() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -16,6 +33,12 @@ export default function Contact() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.firstName || !formData.email || !formData.message) {
@@ -50,6 +73,12 @@ export default function Contact() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-6xl px-6 py-20">

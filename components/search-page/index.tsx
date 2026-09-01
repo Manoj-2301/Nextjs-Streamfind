@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
@@ -5,7 +10,7 @@ import SearchBar from '@/components/ui/search-bar';
 import MovieCard from '@/components/ui/movie-card';
 import { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, Search as SearchIcon, RotateCcw } from 'lucide-react';
-import { searchMovies, searchPeople } from '@/services/tmdbService';
+import { useSearchMovies, useSearchPeople } from '@/hooks/useTmdbQueries';
 import { Movie, CastMember } from '@/types';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
@@ -18,45 +23,93 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SearchPage() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchType, setSearchType] = useState<'movies' | 'people'>('movies');
-  const [results, setResults] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
-    if (!search) {
-      setResults([]);
-      return;
-    }
 
-    // Clear results immediately on tab switch to avoid rendering movies as people (or vice versa) while loading
-    setResults([]);
-    setIsLoading(true);
-
-    const handler = setTimeout(async () => {
-      try {
-        const data = searchType === 'movies' ? await searchMovies(search) : await searchPeople(search);
-        setResults(data);
-        if (data.length === 0) {
-          toast.error("No results found");
-        }
-        if (searchType === 'movies') {
-          import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
-            trackGenreSearch(search);
-            logUserActivity("Search", `Searched for "${search}"`);
-          });
-        }
-      } catch (error) {
-        console.error("Search error:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
     }, 500);
-
     return () => clearTimeout(handler);
-  }, [search, searchType]);
+  }, [search]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  useEffect(() => {
+    if (debouncedSearch && searchType === 'movies') {
+      import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
+        trackGenreSearch(debouncedSearch);
+        logUserActivity("Search", `Searched for "${debouncedSearch}"`);
+      });
+    }
+  }, [debouncedSearch, searchType]);
+
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: movieResults = [], isFetching: isMovieLoading } = useSearchMovies(searchType === 'movies' ? debouncedSearch : "");
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: peopleResults = [], isFetching: isPeopleLoading } = useSearchPeople(searchType === 'people' ? debouncedSearch : "");
+
+  const results = searchType === 'movies' ? movieResults : peopleResults;
+  const isLoading = searchType === 'movies' ? isMovieLoading : isPeopleLoading;
+
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  useEffect(() => {
+    if (debouncedSearch && !isLoading && results.length === 0) {
+      toast.error("No results found");
+    }
+  }, [results.length, isLoading, debouncedSearch]);
+
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -97,7 +150,7 @@ export default function SearchPage() {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-             {results.map(item => (
+             {results.map((item: any) => (
                searchType === 'movies' ? (
                  <MovieCard key={item.id} movie={item} />
                ) : (
@@ -110,6 +163,7 @@ export default function SearchPage() {
                           fill 
                           className="object-cover group-hover:scale-110 transition-transform duration-500"
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
+                          unoptimized={true}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-brand/20 to-purple-900/20">

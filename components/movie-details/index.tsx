@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -10,12 +15,12 @@ import Image from 'next/image';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings } from '@/context/RatingContext';
 import { useState, useEffect, useRef } from 'react';
-import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
+import { getMovieReviews, CriticReview } from '@/services/tmdbService';
+import { useMovieDetails } from '@/hooks/useTmdbQueries';
 import { Movie, Platform } from '@/types';
-import { app } from '@/lib/firebase';
-import { collection, query, onSnapshot, collectionGroup, where, getFirestore } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
+import { subscribeToMovieReviews } from '@/services/firebase/ratingService';
 import Pagination from '@/components/ui/pagination';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
@@ -211,20 +216,57 @@ const LANGUAGE_MAP: Record<string, string> = {
   kn: 'Kannada', ml: 'Malayalam', mr: 'Marathi', bn: 'Bengali', gu: 'Gujarati'
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MovieDetails({ initialMovie }: { initialMovie?: Movie }) {
   const params = useParams<{ id: string }>(); const id = params.id;
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type') as 'movie' | 'tv' | null;
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { isInWatchlist, requestAddToList, removeFromWatchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
-  const [isLoading, setIsLoading] = useState(!initialMovie);
-  const [error, setError] = useState(false);
+  
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: queryMovie, isLoading: isQueryLoading, error: queryError } = useMovieDetails(
+    id ? Number(id) : 0, 
+    typeParam || undefined
+  );
+
   const [movie, setMovie] = useState<Movie | null>(initialMovie || null);
   const [selectedTrailer, setSelectedTrailer] = useState<{ key: string, site: string } | null>(
     initialMovie?.trailerYoutubeId ? { key: initialMovie.trailerYoutubeId, site: initialMovie.trailerSite || 'YouTube' } : null
   );
+
+  const isLoading = (!initialMovie && isQueryLoading);
+  const error = !!queryError;
 
   const [isTrailerDropdownOpen, setIsTrailerDropdownOpen] = useState(false);
   const [showAllCast, setShowAllCast] = useState(false);
@@ -242,6 +284,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movie && id) {
       // Lazy load regional trailers in the background
@@ -263,6 +311,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     }
   }, [id, typeParam, movie?.id]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     return () => {
       if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
@@ -270,6 +324,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     };
   }, []);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleMouseDown = (ref: React.RefObject<HTMLDivElement | null>, e: React.MouseEvent) => {
     if (!ref.current) return;
     isDragging.current = true;
@@ -304,6 +364,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
   const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     getAffiliateLinks()
       .then(links => {
@@ -406,32 +472,28 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     }
   };
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
-    const fetchDetails = async () => {
-      if (!id) return;
-      if (initialMovie && initialMovie.id === Number(id)) {
-        setIsLoading(false);
-        return;
+    if (queryMovie && (!initialMovie || initialMovie.id !== queryMovie.id)) {
+      setMovie(queryMovie);
+      if (queryMovie.trailerYoutubeId && !selectedTrailer) {
+        setSelectedTrailer({ key: queryMovie.trailerYoutubeId, site: queryMovie.trailerSite || 'YouTube' });
       }
-      setIsLoading(true);
-      setError(false);
-      try {
-        const details = await getMovieDetails(Number(id), typeParam || undefined);
-        setMovie(details);
-        setSelectedTrailer(
-          details?.trailerYoutubeId ? { key: details.trailerYoutubeId, site: details.trailerSite || 'YouTube' } : null
-        );
-      } catch (err) {
-        console.error('Error fetching details:', err);
-        setError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDetails();
-  }, [id, typeParam, initialMovie]);
+    }
+  }, [queryMovie]);
 
   // Load existing critique text when movie is resolved
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movie) {
       setReviewInput(getUserReviewText(movie.id) || '');
@@ -439,6 +501,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   }, [movie, getUserReviewText]);
 
   // Track genre view when movie is loaded
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movie && movie.genre) {
       import('@/lib/genreTracker').then(({ trackGenreView }) => {
@@ -448,41 +516,28 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   }, [movie]);
 
   // Real-time listener for community reviews + fallback to TMDB critics
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!id) return;
 
-    // 1. Subscribe to Firestore community reviews using collection group query under user ratings
-    const q = query(collectionGroup(getFirestore(app), 'ratings'), where('movieId', '==', Number(id)));
-
-    let unsubscribeFirestore = () => { };
+    let unsubscribeFirestore = () => {};
 
     const loadAllReviews = async () => {
-      // 2. Fetch TMDB critic reviews
+      // Fetch TMDB critic reviews
       let tmdbReviews: CriticReview[] = [];
       try {
         tmdbReviews = await getMovieReviews(Number(id), typeParam || undefined);
       } catch (e) {
-        console.error("Error fetching TMDB reviews:", e);
+        console.error('Error fetching TMDB reviews:', e);
       }
 
-      unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-        const firestoreList: any[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.reviewText) {
-            firestoreList.push({
-              userId: data.userId || docSnap.ref.parent.parent?.id || 'anonymous',
-              userName: data.userName || 'Anonymous Film Buff',
-              userPhoto: data.userPhoto || '',
-              rating: data.rating || 5,
-              reviewText: data.reviewText,
-              isCritic: false
-            });
-          }
-        });
-
-        // Map TMDB critic reviews to matching structure
-        const mappedCritics = tmdbReviews.map((r, idx) => ({
+      const mapCritics = (reviews: CriticReview[]) =>
+        reviews.map((r, idx) => ({
           userId: `critic-${idx}`,
           userName: r.author,
           userPhoto: '',
@@ -491,21 +546,16 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
           isCritic: true
         }));
 
-        // Combine feeds: custom community first, followed by professional critics
-        setCommunityReviews([...firestoreList, ...mappedCritics]);
-      }, (err) => {
-        console.warn("Firestore reviews subscription failed (please update security rules in Firebase Console). Falling back to TMDB reviews only.", err);
-        // Fall back gracefully to TMDB critic reviews only
-        const mappedCritics = tmdbReviews.map((r, idx) => ({
-          userId: `critic-${idx}`,
-          userName: r.author,
-          userPhoto: '',
-          rating: 5,
-          reviewText: r.content,
-          isCritic: true
-        }));
-        setCommunityReviews(mappedCritics);
-      });
+      unsubscribeFirestore = subscribeToMovieReviews(
+        Number(id),
+        (firestoreList) => {
+          setCommunityReviews([...firestoreList, ...mapCritics(tmdbReviews)]);
+        },
+        (err) => {
+          console.warn('Firestore reviews subscription failed (check security rules). Falling back to TMDB reviews only.', err);
+          setCommunityReviews(mapCritics(tmdbReviews));
+        }
+      );
     };
 
     loadAllReviews();
@@ -514,6 +564,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       unsubscribeFirestore();
     };
   }, [id, typeParam]);
+
 
   const getPartnerStyles = (platform: Platform) => {
     const isPartner = platform.isSponsored || (platform as any).isPartner;
@@ -583,6 +634,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     }
   };
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const handleResize = () => {
       updateScrollStatus(localScrollRef, setLocalScrollStatus);
@@ -679,6 +736,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const hideWatchSection = isUpcomingOrNew && !primaryPlatform && !isRunningInTheaters;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="pb-20">
 
@@ -906,6 +969,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                                 height={64}
                                 className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all scale-110 group-hover:scale-100"
                                 referrerPolicy="no-referrer"
+                                unoptimized={true}
                               />
                             ) : (
                               <span>{initials}</span>
@@ -955,6 +1019,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                               height={64}
                               className="w-full h-full object-cover grayscale transition-transform duration-700 scale-100 group-hover:scale-105"
                               referrerPolicy="no-referrer"
+                              unoptimized={true}
                             />
                           ) : (
                             <span>{initials}</span>
@@ -1189,7 +1254,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                           <div key={rev.userId + '-' + index} className="p-6 bg-surface/30 border border-white/5 rounded-2xl flex gap-4 items-start hover:bg-surface/40 transition-colors">
                             <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center font-black text-brand text-xs uppercase shadow-md relative">
                               {rev.userPhoto ? (
-                                <Image src={rev.userPhoto} fill sizes="40px" className="object-cover" alt={rev.userName} />
+                                <Image src={rev.userPhoto} fill sizes="40px" className="object-cover" alt={rev.userName} unoptimized={true} />
                               ) : (
                                 rev.userName.slice(0, 2)
                               )}

@@ -1,12 +1,29 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import Image, { ImageProps } from 'next/image';
 import LiteYouTubeEmbed from 'react-lite-youtube-embed';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface OptimizedImageProps extends ImageProps {
   alt: string;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export function OptimizedImage({ 
   alt,
   priority = false, 
@@ -18,12 +35,18 @@ export function OptimizedImage({
   // to avoid huge TTFB delays on the Edge/Server, and rely on TMDB's fast CDN.
   const isTmdb = typeof src === 'string' && src.includes('tmdb.org');
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Image
       src={src}
       alt={alt}
       priority={priority}
-      unoptimized={isTmdb} // Bypasses slow next/image processing for LCP image
+      unoptimized={true} // Bypasses slow next/image processing
       placeholder="blur"
       blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
       // Add a subtle fade-in ONLY if it's not a priority image (LCP element)

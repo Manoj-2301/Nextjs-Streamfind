@@ -1,9 +1,20 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, Check, Search } from 'lucide-react';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface Option {
   value: string;
   label: string;
@@ -18,13 +29,37 @@ interface CustomSelectProps {
   disabled?: boolean;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export function CustomSelect({ options, value, onChange, placeholder = 'Select...', className = '', disabled = false }: CustomSelectProps) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close when clicking outside
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
@@ -36,6 +71,12 @@ export function CustomSelect({ options, value, onChange, placeholder = 'Select..
 
   const selectedOption = options.find((opt) => opt.value === value);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="relative w-full" ref={containerRef}>
       {/* Select Trigger */}

@@ -1,8 +1,19 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Search, Settings, Trash2, AlertCircle } from 'lucide-react';
 import { AdminUser, AdminRating } from './types';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function UsersView({
   users,
   ratings,
@@ -16,6 +27,12 @@ export default function UsersView({
   onDeleteUser: (userId: string) => void;
   onConfigureUser: (user: any) => void;
 }) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [searchQuery, setSearchQuery] = useState('');
 
   const computedUsersList = useMemo(() => {
@@ -61,6 +78,12 @@ export default function UsersView({
     );
   }
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}

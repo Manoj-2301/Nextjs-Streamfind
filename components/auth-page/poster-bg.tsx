@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -91,7 +96,7 @@ export default React.memo(function AuthPosterBg() {
                   className="object-cover"
                   placeholder="blur"
                   blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-                  unoptimized
+                  unoptimized={true}
                 />
               </div>
             ))}

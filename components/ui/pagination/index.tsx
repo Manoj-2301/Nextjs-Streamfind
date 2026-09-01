@@ -1,7 +1,18 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -10,6 +21,12 @@ interface PaginationProps {
   size?: 'sm' | 'md';
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Pagination({ 
   currentPage, 
   totalPages, 
@@ -19,6 +36,12 @@ export default function Pagination({
 }: PaginationProps) {
   if (totalPages <= 1) return null;
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handlePageChange = (page: number) => {
     onPageChange(page);
     if (!disableScroll) {
@@ -53,6 +76,12 @@ export default function Pagination({
 
   const gapClass = size === 'sm' ? "gap-1" : "gap-1.5 md:gap-2";
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className={containerClass}>
       <div className={textClass}>

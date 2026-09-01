@@ -1,12 +1,24 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Movie } from '@/types';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import PlatformBadge from '@/components/ui/platform-badge';
+import { useInView } from 'motion/react';
+import { useMovieDetails } from '@/hooks/useTmdbQueries';
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface MovieCardProps {
   movie: Movie;
   accentColor?: string;
@@ -14,6 +26,11 @@ interface MovieCardProps {
   activeGenre?: string;
 }
 
+/*
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
 const getInitials = (name: string) => {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -21,9 +38,25 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MovieCard({ movie, accentColor = '#999', priority = false, activeGenre }: MovieCardProps) {
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [imgError, setImgError] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "200px" });
+
+  const { data: details } = useMovieDetails(movie.id, movie.type, {
+    enabled: isInView && (!movie.platforms || movie.platforms.length === 0)
+  });
 
   // Collect available image URLs to try, and downsize poster from w500 to w342 for the card thumbnail
   const possibleUrls = [
@@ -34,6 +67,11 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
 
   const BLUR_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleImgError = () => {
     if (posterIndex < possibleUrls.length - 1) {
       setPosterIndex(p => p + 1);
@@ -42,7 +80,12 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
     }
   };
 
-  const primaryPlatform = movie.platforms?.[0];
+  /*
+   * ============================================================
+   * DERIVED VALUE
+   * ============================================================
+   */
+  const primaryPlatform = movie.platforms?.[0] || details?.platforms?.[0];
   
   // Prioritize displaying the selected/active genre if it matches one of the movie's genres
   const displayGenre = React.useMemo(() => {
@@ -69,9 +112,15 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
     return '';
   };
 
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`}>
       <div
+        ref={ref}
         className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all hover:scale-[1.03] duration-300 flex-shrink-0"
       >
         {/* Background Image / Fallback */}
@@ -88,6 +137,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
             onError={handleImgError}
             sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             priority={priority}
+            unoptimized={true}
             placeholder="blur"
             blurDataURL={BLUR_DATA_URL}
           />

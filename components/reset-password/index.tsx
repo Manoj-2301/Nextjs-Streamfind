@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -8,12 +13,30 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 type ResetStatus = 'loading' | 'form' | 'success' | 'error' | 'invalid';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [status, setStatus] = useState<ResetStatus>('loading');
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -24,6 +47,12 @@ export default function ResetPasswordPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [oobCode, setOobCode] = useState('');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const code = searchParams.get('oobCode');
     const mode = searchParams.get('mode');
@@ -56,6 +85,12 @@ export default function ResetPasswordPage() {
     verifyCode();
   }, [searchParams]);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -88,6 +123,12 @@ export default function ResetPasswordPage() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}

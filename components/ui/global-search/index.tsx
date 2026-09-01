@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,7 +21,19 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function GlobalSearch() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState<'movies' | 'people'>('movies');
@@ -25,7 +42,19 @@ export default function GlobalSearch() {
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -35,6 +64,12 @@ export default function GlobalSearch() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
@@ -71,6 +106,12 @@ export default function GlobalSearch() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="relative" ref={containerRef}>
       <button 
@@ -145,6 +186,7 @@ export default function GlobalSearch() {
                             sizes="56px"
                             className="object-cover group-hover:scale-110 transition-transform"
                             referrerPolicy="no-referrer"
+                            unoptimized={true}
                           />
                         ) : (
                           <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand/20 to-purple-900/20 border border-white/5 ${searchType === 'people' ? 'rounded-full' : ''}`}>

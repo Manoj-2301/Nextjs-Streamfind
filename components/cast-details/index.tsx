@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import Link from 'next/link';
@@ -5,14 +10,19 @@ import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Loader2, Calendar, MapPin, X } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
-import { getCastDetails, getCastMovies } from '@/services/tmdbService';
+import { useState, useRef } from 'react';
+import { useCastDetails, useCastMovies } from '@/hooks/useTmdbQueries';
 import { Movie, CastMember } from '@/types';
 import ErrorMessage from '@/components/ui/error-message';
 import MovieCard from '@/components/ui/movie-card';
 
 import Pagination from '@/components/ui/pagination';
 
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function CastDetails({
   initialCast,
   initialMovies,
@@ -24,23 +34,41 @@ export default function CastDetails({
   initialTotalPages?: number;
   initialCurrentPage?: number;
 }) {
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const params = useParams<{ id: string }>();  const id = params.id;
   const router = useRouter();
-  const [cast, setCast] = useState<CastMember | null>(initialCast || null);
-  const [movies, setMovies] = useState<Movie[]>(initialMovies || []);
-  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  
   const [currentPage, setCurrentPage] = useState(initialCurrentPage);
-  const [isLoading, setIsLoading] = useState(!initialCast);
-  const [isMoviesLoading, setIsMoviesLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const personId = parseInt(id || '0');
+
+  const { data: castData, isLoading: isCastLoading, error: castError } = useCastDetails(personId);
+  const { data: moviesData, isFetching: isMoviesFetching } = useCastMovies(personId, currentPage);
+
+  const cast = castData || initialCast;
+  const error = !!castError;
+  const isLoading = !initialCast && isCastLoading;
+  
+  const isMoviesLoading = isMoviesFetching;
+  const movies = moviesData?.items || initialMovies || [];
+  const totalPages = moviesData?.totalPages || initialTotalPages;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeftState = useRef(0);
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     if (scrollRef.current) {
@@ -62,57 +90,17 @@ export default function CastDetails({
     scrollRef.current.scrollLeft = scrollLeftState.current - walk;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-      const personId = parseInt(id);
-      if (isNaN(personId)) {
-        setError(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (initialCast && initialCast.id === personId) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(false);
-      try {
-        const [details, castMovies] = await Promise.all([
-          getCastDetails(personId),
-          getCastMovies(personId, 1)
-        ]);
-        setCast(details);
-        setMovies(castMovies.items);
-        setTotalPages(castMovies.totalPages);
-        setCurrentPage(castMovies.currentPage);
-      } catch (err) {
-        console.error('Error fetching cast details:', err);
-        setError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [id, initialCast]);
-
-  const handlePageChange = async (page: number) => {
-    if (!id || page === currentPage) return;
-    const personId = parseInt(id);
-    setIsMoviesLoading(true);
-    try {
-      const data = await getCastMovies(personId, page);
-      setMovies(data.items);
-      setTotalPages(data.totalPages);
-      setCurrentPage(data.currentPage);
-    } catch (err) {
-      console.error('Error fetching paginated movies', err);
-    } finally {
-      setIsMoviesLoading(false);
+  const handlePageChange = (page: number) => {
+    if (page !== currentPage) {
+      setCurrentPage(page);
     }
   };
 
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6">
@@ -163,6 +151,7 @@ export default function CastDetails({
                 height={480}
                 className="w-full h-auto aspect-[2/3] object-cover"
                 priority
+                unoptimized={true}
               />
             </motion.div>
 
@@ -249,6 +238,7 @@ export default function CastDetails({
                           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                           className="object-cover transition-transform duration-500 group-hover:scale-110"
                           draggable={false}
+                          unoptimized={true}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
                           <span className="text-white font-bold text-sm tracking-widest uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">View</span>
@@ -327,6 +317,7 @@ export default function CastDetails({
                 className="object-contain"
                 quality={100}
                 priority
+                unoptimized={true}
               />
             </motion.div>
 

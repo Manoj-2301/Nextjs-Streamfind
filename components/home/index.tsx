@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import { getFirestore } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -5,21 +10,28 @@ import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
 import { useEffect, useState, useMemo } from 'react';
-import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { tmdbKeys } from '@/hooks/useTmdbQueries';
+import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies, getNowPlayingMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { getNowPlayingMovies } from '@/services/tmdbService';
 
-const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), { 
+const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), {
   ssr: true,
-  loading: () => <div className="h-64 w-full animate-pulse bg-white/5 rounded-xl my-4" /> 
+  loading: () => <div className="h-64 w-full animate-pulse bg-white/5 rounded-xl my-4" />
 });
 const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { ssr: true });
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface HomeProps {
   initialTrending?: Movie[];
   initialUpcoming?: Movie[];
@@ -28,6 +40,12 @@ interface HomeProps {
   initialNowPlaying?: Movie[];
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Home({
   initialTrending = [],
   initialUpcoming = [],
@@ -36,29 +54,30 @@ export default function Home({
   initialNowPlaying = []
 }: HomeProps) {
   const router = useRouter();
-  const [trending, setTrending] = useState<Movie[]>(initialTrending);
-  const [upcoming, setUpcoming] = useState<Movie[]>(initialUpcoming);
-  const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
-  const [recommendations, setRecommendations] = useState<Movie[]>(initialPopular);
-  const [nowPlaying, setNowPlaying] = useState<Movie[]>(initialNowPlaying);
-  const [recSource, setRecSource] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(initialTrending.length === 0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const [profile, setProfile] = useState<any | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
-  const [heroFallback, setHeroFallback] = useState<Movie[]>(initialTrending);
-  const [featuredPartner, setFeaturedPartner] = useState<{
-    movieName: string;
-    providerName: string;
-    offerText?: string;
-    affiliateUrl: string;
-  } | null>(null);
-  const [affiliateLinks, setAffiliateLinks] = useState<any>({});
-  // Track whether the profile has been fetched at least once to avoid flicker
-  const [profileReady, setProfileReady] = useState(!user); // true immediately if no user
+  const [profileReady, setProfileReady] = useState(!user);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!user) {
       setProfile(null);
@@ -66,7 +85,7 @@ export default function Home({
       return;
     }
     setProfileReady(false);
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     import('firebase/firestore').then(({ doc, onSnapshot }) => {
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
@@ -80,11 +99,9 @@ export default function Home({
             watchRegion: data.watchRegion || 'IN',
             dnaMoods: data.dnaMoods || [],
             dnaRuntime: data.dnaRuntime,
-
             prefContentType: data.prefContentType || 'both'
           });
         }
-        // Mark profile as ready after first snapshot (even if doc doesn't exist)
         setProfileReady(true);
       });
     });
@@ -92,158 +109,166 @@ export default function Home({
     return () => unsubscribe();
   }, [user]);
 
-  const filterKey = useMemo(() => JSON.stringify({
-    autoFilter: profile?.autoFilter,
-    dnaMoods: profile?.dnaMoods,
-    subscriptions: profile?.subscriptions,
-    prefLanguage: profile?.prefLanguage,
-    watchRegion: profile?.watchRegion,
-    dnaRuntime: profile?.dnaRuntime,
 
-    prefContentType: profile?.prefContentType,
-  }), [profile]);
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: trending = initialTrending, isLoading: isTrendingLoading, isFetching: isTrendingFetching } = useQuery({
+    queryKey: tmdbKeys.trending(profile || undefined),
+    queryFn: ({ signal }) => getTrendingMovies(profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialTrending.length > 0 ? initialTrending : undefined,
+  });
 
-  useEffect(() => {
-    // Wait until the authenticated user's profile has been fetched from Firestore
-    if (!profileReady) return;
 
-    const abortController = new AbortController();
-    const signal = abortController.signal;
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: upcoming = initialUpcoming } = useQuery({
+    queryKey: tmdbKeys.upcoming(profile || undefined),
+    queryFn: ({ signal }) => getUpcomingMovies(profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialUpcoming.length > 0 ? initialUpcoming : undefined,
+  });
 
-    const loadData = async () => {
-      // First load with no data: show full spinner. Re-fetches: show subtle refreshing bar.
-      const hasData = trending.length > 0 || heroFallback.length > 0;
-      if (!hasData) {
-        setIsLoading(true);
-      } else {
-        setIsRefreshing(true);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: sciFi = initialSciFi } = useQuery({
+    queryKey: tmdbKeys.genre(878, profile || undefined),
+    queryFn: ({ signal }) => getMoviesByGenre(878, profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialSciFi.length > 0 ? initialSciFi : undefined,
+  });
+
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: nowPlaying = initialNowPlaying } = useQuery({
+    queryKey: tmdbKeys.nowPlaying(profile || undefined),
+    queryFn: ({ signal }) => getNowPlayingMovies(profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialNowPlaying.length > 0 ? initialNowPlaying : undefined,
+  });
+
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: popularFallback = initialPopular } = useQuery({
+    queryKey: tmdbKeys.popular(undefined),
+    queryFn: ({ signal }) => getPopularMovies(undefined, { signal }),
+    enabled: profileReady && trending.length === 0,
+    initialData: initialPopular.length > 0 ? initialPopular : undefined,
+  });
+
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: popularWithProfile = [] } = useQuery({
+    queryKey: tmdbKeys.popular(profile || undefined),
+    queryFn: ({ signal }) => getPopularMovies(profile || undefined, { signal }),
+    enabled: profileReady && watchlist.length === 0,
+  });
+
+  const recentItems = watchlist.slice(-2);
+  const recQueries = useQueries({
+    queries: recentItems.map(item => ({
+      queryKey: tmdbKeys.recommendations(item.id),
+      queryFn: ({ signal }) => getRecommendations(item.id, undefined, { signal }),
+      enabled: profileReady,
+    }))
+  });
+
+  const recommendations = watchlist.length > 0
+    ? Array.from(new Map(recQueries.flatMap(q => q.data || []).map(m => [m.id, m])).values()).slice(0, 20)
+    : popularWithProfile;
+
+  const recSource = watchlist.length > 0 
+    ? (recentItems.length === 1 ? recentItems[0].title : "your watchlist")
+    : null;
+
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { data: affiliateLinks = {} } = useQuery({
+    queryKey: ['affiliateLinks'],
+    queryFn: async () => {
+      const { getAffiliateLinks } = await import('@/services/affiliateService');
+      return getAffiliateLinks();
+    },
+    enabled: profileReady,
+  });
+
+  const featuredKey = Object.keys(affiliateLinks).find(key => {
+    const linkData = affiliateLinks[key];
+    return typeof linkData === 'object' && linkData?.isFeatured;
+  });
+
+  const featuredPartner = useMemo(() => {
+    if (featuredKey && trending.length > 0) {
+      const topMovie = trending[0];
+      const linkData = affiliateLinks[featuredKey] as any;
+      const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
+      let movieName = topMovie.title || 'Top Movie';
+      if (movieName.includes(':')) {
+        const parts = movieName.split(':');
+        movieName = parts[parts.length - 1].trim();
       }
-      try {
-        // Always fetch fresh data when profile preferences change
-        const [trendingData, upcomingData, sciFiData, nowPlayingData] = await Promise.all([
-          getTrendingMovies(profile || undefined, { signal }),
-          getUpcomingMovies(profile || undefined, { signal }),
-          getMoviesByGenre(878, profile || undefined, { signal }), // 878 is Sci-Fi genre ID in TMDB
-          getNowPlayingMovies(profile || undefined, { signal })
-        ]);
+      return {
+        movieName,
+        providerName,
+        offerText: linkData.offerText,
+        affiliateUrl: linkData.url,
+      };
+    }
+    return null;
+  }, [featuredKey, affiliateLinks, trending]);
 
-        setTrending(trendingData);
-        setUpcoming(upcomingData);
-        setSciFi(sciFiData);
-        setNowPlaying(nowPlayingData);
-        
-        console.log("CLIENT FETCH RESULTS:", {
-          trendingCount: trendingData.length,
-          upcomingCount: upcomingData.length,
-          sciFiCount: sciFiData.length,
-          nowPlayingCount: nowPlayingData.length
-        });
+  const heroFallback = trending.length === 0 ? popularFallback.slice(0, 5) : trending.slice(0, 5);
 
-        // If filters narrowed results to 0, fetch unfiltered popular content for the hero
-        if (trendingData.length === 0) {
-          const fallbackData = await getPopularMovies(undefined, { signal });
-          setHeroFallback(fallbackData.slice(0, 5));
-        } else {
-          setHeroFallback(trendingData.slice(0, 5));
-        }
-
-        // Fetch Recommendations based on watchlist
-        if (watchlist.length > 0) {
-          // Take recommendations from the most recent 2 items for a diverse set
-          const recentItems = watchlist.slice(-2);
-          const recPromises = recentItems.map(item => getRecommendations(item.id));
-          const recResults = await Promise.all(recPromises);
-
-          // Flatten and remove duplicates
-          const seen = new Set(watchlist.map(m => m.id));
-          const allRecs: Movie[] = [];
-
-          recResults.forEach(list => {
-            list.forEach(movie => {
-              if (!seen.has(movie.id)) {
-                allRecs.push(movie);
-                seen.add(movie.id);
-              }
-            });
-          });
-
-          setRecommendations(allRecs.slice(0, 20));
-          if (recentItems.length === 1) {
-            setRecSource(recentItems[0].title);
-          } else {
-            setRecSource("your watchlist");
-          }
-        } else {
-          const popularData = await getPopularMovies(profile || undefined, { signal });
-          setRecommendations(popularData);
-          setRecSource(null);
-        }
-
-        // Fetch Featured Partner
-        const { getAffiliateLinks } = await import('@/services/affiliateService');
-        const links = await getAffiliateLinks();
-        setAffiliateLinks(links);
-        const featuredKey = Object.keys(links).find(key => {
-          const linkData = links[key];
-          return typeof linkData === 'object' && linkData?.isFeatured;
-        });
-
-        if (featuredKey && trendingData.length > 0) {
-          const topMovie = trendingData[0];
-          const linkData = links[featuredKey] as any;
-          
-          const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
-          
-          let movieName = topMovie.title || 'Top Movie';
-          if (movieName.includes(':')) {
-            const parts = movieName.split(':');
-            movieName = parts[parts.length - 1].trim();
-          }
-          
-          setFeaturedPartner({
-            movieName,
-            providerName,
-            offerText: linkData.offerText,
-            affiliateUrl: linkData.url,
-          });
-        } else {
-           setFeaturedPartner(null);
-        }
-
-      } catch (error: any) {
-        if (error.name === 'AbortError') return;
-        console.error('Error loading home data:', error);
-      } finally {
-        if (!signal.aborted) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
-      }
-    };
-    loadData();
-
-    return () => {
-      abortController.abort('Component unmounted');
-    };
-  }, [watchlist.length, profileReady, filterKey]);
-  if (isLoading && trending.length === 0 && heroFallback.length === 0) {
+  if (isTrendingLoading && trending.length === 0 && heroFallback.length === 0) {
     return (
       <div className="w-full h-[75vh] md:h-[90vh] bg-surface animate-pulse rounded-none" />
     );
   }
 
+  const isRefreshing = isTrendingFetching;
   const filteredTrending = trending;
   const filteredUpcoming = upcoming;
   const filteredSciFi = sciFi;
   const filteredRecs = recommendations;
   const filteredNowPlaying = nowPlaying;
 
-  // Hero always uses the best available: filtered trending, or fallback popular content
   const featuredMovies = filteredTrending.length > 0
     ? filteredTrending.slice(0, 5)
     : heroFallback.slice(0, 5);
   const topRated = [...filteredTrending].sort((a, b) => b.rating - a.rating);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="bg-background">
       {/* Subtle refresh indicator at top */}
@@ -270,16 +295,16 @@ export default function Home({
         )}
 
         {filteredNowPlaying.length > 0 && (
-          <ScrollableRow 
-            title="Theaters" 
-            movies={filteredNowPlaying} 
+          <ScrollableRow
+            title="In Theaters"
+            movies={filteredNowPlaying}
           />
         )}
 
         <ScrollableRow title="Trending Now" movies={filteredTrending} />
 
         {featuredPartner && (
-          <SponsorBanner 
+          <SponsorBanner
             movieName={featuredPartner.movieName}
             providerName={featuredPartner.providerName}
             offerText={featuredPartner.offerText}
@@ -300,25 +325,23 @@ export default function Home({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className={`fixed bottom-6 right-6 z-50 select-none ${
-              profile.autoFilter
-                ? `bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] backdrop-blur-md ${
-                    isDnaExpanded
-                      ? "rounded-3xl p-5 max-w-xs md:max-w-sm"
-                      : "rounded-full p-2 md:p-2.5 md:px-5 md:py-3 cursor-pointer hover:border-brand"
-                  }`
+            className={`fixed bottom-6 right-6 z-50 select-none ${profile.autoFilter
+                ? `bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] backdrop-blur-md ${isDnaExpanded
+                  ? "rounded-3xl p-5 max-w-xs md:max-w-sm"
+                  : "rounded-full p-2 md:p-2.5 md:px-5 md:py-3 cursor-pointer hover:border-brand"
+                }`
                 : "max-w-xs md:max-w-sm"
-            }`}
+              }`}
             onClick={
-              profile.autoFilter && !isDnaExpanded 
-                ? () => setIsDnaExpanded(true) 
+              profile.autoFilter && !isDnaExpanded
+                ? () => setIsDnaExpanded(true)
                 : undefined
             }
           >
             {profile.autoFilter ? (
               isDnaExpanded ? (
                 <div className="flex gap-4">
-                  <div 
+                  <div
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsDnaExpanded(false);
@@ -330,7 +353,7 @@ export default function Home({
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p 
+                      <p
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsDnaExpanded(false);
@@ -339,7 +362,7 @@ export default function Home({
                       >
                         Subscription DNA Active
                       </p>
-                      <button 
+                      <button
                         aria-label="Close subscription filter details"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -354,7 +377,7 @@ export default function Home({
                       Filtering library to match your Cinema DNA: <strong className="text-white font-bold">{[...(profile.subscriptions || []), ...(profile.dnaMoods || [])].join(', ') || 'Custom Filters'}</strong>.
                     </p>
                     <div className="flex gap-2 mt-4">
-                      <button 
+                      <button
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
@@ -369,7 +392,7 @@ export default function Home({
                       >
                         Disable Filter
                       </button>
-                      <a 
+                      <a
                         href="/profile"
                         onClick={(e) => e.stopPropagation()}
                         className="text-xs font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center flex items-center"
@@ -390,7 +413,7 @@ export default function Home({
                 </div>
               )
             ) : (
-              <button 
+              <button
                 onClick={async (e) => {
                   e.stopPropagation();
                   if (profile.plan !== 'premium') {
@@ -405,11 +428,10 @@ export default function Home({
                     console.error(e);
                   }
                 }}
-                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] backdrop-blur-md animate-bounce-subtle ${
-                  profile.plan !== 'premium'
+                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] backdrop-blur-md animate-bounce-subtle ${profile.plan !== 'premium'
                     ? 'border-white/5 text-white/40 cursor-not-allowed opacity-80'
                     : 'border-white/10 text-white/80 hover:text-brand hover:bg-black/100 cursor-pointer'
-                }`}
+                  }`}
               >
                 <span>🍿</span>
                 <span>Enable Subs DNA Filter</span>

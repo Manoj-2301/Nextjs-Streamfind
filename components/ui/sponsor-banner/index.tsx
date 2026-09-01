@@ -1,8 +1,19 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface SponsorBannerProps {
   movieName: string;
   providerName: string;
@@ -10,9 +21,21 @@ interface SponsorBannerProps {
   affiliateUrl: string;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SponsorBanner({ movieName, providerName, offerText, affiliateUrl }: SponsorBannerProps) {
   if (!movieName || !providerName || !affiliateUrl) return null;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="px-6 lg:px-12 py-6 relative max-w-[1400px] mx-auto">
       {/* Decorative background glow for the whole section */}

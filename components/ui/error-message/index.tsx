@@ -1,18 +1,41 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
 import { AlertCircle, RefreshCcw, Home } from 'lucide-react';
 import Link from 'next/link';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface ErrorMessageProps {
   message?: string;
   onRetry?: () => void;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ErrorMessage({ 
   message = "Something went wrong while loading the data. Our team has been notified.", 
   onRetry 
 }: ErrorMessageProps) {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
       <motion.div

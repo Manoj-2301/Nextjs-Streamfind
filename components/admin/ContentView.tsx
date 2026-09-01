@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,6 +13,12 @@ import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc } from 'fir
 import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ContentView({
   ratings,
   users,
@@ -59,6 +70,12 @@ export default function ContentView({
       });
   }, [ratings, users]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 2;
   const totalPages = Math.ceil(reviews.length / itemsPerPage);
@@ -105,6 +122,12 @@ export default function ContentView({
   };
 
   // Fetch trending based on active tab
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!isCurationModalOpen) return;
     setIsTrendingLoading(true);
@@ -123,6 +146,12 @@ export default function ContentView({
   }, [isCurationModalOpen, trendingTab]);
 
   // Handle Search
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -142,6 +171,12 @@ export default function ContentView({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSaveCuration = async () => {
     if (!editingCuration?.movieId || !editingCuration?.slotNo || !editingCuration?.type) {
       toast.error('Please fill all required fields and select a movie/tv show.');
@@ -295,7 +330,7 @@ export default function ContentView({
     >
       <div className="w-10 h-14 bg-black rounded-lg shrink-0 overflow-hidden relative">
         {(item.poster_path || item.backdrop_path) ? (
-          <Image fill sizes="100px" src={`https://image.tmdb.org/t/p/w200${item.poster_path || item.backdrop_path}`} className="object-cover" alt="poster" />
+          <Image fill sizes="100px" src={`https://image.tmdb.org/t/p/w200${item.poster_path || item.backdrop_path}`} className="object-cover" alt="poster" unoptimized={true} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-white/20"><ImageIcon className="w-5 h-5" /></div>
         )}
@@ -337,6 +372,12 @@ export default function ContentView({
     );
   }
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -429,7 +470,7 @@ export default function ContentView({
                 <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-6">
                   <div className="w-24 h-36 mx-auto sm:mx-0 bg-surface border border-white/10 rounded-2xl overflow-hidden relative group shrink-0 shadow-2xl shadow-brand/10">
                     {curations[0].movieImage ? (
-                      <Image fill sizes="(max-width: 768px) 150px, 300px" src={curations[0].movieImage.startsWith('http') ? curations[0].movieImage : `https://image.tmdb.org/t/p/w200${curations[0].movieImage}`} className="object-cover" alt="Cover" />
+                      <Image fill sizes="(max-width: 768px) 150px, 300px" src={curations[0].movieImage.startsWith('http') ? curations[0].movieImage : `https://image.tmdb.org/t/p/w200${curations[0].movieImage}`} className="object-cover" alt="Cover" unoptimized={true} />
                     ) : (
                       <div className="w-full h-full bg-surface/50" />
                     )}
@@ -584,7 +625,7 @@ export default function ContentView({
                     <div className="p-4 bg-brand/5 border border-brand/20 rounded-2xl flex items-center gap-4">
                       <div className="w-12 h-16 bg-black rounded-lg shrink-0 overflow-hidden relative">
                         {editingCuration.movieImage ? (
-                          <Image fill sizes="100px" src={editingCuration.movieImage.startsWith('http') ? editingCuration.movieImage : `https://image.tmdb.org/t/p/w200${editingCuration.movieImage}`} className="object-cover" alt="poster" />
+                          <Image fill sizes="100px" src={editingCuration.movieImage.startsWith('http') ? editingCuration.movieImage : `https://image.tmdb.org/t/p/w200${editingCuration.movieImage}`} className="object-cover" alt="poster" unoptimized={true} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-brand/20"><ImageIcon className="w-6 h-6" /></div>
                         )}

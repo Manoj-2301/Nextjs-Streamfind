@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -8,14 +13,39 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import AuthPosterBg from './poster-bg';
 import { toast } from 'react-hot-toast';
+import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 type SignInStep = 'email' | 'password';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AuthPage() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [isSignUp, setIsSignUp] = useState(false);
   // Two-step sign-in state
   const [signInStep, setSignInStep] = useState<SignInStep>('email');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { register, handleSubmit, getValues, setValue, setFocus, reset } = useForm({
     defaultValues: { name: '', email: '', password: '', confirmPassword: '' }
   });
@@ -25,10 +55,22 @@ export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
 
   // Redirect if already logged in (especially for mobile redirect logins)
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (user) {
       router.push('/');
@@ -36,6 +78,12 @@ export default function AuthPage() {
   }, [user, router]);
 
   // Auto-focus the active field on step change
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (signInStep === 'email') {
       setTimeout(() => setFocus('email'), 100);
@@ -45,6 +93,12 @@ export default function AuthPage() {
   }, [signInStep, setFocus]);
 
   // Reset to email step when toggling between sign-in and sign-up
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleToggleMode = () => {
     setIsSignUp(!isSignUp);
     setSignInStep('email');
@@ -124,6 +178,12 @@ export default function AuthPage() {
   };
   
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -139,9 +199,9 @@ export default function AuthPage() {
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(229,9,20,0.15) 0%, transparent 70%)' }} />
       </div>
-<button onClick={() => router.push('/')} className="absolute top-4 left-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors">
-  <ArrowLeft className="w-5 h-5" /> Home
-</button>
+      <Button variant="ghost" onClick={() => router.push('/')} className="absolute top-4 left-4 gap-2 text-white/70">
+        <ArrowLeft className="w-5 h-5" /> Home
+      </Button>
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -161,12 +221,12 @@ export default function AuthPage() {
                 We've sent a verification link to <strong className="text-white">{getValues('email')}</strong>.
                 Please check your inbox and click the link to activate your account.
               </p>
-              <button
+              <Button
                 onClick={() => { setVerificationSent(false); setIsSignUp(false); reset(); setSignInStep('email'); }}
-                className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl gap-2"
               >
                 <LogIn className="w-5 h-5" /> Sign In Now
-              </button>
+              </Button>
             </div>
 
           ) : (
@@ -245,11 +305,11 @@ export default function AuthPage() {
                     </button>
                   </div>
 
-                  <button type="submit" disabled={isSubmitting}
-                    className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-2.5 rounded-xl transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  <Button type="submit" isLoading={isSubmitting}
+                    className="w-full py-2.5 rounded-xl mt-2 gap-2"
                   >
-                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><UserPlus className="w-5 h-5" /> Sign Up</>}
-                  </button>
+                    {!isSubmitting && <UserPlus className="w-5 h-5" />} Sign Up
+                  </Button>
                 </form>
 
               ) : (
@@ -280,11 +340,11 @@ export default function AuthPage() {
                         />
                       </div>
 
-                      <button type="submit"
-                        className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-2.5 rounded-xl transition-colors mt-2 flex items-center justify-center gap-2"
+                      <Button type="submit"
+                        className="w-full py-2.5 rounded-xl mt-2 gap-2"
                       >
                         Continue
-                      </button>
+                      </Button>
                     </motion.form>
 
                   ) : (
@@ -299,14 +359,13 @@ export default function AuthPage() {
                       className="flex flex-col gap-4"
                     >
                       {/* Back to email step */}
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         onClick={() => { setSignInStep('email'); setValue('password', ''); }}
-                        className="flex items-center justify-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors mb-2"
+                        className="w-full gap-2 mb-2 h-auto py-2"
                       >
-                        <ArrowLeft className="w-4 h-4" />
-                        Use a different email
-                      </button>
+                        <ArrowLeft className="w-4 h-4" /> Use a different email
+                      </Button>
 
                       <div className="relative group">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-brand transition-colors" />
@@ -334,11 +393,11 @@ export default function AuthPage() {
                         </button>
                       </div>
 
-                      <button type="submit" disabled={isSubmitting}
-                        className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                      <Button type="submit" isLoading={isSubmitting}
+                        className="w-full py-2.5 rounded-xl gap-2"
                       >
-                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><LogIn className="w-5 h-5" /> Sign In</>}
-                      </button>
+                        {!isSubmitting && <LogIn className="w-5 h-5" />} Sign In
+                      </Button>
                     </motion.form>
                   )}
                 </AnimatePresence>
@@ -351,8 +410,8 @@ export default function AuthPage() {
                 <div className="h-px bg-white/10 flex-1" />
               </div>
 
-              <button onClick={handleGoogleLogin} type="button"
-                className="w-full bg-white text-black hover:bg-white/90 font-bold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-3"
+              <Button onClick={handleGoogleLogin} type="button" variant="secondary"
+                className="w-full bg-white text-black hover:bg-white/90 py-2.5 rounded-xl gap-3"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -361,7 +420,7 @@ export default function AuthPage() {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
                 Continue with Google
-              </button>
+              </Button>
 
               {/* ── Toggle Sign In / Sign Up ── */}
               <div className="mt-8 text-center text-sm text-white/50">

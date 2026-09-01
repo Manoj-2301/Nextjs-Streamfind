@@ -1,8 +1,14 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import MovieCard from '@/components/ui/movie-card';
+import Button from '@/components/ui/button';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { Bookmark, Rocket, Trash2, Loader2, List as ListIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -12,14 +18,38 @@ import { app } from '@/lib/firebase';
 import { getFirestore, collection, query, onSnapshot } from 'firebase/firestore';
 import { Movie } from '@/types';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function WatchlistPage() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist, customWatchlists, removeFromWatchlist, removeFromCustomWatchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   
   const [selectedListId, setSelectedListId] = useState<string>('default');
   const [customListMovies, setCustomListMovies] = useState<Movie[]>([]);
   const [isLoadingCustom, setIsLoadingCustom] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (selectedListId === 'default' || !user) {
       setCustomListMovies([]);
@@ -46,6 +76,12 @@ export default function WatchlistPage() {
     return () => unsubscribe();
   }, [selectedListId, user]);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleRemove = async (movieId: number) => {
     try {
       if (selectedListId === 'default') {
@@ -66,6 +102,12 @@ export default function WatchlistPage() {
     ? 'My Watchlist' 
     : customWatchlists.find(l => l.id === selectedListId)?.name || 'Custom List';
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -128,9 +170,9 @@ export default function WatchlistPage() {
             You haven't saved any movies here yet. Explore our library and add some!
           </p>
           <Link href="/browse">
-            <button className="px-8 py-3 bg-brand text-white font-black rounded-lg hover:bg-red-700 transition-all glow-hover flex items-center gap-3 uppercase tracking-widest text-xs">
+            <Button className="font-black uppercase tracking-widest text-xs gap-3">
                <Rocket className="w-5 h-5" /> START EXPLORING
-            </button>
+            </Button>
           </Link>
         </div>
       )}

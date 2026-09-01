@@ -1,8 +1,33 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { admin } from '@/lib/firebaseAdmin';
 
 export async function POST(request: Request) {
   try {
+    // 1. Verify Admin Authentication
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(token);
+    } catch (e) {
+      return NextResponse.json({ error: 'Unauthorized: Token verification failed' }, { status: 401 });
+    }
+
+    // Must be the master admin email
+    if (decodedToken.email !== 'mt398401@gmail.com') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { userEmail, userName, type, reviewText, contactUrl, movieTitle, reason } = body as {
       userEmail: string;

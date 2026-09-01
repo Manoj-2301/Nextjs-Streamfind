@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 import AdminComponent from '@/components/admin';
 
@@ -6,6 +11,12 @@ export const metadata: Metadata = {
   description: "Platform administration and analytics hub for StreamFind.",
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AdminPage() {
   return <AdminComponent />;
 }

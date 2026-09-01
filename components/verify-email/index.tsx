@@ -1,20 +1,50 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle, XCircle, Loader2, Mail, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import Button from '@/components/ui/button';
 import { useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { applyActionCode } from 'firebase/auth';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 type VerifyStatus = 'loading' | 'success' | 'error' | 'invalid';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [status, setStatus] = useState<VerifyStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const oobCode = searchParams.get('oobCode');
     const mode = searchParams.get('mode');
@@ -44,6 +74,12 @@ export default function VerifyEmailPage() {
     verify();
   }, [searchParams]);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -95,12 +131,12 @@ export default function VerifyEmailPage() {
                 Your email has been successfully verified. You can now sign in to your{' '}
                 <span className="text-brand font-bold">StreamFind</span> account.
               </p>
-              <Link href="/auth">
-                <button
-                  className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center gap-2"
+              <Link href="/auth" className="w-full">
+                <Button
+                  className="w-full py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] gap-2"
                 >
                   Sign In Now <ArrowRight className="w-5 h-5" />
-                </button>
+                </Button>
               </Link>
             </>
           )}
@@ -125,17 +161,17 @@ export default function VerifyEmailPage() {
                   : errorMessage}
               </p>
               <div className="flex flex-col gap-3">
-                <Link href="/auth">
-                  <button
-                    className="w-full bg-brand hover:bg-brand/90 text-white font-bold py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] flex items-center justify-center gap-2"
+                <Link href="/auth" className="w-full">
+                  <Button
+                    className="w-full py-3 rounded-xl transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] gap-2"
                   >
                     <Mail className="w-5 h-5" /> Try Sign Up Again
-                  </button>
+                  </Button>
                 </Link>
-                <Link href="/">
-                  <button className="w-full text-white/50 hover:text-white text-sm transition-colors py-2">
+                <Link href="/" className="w-full">
+                  <Button variant="ghost" className="w-full py-2">
                     Back to Home
-                  </button>
+                  </Button>
                 </Link>
               </div>
             </>

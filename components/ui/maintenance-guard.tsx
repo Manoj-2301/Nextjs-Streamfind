@@ -1,38 +1,42 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { doc, onSnapshot, getFirestore } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
+import React from 'react';
 import { usePathname } from 'next/navigation';
 import { motion } from 'motion/react';
 import { AlertTriangle, Hammer, Cog } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useSystemConfig } from '@/hooks/firebase/useSystemConfig';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MaintenanceGuard({ children }: { children: React.ReactNode }) {
-  const [isMaintenance, setIsMaintenance] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const pathname = usePathname();
-  const { user, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    const db = getFirestore(app);
-    const unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setIsMaintenance(!!data.maintenanceMode);
-      } else {
-        setIsMaintenance(false);
-      }
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Failed to fetch system config:", error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { config, isLoading } = useSystemConfig();
+  const isMaintenance = config.maintenanceMode;
 
   // Allow admin to bypass maintenance mode
+  const pathname = usePathname();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+  const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.email === 'mt398401@gmail.com';
   const isAdminRoute = pathname?.startsWith('/admin');
   const isAuthRoute = pathname?.startsWith('/auth');

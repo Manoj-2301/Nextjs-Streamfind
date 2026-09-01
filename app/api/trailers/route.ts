@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchFromTmdb, extractAllTrailers } from '@/services/tmdbService';
 

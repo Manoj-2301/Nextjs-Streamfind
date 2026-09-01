@@ -1,8 +1,19 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Search, Trash2, CheckCircle, Clock, X, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 export interface ContactQuery {
   id: string;
   firstName: string;
@@ -13,6 +24,12 @@ export interface ContactQuery {
   createdAt?: any;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ContactQueriesView({
   queries,
   isLoading,
@@ -24,11 +41,23 @@ export default function ContactQueriesView({
   onDeleteQuery: (id: string) => void;
   onMarkAsRead: (id: string) => void;
 }) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuery, setSelectedQuery] = useState<ContactQuery | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [isReplying, setIsReplying] = useState(false);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleReply = async () => {
     if (!selectedQuery || !replyMessage.trim()) return;
     
@@ -92,6 +121,12 @@ export default function ContactQueriesView({
     );
   }
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}

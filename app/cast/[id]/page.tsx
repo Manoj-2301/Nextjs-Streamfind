@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import CastDetails from '@/components/cast-details';
 import { getCastDetails, getCastMovies } from '@/services/tmdbService';
 

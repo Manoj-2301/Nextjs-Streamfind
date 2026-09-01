@@ -1,7 +1,24 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { PremiumBadges, BadgeUltra, Badge4K, BadgeHDR } from '@/components/Badges';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function BadgesDemoPage() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen bg-black text-white p-10 flex flex-col items-center justify-center font-sans">
       <div className="max-w-2xl w-full space-y-12 bg-gray-900/50 p-10 rounded-2xl border border-gray-800">

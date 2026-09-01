@@ -1,10 +1,27 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, ExternalLink, Plus, Trash2, Edit3, Save, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { getAffiliateLinks, saveAffiliateLinks, AffiliateLinks } from '@/services/affiliateService';
 import { toast } from 'react-hot-toast';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AffiliatesView() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [links, setLinks] = useState<AffiliateLinks>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -16,6 +33,12 @@ export default function AffiliatesView() {
   const [offerText, setOfferText] = useState('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     fetchLinks();
   }, []);
@@ -33,6 +56,12 @@ export default function AffiliatesView() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSave = async (updatedLinks: AffiliateLinks, action: 'added' | 'updated' | 'deleted') => {
     setIsSaving(true);
     try {
@@ -150,6 +179,12 @@ export default function AffiliatesView() {
     );
   }
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

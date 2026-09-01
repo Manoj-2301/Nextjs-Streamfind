@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import Link from 'next/link';
@@ -9,16 +14,53 @@ import { useState, useEffect, useRef } from 'react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import GlobalSearch from '@/components/ui/global-search';
+import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Navbar() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, loginWithGoogle, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
@@ -50,6 +92,12 @@ export default function Navbar() {
   const getMobileLinkClass = (path: string) =>
     `font-bold text-lg transition-colors ${pathname === path ? 'text-brand' : 'text-white/70 hover:text-brand'}`;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#080808]/70 backdrop-blur-2xl border-b border-white/5 px-4 min-[931px]:px-8 flex items-center justify-between h-20 shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
       <Link href="/" className="flex items-center gap-2 group">
@@ -110,7 +158,7 @@ export default function Navbar() {
               >
                 <div className="w-9 h-9 rounded-full p-[2px] bg-gradient-to-tr from-brand via-rose-500 to-purple-600 shadow-[0_0_10px_rgba(255,40,78,0.3)] group-hover:shadow-[0_0_20px_rgba(255,40,78,0.6)] transition-all shrink-0">
                   {user.photoURL ? (
-                    <Image src={user.photoURL} alt="Profile" width={36} height={36} className="w-full h-full rounded-full object-cover border border-[#0a0a0a]" referrerPolicy="no-referrer" />
+                    <Image src={user.photoURL} alt="Profile" width={36} height={36} className="w-full h-full rounded-full object-cover border border-[#0a0a0a]" referrerPolicy="no-referrer" unoptimized={true} />
                   ) : (
                     <div className="w-full h-full rounded-full bg-[#0a0a0a] flex items-center justify-center border border-[#0a0a0a]">
                       <UserIcon className="w-4 h-4 text-white/80" />
@@ -183,11 +231,12 @@ export default function Navbar() {
             </div>
           ) : (
             <Link href="/auth">
-              <button
-                className="bg-gradient-to-r from-brand to-rose-500 shadow-[0_0_20px_rgba(255,40,78,0.3)] text-white px-6 py-2.5 rounded-full text-xs font-black flex items-center gap-2 uppercase tracking-widest transition-transform duration-300 hover:scale-105 active:scale-95"
+              <Button
+                variant="primary"
+                className="rounded-full uppercase tracking-widest text-xs font-black gap-2 shadow-[0_0_20px_rgba(255,40,78,0.3)]"
               >
                 <LogIn className="w-4 h-4" /> SIGN IN
-              </button>
+              </Button>
             </Link>
           )}
 
@@ -225,7 +274,7 @@ export default function Navbar() {
             {user && (
               <div className="flex items-center gap-3 border-b border-white/10 pb-4">
                 {user.photoURL ? (
-                  <Image src={user.photoURL} alt="Profile" width={40} height={40} className="w-10 h-10 rounded-full border border-white/20 object-cover" referrerPolicy="no-referrer" />
+                  <Image src={user.photoURL} alt="Profile" width={40} height={40} className="w-10 h-10 rounded-full border border-white/20 object-cover" referrerPolicy="no-referrer" unoptimized={true} />
                 ) : (
                   <div className="w-10 h-10 rounded-full border border-white/20 bg-white/5 flex items-center justify-center">
                     <UserIcon className="w-5 h-5 text-white/60" />
@@ -315,9 +364,11 @@ export default function Navbar() {
                 <Link
                   href="/auth"
                   onClick={() => setIsMenuOpen(false)}
-                  className="w-full bg-brand p-3 rounded font-black text-white flex items-center justify-center gap-2"
+                  className="w-full block"
                 >
-                  <LogIn className="w-5 h-5" /> SIGN IN
+                  <Button variant="primary" className="w-full gap-2">
+                    <LogIn className="w-5 h-5" /> SIGN IN
+                  </Button>
                 </Link>
               )}
             </div>

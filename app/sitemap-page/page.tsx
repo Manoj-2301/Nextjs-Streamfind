@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 import Sitemap from '@/components/sitemap';
 
@@ -6,6 +11,12 @@ export const metadata: Metadata = {
   description: 'Navigate all pages of StreamFind.',
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SitemapPage() {
   return <Sitemap />;
 }

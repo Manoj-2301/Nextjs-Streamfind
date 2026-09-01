@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import Link from 'next/link';
@@ -9,8 +14,20 @@ import { getFirestore, doc, updateDoc, collection, addDoc } from 'firebase/fires
 import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Footer() {
   const pathname = usePathname();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,6 +35,12 @@ export default function Footer() {
 
   if (pathname === '/profile' || pathname === '/admin' || pathname?.startsWith('/auth')) return null;
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSubscribe = async () => {
     const emailToUse = user?.email || email.trim();
     if (!emailToUse || !/\S+@\S+\.\S+/.test(emailToUse)) {
@@ -62,6 +85,12 @@ export default function Footer() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <footer className="pt-10 pb-8 px-6 lg:px-12 bg-surface/30">
       <div className="container mx-auto max-w-7xl">

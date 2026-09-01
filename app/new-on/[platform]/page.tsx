@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -7,6 +12,12 @@ import SeoMovieGrid from '@/components/ui/SeoMovieGrid';
 
 export const revalidate = 86400; // 24 hours ISR
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface PageProps {
   params: Promise<{ platform: string }>;
 }
