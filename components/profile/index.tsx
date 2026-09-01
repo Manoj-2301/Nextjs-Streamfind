@@ -35,6 +35,7 @@ import { PremiumBadges } from '@/components/Badges';
 const EditProfileModal = dynamic(() => import('./modals/EditProfileModal'), { ssr: false });
 const ShareProfileModal = dynamic(() => import('./modals/ShareProfileModal'), { ssr: false });
 const SignOutModal = dynamic(() => import('./modals/SignOutModal'), { ssr: false });
+const ProfileBackground = dynamic(() => import('./ProfileBackground'), { ssr: false });
 
 const AVAILABLE_GENRES = [
   'Sci-Fi', 'Action', 'Drama', 'Thriller', 'Comedy', 'Horror', 'Romance', 'Mystery', 'Adventure', 'Neo-Noir', 'Cyberpunk', 'Post-Apocalyptic', 'Synthwave'
@@ -228,19 +229,10 @@ export default function ProfileComponent() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  // ── Share profile (Web Share API with modal fallback) ──────────────────────
-  const handleShareProfile = async () => {
+  // ── Share profile (Always open custom ShareProfileModal) ───────────────────
+  const handleShareProfile = () => {
     if (typeof window === 'undefined' || !user) return;
-    const shareUrl = `${window.location.origin}/profile?uid=${user.uid}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'StreamFind Cinema Profile', text: 'Check out my cinema profile!', url: shareUrl });
-      } catch (err: any) {
-        if (err.name !== 'AbortError') setIsShareModalOpen(true);
-      }
-    } else {
-      setIsShareModalOpen(true);
-    }
+    setIsShareModalOpen(true);
   };
 
   // ── Image upload (SVG sanitize + proxy upload + Firestore save) ────────────
@@ -387,11 +379,13 @@ export default function ProfileComponent() {
     frameTitle = 'Apprentice';
   }
 
-  const totalHours = Math.round((watchlist.length * 125 + userReviews.length * 130) / 60) || 0;
+  const totalHours = useMemo(() => Math.round((watchlist.length * 125 + userReviews.length * 130) / 60) || 0, [watchlist.length, userReviews.length]);
 
-  const avgRating = userReviews.length > 0
-    ? (userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length).toFixed(1)
-    : "0.0";
+  const avgRating = useMemo(() => {
+    return userReviews.length > 0
+      ? (userReviews.reduce((sum, r) => sum + r.rating, 0) / userReviews.length).toFixed(1)
+      : "0.0";
+  }, [userReviews]);
 
   const primaryFavGenre = profile.favoriteGenres?.[0] || 'Default';
   const getAuraColor = (genre: string) => {
@@ -467,41 +461,7 @@ export default function ProfileComponent() {
     <>
       <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30 relative pb-32">
         {/* 1. Spatial Background: VisionOS inspired mesh & ambient glows */}
-        <div className="fixed inset-0 z-0 pointer-events-none">
-          {/* Ambient blur */}
-          <div className="absolute inset-0 bg-[#050505]" />
-          
-          {heroBackdrop ? (
-            <>
-              <Image
-                src={heroBackdrop}
-                alt="Profile Cinematic Background"
-                fill
-                unoptimized={true}
-                className="object-cover opacity-30 mix-blend-screen blur-[40px] md:blur-[80px]"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/40 via-[#050505]/80 to-[#050505]" />
-            </>
-          ) : (
-            <div className={`absolute inset-0 bg-gradient-to-b ${getAuraColor(primaryFavGenre)} opacity-50 blur-[100px] mix-blend-screen`} />
-          )}
-
-          {/* Animated Spatial Orbs */}
-          <motion.div
-            animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0], x: [0, 50, 0], y: [0, -50, 0] }}
-            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-            className="w-[100vw] h-[100vw] max-w-[800px] max-h-[800px] opacity-10 blur-[120px] bg-brand absolute -top-[20%] -left-[10%] rounded-full mix-blend-screen"
-          />
-          <motion.div
-            animate={{ scale: [1, 1.5, 1], rotate: [0, -90, 0], x: [0, -50, 0], y: [0, 50, 0] }}
-            transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-            className="w-[80vw] h-[80vw] max-w-[600px] max-h-[600px] opacity-10 blur-[100px] bg-blue-500 absolute top-[20%] right-[10%] rounded-full mix-blend-screen"
-          />
-
-          {/* Noise overlay */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.25] mix-blend-overlay" />
-        </div>
+        <ProfileBackground heroBackdrop={heroBackdrop} primaryFavGenre={primaryFavGenre} />
 
         {/* Floating Action Dock (HUD) */}
         {isOwner && (
@@ -554,7 +514,7 @@ export default function ProfileComponent() {
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="w-full text-center relative z-10 mb-[-60px] md:mb-[-100px]"
           >
-            <h1 className="text-[12vw] md:text-[140px] leading-[0.8] font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-white/80 to-white/10 mix-blend-overlay">
+            <h1 className="text-[12vw] md:text-[140px] leading-[0.8] font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/20">
               {isOwner
                 ? (profile.displayName || user?.displayName || profile.email?.split('@')[0] || user?.email?.split('@')[0] || 'Movie Buff')
                 : (profile.displayName || profile.email?.split('@')[0] || 'Movie Buff')
@@ -578,9 +538,9 @@ export default function ProfileComponent() {
                 className="hidden"
               />
             )}
-            <div className={`relative w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden p-1 flex items-center justify-center ${currentFrame.containerClass} shadow-[0_30px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl border border-white/20 group hover:scale-[1.02] transition-transform duration-500 mx-auto`}>
+            <div className={`relative w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden p-1 flex items-center justify-center ${currentFrame.containerClass} shadow-[0_30px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl border border-white/20 group hover:scale-[1.02] transition-transform duration-300 mx-auto`}>
               {currentFrame.id !== 'none' && (
-                <div className={`absolute inset-[-50%] animate-[spin_4s_linear_infinite] ${currentFrame.spinClass}`} />
+                <div className={`absolute inset-0 rounded-full opacity-60 ${currentFrame.spinClass}`} />
               )}
               
               <div className="relative z-10 w-full h-full rounded-full overflow-hidden bg-[#050505]">
@@ -588,6 +548,7 @@ export default function ProfileComponent() {
                   <Image
                     src={isOwner ? (user?.photoURL || profile.photoURL || "") : (profile.photoURL || "")}
                     fill
+                    priority
                     unoptimized={true}
                     sizes="224px"
                     className="object-cover"

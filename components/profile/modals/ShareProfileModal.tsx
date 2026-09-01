@@ -60,7 +60,8 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
       hideHeader
       className="max-w-md sm:rounded-[40px]"
     >
-      <div className="p-6 sm:p-8 md:p-10 space-y-6 sm:space-y-8">
+      {/* Fixed Header */}
+      <div className="p-6 sm:p-8 md:px-10 md:pt-10 md:pb-4 shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase italic tracking-tight">Share <span className="text-brand">Profile</span></h2>
             <button onClick={onClose} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
@@ -68,10 +69,16 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
             </button>
           </div>
 
-          <p className="text-sm text-white/60 font-medium">
+          <p className="text-sm text-white/60 font-medium mt-4">
             Showcase your curated masterpieces, genre analytics, and cinematic level to the world!
           </p>
+      </div>
 
+      {/* Scrollable Body */}
+      <div 
+        className="flex-1 overflow-y-auto min-h-0 overscroll-contain custom-scrollbar px-6 sm:px-8 md:px-10 py-4"
+        data-lenis-prevent
+      >
           <div className="grid grid-cols-2 gap-4">
             {/* Facebook */}
             <button
@@ -142,9 +149,11 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
               <span className="text-xs font-black uppercase tracking-wider text-white/70 group-hover:text-white transition-colors">Instagram</span>
             </button>
           </div>
+      </div>
 
-          {/* Direct Link Copier */}
-          <div className="space-y-2 pt-4 border-t border-white/5">
+      {/* Fixed Footer — Direct Link Copier */}
+      <div className="px-6 sm:px-8 md:px-10 pb-6 sm:pb-8 md:pb-10 pt-4 shrink-0 border-t border-white/5">
+          <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Shareable Profile Link</label>
             <div className="flex gap-2">
               <input
@@ -172,7 +181,7 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
               </Button>
             </div>
           </div>
-        </div>
+      </div>
     </Modal>
   );
 }

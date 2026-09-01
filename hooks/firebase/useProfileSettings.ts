@@ -58,7 +58,14 @@ interface UseProfileSettingsReturn {
   renewalDate: string;
 }
 
-export function useProfileSettings(): UseProfileSettingsReturn {
+export interface ProfileSettingsOptions {
+  fetchTracking?: boolean;
+  fetchSessions?: boolean;
+  fetchAuditLogs?: boolean;
+  fetchBilling?: boolean;
+}
+
+export function useProfileSettings(options: ProfileSettingsOptions = {}): UseProfileSettingsReturn {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -76,11 +83,10 @@ export function useProfileSettings(): UseProfileSettingsReturn {
   const [trackedReleases, setTrackedReleases] = useState<number[]>([]);
 
   useEffect(() => {
-    if (!user?.uid) return;
-    const currentSessionId = typeof window !== 'undefined' ? localStorage.getItem('moviefind_session_id') : null;
+    if (!user?.uid || !options.fetchTracking) return;
     const unsub = subscribeToTrackedReleases(user.uid, setTrackedReleases);
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, options.fetchTracking]);
 
   /*
    * ============================================================
@@ -247,11 +253,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !options.fetchSessions) return;
     const currentSessionId = typeof window !== 'undefined' ? localStorage.getItem('moviefind_session_id') : null;
     const unsub = subscribeToActiveSessions(user.uid, setActiveSessions, currentSessionId);
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, options.fetchSessions]);
 
   /*
    * ============================================================
@@ -262,13 +268,13 @@ export function useProfileSettings(): UseProfileSettingsReturn {
   const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !options.fetchAuditLogs) return;
     const unsub = subscribeToAuditLogs(user.uid, (logs, total) => {
       setAuditLogs(logs);
       setTotalAuditLogs(total);
     });
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, options.fetchAuditLogs]);
 
   /*
    * ============================================================
@@ -280,14 +286,14 @@ export function useProfileSettings(): UseProfileSettingsReturn {
   const [renewalDate, setRenewalDate] = useState('N/A');
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !options.fetchBilling) return;
     const unsub = subscribeToBilling(user.uid, ({ plan, invoices, renewalDate }) => {
       setBillingPlan(plan);
       setInvoices(invoices);
       setRenewalDate(renewalDate);
     });
     return unsub;
-  }, [user?.uid]);
+  }, [user?.uid, options.fetchBilling]);
 
   return {
     trackedReleases,

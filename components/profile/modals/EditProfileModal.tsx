@@ -77,7 +77,8 @@ export default function EditProfileModal({
       hideHeader
       className="max-w-2xl sm:rounded-[40px]"
     >
-      <div className="p-6 sm:p-8 md:p-12 space-y-6 sm:space-y-8">
+      {/* Fixed Header */}
+      <div className="p-6 sm:p-8 md:px-12 md:pt-12 md:pb-6 shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-3xl font-black uppercase italic tracking-tight">Edit <span className="text-brand">Identity</span></h2>
             <button onClick={onClose} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
@@ -86,19 +87,25 @@ export default function EditProfileModal({
           </div>
 
           {modalError && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2 mt-4">
               <X className="w-4 h-4 shrink-0 text-red-500" />
               <p>{modalError}</p>
             </div>
           )}
 
           {modalSuccess && (
-            <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2">
+            <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-xs font-semibold flex items-center gap-2 mt-4">
               <Check className="w-4 h-4 shrink-0 text-green-500" />
               <p>{modalSuccess}</p>
             </div>
           )}
+      </div>
 
+      {/* Scrollable Body */}
+      <div 
+        className="flex-1 overflow-y-auto min-h-0 overscroll-contain custom-scrollbar px-6 sm:px-8 md:px-12 py-2"
+        data-lenis-prevent
+      >
           <div className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-white/40 px-2 tracking-widest">Display Name</label>
@@ -162,8 +169,11 @@ export default function EditProfileModal({
               </div>
             </div>
           </div>
+      </div>
 
-          <div className="pt-4 flex gap-4">
+      {/* Fixed Footer */}
+      <div className="p-6 sm:p-8 md:px-12 md:pb-12 md:pt-6 shrink-0 border-t border-white/5">
+          <div className="flex gap-4">
             <Button
               variant="secondary"
               isLoading={isSaving}
@@ -180,7 +190,7 @@ export default function EditProfileModal({
               Cancel
             </Button>
           </div>
-        </div>
+      </div>
     </Modal>
   );
 }
