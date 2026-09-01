@@ -98,6 +98,22 @@ export default function RootLayout({
             <NewsletterPopupLoader />
             <CookieConsent />
             <SmoothScroll />
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  '@context': 'https://schema.org',
+                  '@type': 'WebSite',
+                  name: 'StreamFind',
+                  url: 'https://streamfinds.vercel.app',
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: 'https://streamfinds.vercel.app/search?q={search_term_string}',
+                    'query-input': 'required name=search_term_string',
+                  },
+                }),
+              }}
+            />
           </MaintenanceGuard>
         </Providers>
       </body>

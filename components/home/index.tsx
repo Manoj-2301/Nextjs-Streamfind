@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
@@ -103,6 +103,8 @@ export default function Home({
     prefContentType: profile?.prefContentType,
   }), [profile]);
 
+  const initialMainFetchDone = useRef(false);
+
   useEffect(() => {
     // Wait until the authenticated user's profile has been fetched from Firestore
     if (!profileReady) return;
@@ -111,40 +113,55 @@ export default function Home({
     const signal = abortController.signal;
 
     const loadData = async () => {
-      // First load with no data: show full spinner. Re-fetches: show subtle refreshing bar.
       const hasData = trending.length > 0 || heroFallback.length > 0;
-      if (!hasData) {
-        setIsLoading(true);
-      } else {
-        setIsRefreshing(true);
-      }
-      try {
-        // Always fetch fresh data when profile preferences change
-        const [trendingData, upcomingData, sciFiData, nowPlayingData] = await Promise.all([
-          getTrendingMovies(profile || undefined, { signal }),
-          getUpcomingMovies(profile || undefined, { signal }),
-          getMoviesByGenre(878, profile || undefined, { signal }), // 878 is Sci-Fi genre ID in TMDB
-          getNowPlayingMovies(profile || undefined, { signal })
-        ]);
 
-        setTrending(trendingData);
-        setUpcoming(upcomingData);
-        setSciFi(sciFiData);
-        setNowPlaying(nowPlayingData);
+      // Determine if the user has custom filters that require re-fetching the main arrays
+      const hasCustomFilters = !!(
+        profile?.autoFilter || 
+        (profile?.subscriptions && profile.subscriptions.length > 0) || 
+        (profile?.dnaMoods && profile.dnaMoods.length > 0) || 
+        (profile?.watchRegion && profile.watchRegion !== 'IN') || 
+        (profile?.prefLanguage && profile.prefLanguage !== 'en') ||
+        (profile?.prefContentType && profile.prefContentType !== 'both')
+      );
 
-        console.log("CLIENT FETCH RESULTS:", {
-          trendingCount: trendingData.length,
-          upcomingCount: upcomingData.length,
-          sciFiCount: sciFiData.length,
-          nowPlayingCount: nowPlayingData.length
-        });
+      // Skip the heavy main fetch if we already have initial data from the server,
+      // it's the first time running this effect, and the user has no custom filters.
+      const skipMainFetch = hasData && !initialMainFetchDone.current && !hasCustomFilters;
+      initialMainFetchDone.current = true;
 
-        // If filters narrowed results to 0, fetch unfiltered popular content for the hero
-        if (trendingData.length === 0) {
-          const fallbackData = await getPopularMovies(undefined, { signal });
-          setHeroFallback(fallbackData.slice(0, 5));
+      if (!skipMainFetch) {
+        if (!hasData) {
+          setIsLoading(true);
         } else {
-          setHeroFallback(trendingData.slice(0, 5));
+          setIsRefreshing(true);
+        }
+      }
+
+      let currentTrending = trending;
+      try {
+        if (!skipMainFetch) {
+          // Always fetch fresh data when profile preferences change
+          const [trendingData, upcomingData, sciFiData, nowPlayingData] = await Promise.all([
+            getTrendingMovies(profile || undefined, { signal }),
+            getUpcomingMovies(profile || undefined, { signal }),
+            getMoviesByGenre(878, profile || undefined, { signal }), // 878 is Sci-Fi genre ID in TMDB
+            getNowPlayingMovies(profile || undefined, { signal })
+          ]);
+
+          setTrending(trendingData);
+          setUpcoming(upcomingData);
+          setSciFi(sciFiData);
+          setNowPlaying(nowPlayingData);
+
+          // If filters narrowed results to 0, fetch unfiltered popular content for the hero
+          if (trendingData.length === 0) {
+            const fallbackData = await getPopularMovies(undefined, { signal });
+            setHeroFallback(fallbackData.slice(0, 5));
+          } else {
+            setHeroFallback(trendingData.slice(0, 5));
+          }
+          currentTrending = trendingData;
         }
 
         // Fetch Recommendations based on watchlist
@@ -188,8 +205,8 @@ export default function Home({
           return typeof linkData === 'object' && linkData?.isFeatured;
         });
 
-        if (featuredKey && trendingData.length > 0) {
-          const topMovie = trendingData[0];
+        if (featuredKey && currentTrending.length > 0) {
+          const topMovie = currentTrending[0];
           const linkData = links[featuredKey] as any;
 
           const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);

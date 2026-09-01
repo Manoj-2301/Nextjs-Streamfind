@@ -10,6 +10,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-virtual": "^3.14.10",
     "@upstash/redis": "^1.38.0",
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",

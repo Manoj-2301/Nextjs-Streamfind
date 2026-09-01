@@ -14,8 +14,10 @@ import {
   Fingerprint, MonitorSmartphone, Database, UserCog
 } from 'lucide-react';
 import { getUserActivities, clearUserActivities } from '@/lib/genreTracker';
-import { searchMovies } from '@/services/tmdbService';
+import { searchMovies, getMovieAdditionalDetails } from '@/services/tmdbService';
 import { Movie } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { app } from '@/lib/firebase';
 import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc, getCountFromServer } from 'firebase/firestore';
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
@@ -26,6 +28,60 @@ import Link from 'next/link';
 import { revalidatePage } from '@/app/actions/revalidate';
 import { ProfileSettings } from '@/types';
 import { useWatchlist } from '@/context/WatchlistContext';
+
+// Sub-component for lazy-loading TMDB details on Director Notes
+function DirectorNote({ movieId }: { movieId: number }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { data: details, isLoading } = useQuery({
+    queryKey: ['movieAdditionalDetails', movieId],
+    queryFn: () => getMovieAdditionalDetails(movieId),
+    enabled: isExpanded,
+    staleTime: 1000 * 60 * 60 * 24 // Cache for 24h
+  });
+
+  if (!isExpanded) {
+    return (
+      <button 
+        onClick={() => setIsExpanded(true)}
+        className="w-full mt-4 py-2 border border-brand/20 bg-brand/5 text-brand text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-brand/10 hover:scale-[1.02] transition-all"
+      >
+        Load Director's Note & Insights
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-4 border-t border-white/10 pt-6 relative z-10 mt-4">
+      {isLoading ? (
+        <div className="flex items-center justify-center p-4">
+          <div className="w-5 h-5 border-2 border-brand/40 border-t-brand rounded-full animate-spin" />
+        </div>
+      ) : details ? (
+        <>
+          {details.director && (
+            <div className="p-4 rounded-[20px] bg-brand/5 border border-brand/20 shadow-inner">
+              <p className="text-[10px] font-black uppercase text-brand tracking-widest mb-2 drop-shadow-sm">Director's Note</p>
+              <p className="text-white/70 text-[11px] italic font-bold leading-relaxed">
+                Directed by <span className="text-white font-black">{details.director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
+              </p>
+            </div>
+          )}
+          {details.topCriticReview && (
+            <div className="p-4 rounded-[20px] bg-white/5 border border-white/10 shadow-inner">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-black uppercase text-white/50 tracking-widest">Top Critic Insight</p>
+                <span className="text-[9px] font-black text-white/80 bg-white/10 px-2 py-1 rounded-lg uppercase tracking-widest truncate max-w-[120px]">By {details.topCriticReview.author}</span>
+              </div>
+              <p className="text-white/60 text-[11px] italic leading-relaxed line-clamp-2 font-medium">
+                "{details.topCriticReview.content}"
+              </p>
+            </div>
+          )}
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 interface ProfileSettingsPanelProps {
   user: any;
@@ -71,6 +127,8 @@ const SETTING_TABS = [
   { id: 'notes', icon: '📝', name: 'Director\'s Notes', label: 'Reviews & Critiques' }
 ];
 
+const EMPTY_ACTIVITIES: any[] = [];
+
 export default function ProfileSettingsPanel({
   user,
   profile,
@@ -91,6 +149,24 @@ export default function ProfileSettingsPanel({
   const [activeSettingTab, setActiveSettingTab] = useState<
     'notifications' | 'preferences' | 'privacy' | 'payment' | 'help' | 'tracking' | 'activity' | 'notes'
   >('notifications');
+
+  const { data: recentActivities = EMPTY_ACTIVITIES } = useQuery({
+    queryKey: ['recentActivities'],
+    queryFn: async () => {
+      if (typeof window !== 'undefined') {
+        return getUserActivities();
+      }
+      return [];
+    }
+  });
+
+  const recentActivitiesParentRef = React.useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: recentActivities.length,
+    getScrollElement: () => recentActivitiesParentRef.current,
+    estimateSize: () => 76,
+    overscan: 5,
+  });
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -415,10 +491,7 @@ export default function ProfileSettingsPanel({
     return events.filter(e => !clearedTimelineIds.includes(e.id)).slice(0, 4);
   }, [watchlist, userReviews, clearedTimelineIds]);
 
-  const recentActivities = React.useMemo(() => {
-    if (!isMounted) return [];
-    return getUserActivities();
-  }, [isMounted, watchlist, userReviews, clearedTimelineIds, showActivityPopup]);
+
 
   const badges = systemAchievements.map(ach => {
     let unlocked = false;
@@ -455,14 +528,24 @@ export default function ProfileSettingsPanel({
   const [showSearch, setShowSearch] = useState(false);
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
 
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
   const handleSearchChange = async (q: string) => {
     setSearchQuery(q);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
     if (q.trim().length < 2) {
       setSearchResults([]);
       return;
     }
-    const results = await searchMovies(q);
-    setSearchResults(results.slice(0, 5));
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      const results = await searchMovies(q);
+      setSearchResults(results.slice(0, 5));
+    }, 400);
   };
 
   const handleAddTopMovie = async (movie: Movie) => {
@@ -2343,29 +2426,7 @@ export default function ProfileSettingsPanel({
                               </div>
                             </div>
 
-                            {additionalDetails[review.movieId] && (
-                              <div className="space-y-4 border-t border-white/10 pt-6 relative z-10">
-                                {additionalDetails[review.movieId].director && (
-                                  <div className="p-4 rounded-[20px] bg-brand/5 border border-brand/20 shadow-inner">
-                                    <p className="text-[10px] font-black uppercase text-brand tracking-widest mb-2 drop-shadow-sm">Director's Note</p>
-                                    <p className="text-white/70 text-[11px] italic font-bold leading-relaxed">
-                                      Directed by <span className="text-white font-black">{additionalDetails[review.movieId].director}</span>. Behind-the-scenes trivia: This masterpiece was meticulously crafted to deliver a raw, visual-first cinematic experience.
-                                    </p>
-                                  </div>
-                                )}
-                                {additionalDetails[review.movieId].topCriticReview && (
-                                  <div className="p-4 rounded-[20px] bg-white/5 border border-white/10 shadow-inner">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <p className="text-[10px] font-black uppercase text-white/50 tracking-widest">Top Critic Insight</p>
-                                      <span className="text-[9px] font-black text-white/80 bg-white/10 px-2 py-1 rounded-lg uppercase tracking-widest truncate max-w-[120px]">By {additionalDetails[review.movieId].topCriticReview!.author}</span>
-                                    </div>
-                                    <p className="text-white/60 text-[11px] italic leading-relaxed line-clamp-2 font-medium">
-                                      "{additionalDetails[review.movieId].topCriticReview!.content}"
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            <DirectorNote movieId={review.movieId} />
 
                             <div className="mt-auto pt-6 border-t border-white/10 flex items-center gap-6 relative z-10">
                               {handleToggleLike && (
@@ -2443,7 +2504,13 @@ export default function ProfileSettingsPanel({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-6 max-h-[350px] overflow-y-auto overscroll-contain pr-2 custom-scrollbar" data-lenis-prevent="true" onWheel={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+              <div 
+                ref={recentActivitiesParentRef}
+                className="p-6 max-h-[350px] overflow-y-auto overscroll-contain pr-2 custom-scrollbar relative" 
+                data-lenis-prevent="true" 
+                onWheel={(e) => e.stopPropagation()} 
+                onTouchMove={(e) => e.stopPropagation()}
+              >
                 {recentActivities.length === 0 ? (
                   <div className="py-12 text-center">
                     <Activity className="w-8 h-8 text-white/10 mx-auto mb-3" />
@@ -2451,12 +2518,23 @@ export default function ProfileSettingsPanel({
                     <p className="text-[10px] text-white/20 uppercase font-bold mt-1">Try searching, filtering, adding to watchlist, or rating movies!</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {recentActivities.map((act: any) => {
+                  <div 
+                    className="relative w-full"
+                    style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+                  >
+                    {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+                      const act = recentActivities[virtualItem.index];
                       const timeStr = new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       const dateStr = new Date(act.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
                       return (
-                        <div key={act.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-start justify-between gap-4 hover:border-brand/30 transition-colors">
+                        <div 
+                          key={act.id} 
+                          className="absolute top-0 left-0 w-full p-4 bg-white/5 border border-white/5 rounded-2xl flex items-start justify-between gap-4 hover:border-brand/30 transition-colors"
+                          style={{
+                            height: `${virtualItem.size}px`,
+                            transform: `translateY(${virtualItem.start}px)`,
+                          }}
+                        >
                           <div className="flex gap-3 items-start">
                             <div className="p-2 bg-brand/10 text-brand rounded-xl mt-0.5">
                               <Activity className="w-3.5 h-3.5" />

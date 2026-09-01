@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { motion } from 'motion/react';
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -63,6 +63,10 @@ export default function ScrollableRow({ title, movies, className = "", viewAllLi
       className={`py-1 group outline-none ${className}`}
       onKeyDown={handleKeyDown}
       tabIndex={0}
+      style={{ 
+        contentVisibility: 'auto', 
+        containIntrinsicSize: 'auto 400px' 
+      } as React.CSSProperties}
     >
       {title && (
         <div className="flex items-center justify-between mb-1 px-1 lg:px-12">

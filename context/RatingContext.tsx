@@ -1,5 +1,6 @@
 'use client';
 import { getFirestore } from 'firebase/firestore';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
@@ -33,57 +34,57 @@ interface RatingContextType {
 
 const RatingContext = createContext<RatingContextType | undefined>(undefined);
 
+const EMPTY_RATINGS = { ratings: {}, reviews: [] as UserReview[] };
+
 export function RatingProvider({ children }: { children: React.ReactNode }) {
   const [userRatings, setUserRatings] = useState<Record<number, number>>({});
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
   const { user } = useAuth();
+  // inside the provider
+  const queryClient = useQueryClient();
+
+  const { data: fetchedRatings = EMPTY_RATINGS } = useQuery({
+    queryKey: ['ratings', user?.uid],
+    queryFn: async () => {
+      if (!user) return { ratings: {}, reviews: [] };
+      const { collection, getDocs, query, limit } = await import('firebase/firestore');
+      const path = `users/${user.uid}/ratings`;
+      // Fetch paginated or limited to prevent memory bloat on profile load
+      const q = query(collection(getFirestore(app), path), limit(100));
+      const snapshot = await getDocs(q);
+      
+      const ratings: Record<number, number> = {};
+      const reviews: UserReview[] = [];
+      
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const rVal = data.rating;
+        ratings[Number(docSnap.id)] = rVal;
+        
+        reviews.push({
+          movieId: Number(docSnap.id),
+          rating: rVal,
+          movieTitle: data.movieTitle || 'Unknown Movie',
+          moviePoster: data.moviePoster || '',
+          reviewText: data.reviewText || '',
+          updatedAt: data.updatedAt,
+          liked: !!data.liked
+        });
+      });
+      return { ratings, reviews };
+    },
+    enabled: !!user,
+  });
 
   useEffect(() => {
-    if (!user) {
+    if (user) {
+      setUserRatings(fetchedRatings.ratings);
+      setUserReviews(fetchedRatings.reviews);
+    } else {
       setUserRatings({});
       setUserReviews([]);
-      return;
     }
-
-    let isMounted = true;
-    let unsubscribe = () => {};
-
-    import('firebase/firestore').then(({ collection, query, onSnapshot }) => {
-      if (!isMounted) return;
-      const path = `users/${user.uid}/ratings`;
-      const q = query(collection(getFirestore(app), path));
-      
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        const ratings: Record<number, number> = {};
-        const reviews: UserReview[] = [];
-        
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const rVal = data.rating;
-          ratings[Number(docSnap.id)] = rVal;
-          
-          reviews.push({
-            movieId: Number(docSnap.id),
-            rating: rVal,
-            movieTitle: data.movieTitle || 'Unknown Movie',
-            moviePoster: data.moviePoster || '',
-            reviewText: data.reviewText || '',
-            updatedAt: data.updatedAt,
-            liked: !!data.liked
-          });
-        });
-        setUserRatings(ratings);
-        setUserReviews(reviews);
-      }, (error: any) => {
-        handleFirestoreError(error, OperationType.LIST, path);
-      });
-    });
-
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
-  }, [user]);
+  }, [fetchedRatings, user]);
 
   const setUserRating = async (
     movieId: number, 

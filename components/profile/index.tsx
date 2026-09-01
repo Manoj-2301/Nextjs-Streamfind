@@ -138,25 +138,10 @@ export default function ProfileComponent() {
 
 
   useEffect(() => {
-    if (userReviews.length === 0) return;
-
-    const fetchAdditionalDetails = async () => {
-      const details: Record<number, MovieAdditionalDetails> = {};
-      await Promise.all(
-        userReviews.map(async (review) => {
-          try {
-            const data = await getMovieAdditionalDetails(review.movieId);
-            details[review.movieId] = data;
-          } catch (e) {
-            console.error("Error fetching additional details for movie:", review.movieId, e);
-          }
-        })
-      );
-      setAdditionalDetails(prev => ({ ...prev, ...details }));
-    };
-
-    fetchAdditionalDetails();
-  }, [userReviews]);
+    // TMDB additional details are now fetched on-demand (lazy load)
+    // inside the Director's Note component in ProfileSettingsPanel
+    // to prevent network flooding and profile lag on load.
+  }, []);
   // Helper to toggle like status of reviews in Firestore
   const handleToggleLike = async (movieId: number, currentLiked: boolean) => {
     if (!user) return;

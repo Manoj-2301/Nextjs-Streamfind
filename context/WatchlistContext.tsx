@@ -1,5 +1,6 @@
 'use client';
 import { getFirestore } from 'firebase/firestore';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Movie } from '@/types';
@@ -50,7 +51,10 @@ interface LocalWatchlistItem {
   addedAt: number;
 }
 
+const EMPTY_WATCHLIST: Movie[] = [];
+
 export function WatchlistProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [watchlist, setWatchlist] = useState<Movie[]>([]);
   const [customWatchlists, setCustomWatchlists] = useState<CustomWatchlist[]>([]);
   
@@ -58,7 +62,42 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [movieToAdd, setMovieToAdd] = useState<Movie | null>(null);
 
-  const { user } = useAuth();
+  // inside the provider
+  const queryClient = useQueryClient();
+
+  const { data: fetchedWatchlist = EMPTY_WATCHLIST } = useQuery({
+    queryKey: ['watchlist', user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      const { collection, getDocs, query, limit } = await import('firebase/firestore');
+      const pathWatchlist = `users/${user.uid}/watchlist`;
+      // Fetch paginated or limited to prevent memory bloat on profile load
+      const qWatchlist = query(collection(getFirestore(app), pathWatchlist), limit(100));
+      const snapshot = await getDocs(qWatchlist);
+      return snapshot.docs.map(doc => doc.data() as Movie);
+    },
+    enabled: !!user,
+  });
+
+  const { data: fetchedCustomLists = [] } = useQuery({
+    queryKey: ['customWatchlists', user?.uid],
+    queryFn: async () => {
+      if (!user) return [];
+      const { collection, getDocs, query } = await import('firebase/firestore');
+      const pathCustom = `users/${user.uid}/customWatchlists`;
+      const qCustom = query(collection(getFirestore(app), pathCustom));
+      const snapshot = await getDocs(qCustom);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CustomWatchlist));
+    },
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (user) {
+      setWatchlist(fetchedWatchlist);
+      setCustomWatchlists(fetchedCustomLists);
+    }
+  }, [fetchedWatchlist, fetchedCustomLists, user]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -88,13 +127,7 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     }
 
     // User is logged in: Merge local items to Firebase
-    let isMounted = true;
-    let unsubscribeWatchlist = () => {};
-    let unsubscribeCustomLists = () => {};
-
-    import('firebase/firestore').then(({ collection, doc, setDoc, onSnapshot, query, serverTimestamp }) => {
-      if (!isMounted) return;
-      
+    import('firebase/firestore').then(async ({ doc, setDoc, serverTimestamp }) => {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         try {
@@ -102,55 +135,25 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
           const now = Date.now();
           const validItems = parsed.filter(item => now - item.addedAt < EXPIRY_TIME_MS);
           
-          validItems.forEach(async (item) => {
-            const path = `users/${user.uid}/watchlist/${item.movie.id}`;
-            await setDoc(doc(getFirestore(app), path), {
-              ...item.movie,
-              addedAt: serverTimestamp()
-            }, { merge: true });
-          });
+          if (validItems.length > 0) {
+            for (const item of validItems) {
+              const path = `users/${user.uid}/watchlist/${item.movie.id}`;
+              await setDoc(doc(getFirestore(app), path), {
+                ...item.movie,
+                addedAt: serverTimestamp()
+              }, { merge: true });
+            }
+            queryClient.invalidateQueries({ queryKey: ['watchlist', user.uid] });
+          }
           
           localStorage.removeItem(LOCAL_STORAGE_KEY);
         } catch (e) {
           console.error("Error merging local watchlist:", e);
         }
       }
-
-      // Default Watchlist listener
-      const pathWatchlist = `users/${user.uid}/watchlist`;
-      const qWatchlist = query(collection(getFirestore(app), pathWatchlist));
-      
-      unsubscribeWatchlist = onSnapshot(qWatchlist, (snapshot) => {
-        const items: Movie[] = [];
-        snapshot.forEach((docSnap) => {
-          items.push(docSnap.data() as Movie);
-        });
-        setWatchlist(items);
-      }, (error: any) => {
-        handleFirestoreError(error, OperationType.LIST, pathWatchlist);
-      });
-
-      // Custom Watchlists listener
-      const pathCustom = `users/${user.uid}/customWatchlists`;
-      const qCustom = query(collection(getFirestore(app), pathCustom));
-      
-      unsubscribeCustomLists = onSnapshot(qCustom, (snapshot) => {
-        const lists: CustomWatchlist[] = [];
-        snapshot.forEach((docSnap) => {
-          lists.push({ id: docSnap.id, ...docSnap.data() } as CustomWatchlist);
-        });
-        setCustomWatchlists(lists);
-      }, (error: any) => {
-        console.error("Error fetching custom lists:", error);
-      });
     });
 
-    return () => {
-      isMounted = false;
-      unsubscribeWatchlist();
-      unsubscribeCustomLists();
-    };
-  }, [user]);
+  }, [user, queryClient]);
 
   const isInWatchlist = React.useCallback((movieId: number) => {
     return watchlist.some(m => m.id === movieId);
@@ -190,10 +193,11 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
         ...movie,
         addedAt: serverTimestamp()
       });
+      queryClient.invalidateQueries({ queryKey: ['watchlist', user.uid] });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
-  }, [user, watchlist, isInWatchlist]);
+  }, [user, watchlist, isInWatchlist, queryClient]);
 
   const removeFromWatchlist = React.useCallback(async (movieId: number) => {
     const targetMovie = watchlist.find(m => m.id === movieId);
@@ -217,10 +221,11 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     try {
       const { doc, deleteDoc } = await import('firebase/firestore');
       await deleteDoc(doc(getFirestore(app), path));
+      queryClient.invalidateQueries({ queryKey: ['watchlist', user.uid] });
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
-  }, [user, watchlist]);
+  }, [user, watchlist, queryClient]);
 
   const requestAddToList = React.useCallback((movie: Movie) => {
     if (!user || customWatchlists.length === 0) {
