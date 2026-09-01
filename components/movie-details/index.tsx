@@ -7,7 +7,7 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { Star, Clock, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Loader2, Pencil, Sparkles, Zap, Flame, Crown, PawPrint, ChevronDown } from 'lucide-react';
+import { Star, Clock, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Info, Bookmark, Check, Play, Pause, Square, VolumeX, Volume2, Loader2, Pencil, Sparkles, Zap, Flame, Crown, PawPrint, ChevronDown } from 'lucide-react';
 import WatchProviderCard from '@/components/ui/watch-provider-card';
 import ErrorMessage from '@/components/ui/error-message';
 import Link from 'next/link';
@@ -361,6 +361,8 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   };
 
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isManualPlay, setIsManualPlay] = useState(false);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
   const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
@@ -465,10 +467,32 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const reviewsPerPage = 4;
 
   const togglePlay = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      setIsManualPlay(false);
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+      }
+    } else {
+      setIsManualPlay(true);
+      setIsPlaying(true);
+      setIsMuted(false); // Play unmuted when manually triggered
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      }
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted(!isMuted);
     if (iframeRef.current && iframeRef.current.contentWindow) {
-      const func = isPlaying ? 'pauseVideo' : 'playVideo';
-      iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: func, args: [] }), '*');
-      setIsPlaying(!isPlaying);
+      const isVimeo = selectedTrailer?.site?.toLowerCase() === 'vimeo';
+      if (isVimeo) {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: isMuted ? 1 : 0 }), '*');
+      } else {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: isMuted ? 'unMute' : 'mute' }), '*');
+      }
     }
   };
 
@@ -757,11 +781,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               className="w-full h-full relative"
             >
 
-              <OptimizedIframe
+              <iframe
+                ref={iframeRef}
                 className={`w-full h-full scale-110 md:scale-125 pointer-events-none transition-opacity duration-1000 opacity-60 grayscale-[0.3]`}
                 src={selectedTrailer.site?.toLowerCase() === 'vimeo'
-                  ? `https://player.vimeo.com/video/${selectedTrailer.key}?autoplay=1&loop=1&muted=1&background=1`
-                  : `https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&mute=1&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${selectedTrailer.key}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                  ? `https://player.vimeo.com/video/${selectedTrailer.key}?autoplay=1&loop=1&muted=${isManualPlay ? 0 : 1}&background=1`
+                  : `https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&mute=${isManualPlay ? 0 : 1}&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${selectedTrailer.key}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                 }
                 title={movie.title}
                 frameBorder="0"
@@ -786,13 +811,24 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
         )}
 
         {movie.trailerYoutubeId && (
-          <button
-            onClick={togglePlay}
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-16 h-16 md:w-20 md:h-20 rounded-full glass flex items-center justify-center hover:opacity-100 hover:bg-white/20 transition-all text-white border border-white/20 shadow-2xl ${isPlaying ? 'opacity-30' : 'opacity-100 bg-white/10'}`}
-            title={isPlaying ? "Pause Trailer" : "Play Trailer"}
-          >
-            {isPlaying ? <Pause className="w-8 h-8 md:w-10 md:h-10" /> : <Play className="w-8 h-8 md:w-10 md:h-10 ml-1 md:ml-2" />}
-          </button>
+            <div className="absolute right-4 bottom-4 md:right-12 md:bottom-8 z-30 flex items-center gap-3">
+              <button
+                onClick={togglePlay}
+                className="w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
+                aria-label={isPlaying ? "Stop Trailer" : "Play Trailer"}
+              >
+                {isPlaying ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+              </button>
+              {isPlaying && (
+                <button
+                  onClick={toggleMute}
+                  className="w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
+                  aria-label={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+              )}
+            </div>
         )}
 
         <div className="absolute top-4 md:top-8 left-4 md:left-12 flex gap-3 md:gap-4">
