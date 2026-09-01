@@ -14,9 +14,9 @@ import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { getNowPlayingMovies } from '@/services/tmdbService';
 
-const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), { 
+const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), {
   ssr: true,
-  loading: () => <div className="h-64 w-full animate-pulse bg-white/5 rounded-xl my-4" /> 
+  loading: () => <div className="h-64 w-full animate-pulse bg-white/5 rounded-xl my-4" />
 });
 const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { ssr: true });
 
@@ -66,7 +66,7 @@ export default function Home({
       return;
     }
     setProfileReady(false);
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
 
     import('firebase/firestore').then(({ doc, onSnapshot }) => {
       const docRef = doc(getFirestore(app), `users/${user.uid}`);
@@ -131,7 +131,7 @@ export default function Home({
         setUpcoming(upcomingData);
         setSciFi(sciFiData);
         setNowPlaying(nowPlayingData);
-        
+
         console.log("CLIENT FETCH RESULTS:", {
           trendingCount: trendingData.length,
           upcomingCount: upcomingData.length,
@@ -191,15 +191,15 @@ export default function Home({
         if (featuredKey && trendingData.length > 0) {
           const topMovie = trendingData[0];
           const linkData = links[featuredKey] as any;
-          
+
           const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
-          
+
           let movieName = topMovie.title || 'Top Movie';
           if (movieName.includes(':')) {
             const parts = movieName.split(':');
             movieName = parts[parts.length - 1].trim();
           }
-          
+
           setFeaturedPartner({
             movieName,
             providerName,
@@ -207,7 +207,7 @@ export default function Home({
             affiliateUrl: linkData.url,
           });
         } else {
-           setFeaturedPartner(null);
+          setFeaturedPartner(null);
         }
 
       } catch (error: any) {
@@ -270,16 +270,16 @@ export default function Home({
         )}
 
         {filteredNowPlaying.length > 0 && (
-          <ScrollableRow 
-            title="Theaters" 
-            movies={filteredNowPlaying} 
+          <ScrollableRow
+            title="In Theaters"
+            movies={filteredNowPlaying}
           />
         )}
 
         <ScrollableRow title="Trending Now" movies={filteredTrending} />
 
         {featuredPartner && (
-          <SponsorBanner 
+          <SponsorBanner
             movieName={featuredPartner.movieName}
             providerName={featuredPartner.providerName}
             offerText={featuredPartner.offerText}
@@ -300,25 +300,23 @@ export default function Home({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            className={`fixed bottom-6 right-6 z-50 select-none ${
-              profile.autoFilter
-                ? `bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] backdrop-blur-md ${
-                    isDnaExpanded
-                      ? "rounded-3xl p-5 max-w-xs md:max-w-sm"
-                      : "rounded-full p-2 md:p-2.5 md:px-5 md:py-3 cursor-pointer hover:border-brand"
-                  }`
+            className={`fixed bottom-6 right-6 z-50 select-none ${profile.autoFilter
+                ? `bg-black/90 border border-brand/30 shadow-[0_12px_40px_rgba(255,40,78,0.25)] backdrop-blur-md ${isDnaExpanded
+                  ? "rounded-3xl p-5 max-w-xs md:max-w-sm"
+                  : "rounded-full p-2 md:p-2.5 md:px-5 md:py-3 cursor-pointer hover:border-brand"
+                }`
                 : "max-w-xs md:max-w-sm"
-            }`}
+              }`}
             onClick={
-              profile.autoFilter && !isDnaExpanded 
-                ? () => setIsDnaExpanded(true) 
+              profile.autoFilter && !isDnaExpanded
+                ? () => setIsDnaExpanded(true)
                 : undefined
             }
           >
             {profile.autoFilter ? (
               isDnaExpanded ? (
                 <div className="flex gap-4">
-                  <div 
+                  <div
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsDnaExpanded(false);
@@ -330,7 +328,7 @@ export default function Home({
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <p 
+                      <p
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsDnaExpanded(false);
@@ -339,7 +337,7 @@ export default function Home({
                       >
                         Subscription DNA Active
                       </p>
-                      <button 
+                      <button
                         aria-label="Close subscription filter details"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -354,7 +352,7 @@ export default function Home({
                       Filtering library to match your Cinema DNA: <strong className="text-white font-bold">{[...(profile.subscriptions || []), ...(profile.dnaMoods || [])].join(', ') || 'Custom Filters'}</strong>.
                     </p>
                     <div className="flex gap-2 mt-4">
-                      <button 
+                      <button
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
@@ -369,7 +367,7 @@ export default function Home({
                       >
                         Disable Filter
                       </button>
-                      <a 
+                      <a
                         href="/profile"
                         onClick={(e) => e.stopPropagation()}
                         className="text-xs font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 px-3 py-2 rounded-xl cursor-pointer transition-all duration-300 text-center flex items-center"
@@ -390,7 +388,7 @@ export default function Home({
                 </div>
               )
             ) : (
-              <button 
+              <button
                 onClick={async (e) => {
                   e.stopPropagation();
                   if (profile.plan !== 'premium') {
@@ -405,11 +403,10 @@ export default function Home({
                     console.error(e);
                   }
                 }}
-                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] backdrop-blur-md animate-bounce-subtle ${
-                  profile.plan !== 'premium'
+                className={`bg-black/95 border hover:border-brand/40 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-full px-5 py-3 flex items-center gap-3 text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] backdrop-blur-md animate-bounce-subtle ${profile.plan !== 'premium'
                     ? 'border-white/5 text-white/40 cursor-not-allowed opacity-80'
                     : 'border-white/10 text-white/80 hover:text-brand hover:bg-black/100 cursor-pointer'
-                }`}
+                  }`}
               >
                 <span>🍿</span>
                 <span>Enable Subs DNA Filter</span>

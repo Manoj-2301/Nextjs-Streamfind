@@ -741,10 +741,9 @@ export default function ProfileSettingsPanel({
                 className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9998] lg:hidden"
               />
               <motion.div 
-                initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto no-scrollbar bg-[#0a0a0a]/90 border-t border-white/20 rounded-t-[40px] p-6 z-[9999] lg:hidden shadow-[0_-20px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl flex flex-col gap-3"
+                initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed inset-0 m-auto w-[90vw] max-w-md h-fit max-h-[85vh] overflow-y-auto no-scrollbar bg-[#0a0a0a]/90 border border-white/20 rounded-[32px] p-6 z-[9999] lg:hidden shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl flex flex-col gap-3"
               >
-                <div className="w-16 h-1.5 bg-white/30 rounded-full mx-auto mb-6" />
                 <h3 className="text-2xl font-display font-black uppercase italic tracking-tight text-white mb-4 px-2 drop-shadow-lg">Control Center</h3>
                 {SETTING_TABS.map((t) => {
                   const isActive = activeSettingTab === t.id;
