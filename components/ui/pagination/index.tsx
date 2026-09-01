@@ -98,24 +98,41 @@ export default function Pagination({
         </button>
 
         <div className={`flex items-center ${gapClass}`}>
-          {Array.from({ length: Math.min(maxVisible, totalPages) }, (_, i) => {
-            let pageNum: number;
-            if (currentPage <= half + 1) pageNum = i + 1;
-            else if (currentPage >= totalPages - half) pageNum = totalPages - maxVisible + 1 + i;
-            else pageNum = currentPage - half + i;
-
-            if (pageNum < 1 || pageNum > totalPages) return null;
-
-            return (
-              <button
-                key={pageNum}
-                onClick={() => handlePageChange(pageNum)}
-                className={`${buttonSizeClass} font-bold transition-all ${currentPage === pageNum ? 'bg-brand text-white shadow-lg shadow-brand/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
+          {(() => {
+            const pages: (number | string)[] = [];
+            let start = currentPage <= half + 1 
+              ? 1 
+              : currentPage >= totalPages - half 
+                ? totalPages - maxVisible + 1 
+                : currentPage - half;
+                
+            start = Math.max(1, start);
+            
+            if (start > 1) {
+              pages.push(1);
+              if (start > 2) pages.push('...');
+            }
+            
+            for (let i = 0; i < Math.min(maxVisible, totalPages); i++) {
+              const p = start + i;
+              if (p <= totalPages) pages.push(p);
+            }
+            
+            return pages.map((pageNum, idx) => {
+              if (pageNum === '...') {
+                return <span key={`ellipsis-${idx}`} className="text-white/40 font-bold px-1 md:px-2">...</span>;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum as number)}
+                  className={`${buttonSizeClass} font-bold transition-all ${currentPage === pageNum ? 'bg-brand text-white shadow-lg shadow-brand/20' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                >
+                  {pageNum}
+                </button>
+              );
+            });
+          })()}
         </div>
 
         <button

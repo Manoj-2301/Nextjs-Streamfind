@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { Movie, Platform, CastMember, ProfileSettings } from '@/types';
+import { Movie, Platform, CastMember, ProfileSettings, Person } from '@/types';
 
 const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
@@ -1377,5 +1377,38 @@ export const getWatchProviders = async (region?: string): Promise<WatchProvider[
     console.error('Error fetching watch providers:', error);
     const fallbackNames = ["Netflix", "Amazon Prime", "Disney+", "Apple TV", "HBO Max", "Hotstar", "Peacock"];
     return fallbackNames.map((name, idx) => ({ id: idx, name }));
+  }
+};
+
+export const getPopularPeople = async (page: number = 1): Promise<{ results: Person[], totalPages: number }> => {
+  try {
+    const data = await fetchFromTmdb(`person/popular?page=${page}`);
+    
+    if (!data.results) {
+      return { results: [], totalPages: 0 };
+    }
+
+    const results = data.results.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      profileUrl: p.profile_path 
+        ? `${PROFILE_IMAGE_BASE_URL}${p.profile_path}` 
+        : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=111111&color=ffffff&size=500`,
+      knownForDepartment: p.known_for_department || 'Acting',
+      popularity: p.popularity || 0,
+      knownFor: p.known_for?.map((kf: any) => ({
+        id: kf.id,
+        title: kf.title || kf.name || 'Unknown',
+        mediaType: kf.media_type || 'movie'
+      })) || []
+    }));
+
+    return {
+      results,
+      totalPages: data.total_pages || 1
+    };
+  } catch (error) {
+    console.error('Error fetching popular people:', error);
+    return { results: [], totalPages: 0 };
   }
 };

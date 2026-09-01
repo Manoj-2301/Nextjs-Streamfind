@@ -17,7 +17,8 @@ import {
   getCastMovies,
   searchMovies,
   browseSearchMovies,
-  browseDiscoverMovies
+  browseDiscoverMovies,
+  getPopularPeople
 } from '@/services/tmdbService';
 import { ProfileSettings, Movie } from '@/types';
 
@@ -147,5 +148,12 @@ export const useBrowseDiscoverMovies = (
     queryFn: () => browseDiscoverMovies(page, genreId, minRating, minYear, maxYear, sortBy, language, providerIds, watchRegion, contentType),
     initialData,
     staleTime: 1000 * 60 * 5, // 5 minutes staleness to prevent refetching on mount
+  });
+};
+
+export const usePopularPeople = (page: number = 1) => {
+  return useQuery({
+    queryKey: [...tmdbKeys.all, 'popularPeople', page],
+    queryFn: () => getPopularPeople(page),
   });
 };

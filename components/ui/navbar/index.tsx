@@ -112,6 +112,7 @@ export default function Navbar() {
           { path: '/', label: 'Home' },
           { path: '/in-theaters', label: 'Theaters' },
           { path: '/browse', label: 'Browse' },
+          { path: '/people', label: 'People' },
           { path: '/watchlist', label: 'Watchlist', count: watchlist.length },
           { path: '/search', label: 'Search' },
           { path: '/pricing', label: 'Pricing' },
@@ -307,6 +308,13 @@ export default function Navbar() {
               className={getMobileLinkClass('/in-theaters')}
             >
               Theaters
+            </Link>
+            <Link
+              href="/people"
+              onClick={() => setIsMenuOpen(false)}
+              className={getMobileLinkClass('/people')}
+            >
+              People
             </Link>
             <Link
               href="/watchlist"

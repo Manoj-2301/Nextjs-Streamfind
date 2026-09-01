@@ -198,11 +198,11 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
    */
   useEffect(() => {
 
-  /*
-   * ============================================================
-   * EVENT HANDLERS
-   * ============================================================
-   */
+    /*
+     * ============================================================
+     * EVENT HANDLERS
+     * ============================================================
+     */
     const handleVisibilityChange = () => {
       // If the user comes back to the tab and the trailer was supposed to be playing,
       // briefly reset it to force YouTube to autoplay again (since YouTube pauses background tabs)
@@ -436,7 +436,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                 </motion.div>
               )}
             </AnimatePresence>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
+            {isPlayingTrailer ? (
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none transition-all duration-1000" />
+            ) : (
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-background/20 to-background pointer-events-none transition-all duration-1000" />
+            )}
+            {/* <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" /> */}
           </div>
 
           {/* Trailer Controls */}
