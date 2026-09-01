@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
@@ -15,7 +20,17 @@ import {
 } from '@/services/firebase/systemService';
 import toast from 'react-hot-toast';
 
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SystemView() {
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { config } = useSystemConfig();
 
   const maintenance = config.maintenanceMode;
@@ -28,6 +43,11 @@ export default function SystemView() {
   const iconInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingIcon, setIsUploadingIcon] = useState(false);
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const toggleMaintenance = async () => {
     try {
       await setMaintenanceMode(!maintenance);
@@ -118,6 +138,11 @@ export default function SystemView() {
     }
   };
 
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

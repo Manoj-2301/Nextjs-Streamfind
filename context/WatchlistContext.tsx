@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import React, { createContext, useContext, useState } from 'react';
 import { Movie } from '@/types';
@@ -5,10 +10,20 @@ import dynamic from 'next/dynamic';
 import { useWatchlistData } from '@/hooks/firebase/useWatchlistData';
 import { notify as toast } from '@/lib/notify';
 
+/*
+ * ============================================================
+ * LAZY IMPORTS
+ * ============================================================
+ */
 const AddToListModal = dynamic(() => import('@/components/ui/AddToListModal'), {
   ssr: false
 });
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 export interface CustomWatchlist {
   id: string;
   name: string;
@@ -35,15 +50,34 @@ interface WatchlistContextType {
   movieToAdd: Movie | null;
 }
 
+/*
+ * ============================================================
+ * CONTEXT
+ * ============================================================
+ */
 const WatchlistContext = createContext<WatchlistContextType | undefined>(undefined);
 
+/*
+ * ============================================================
+ * PROVIDER COMPONENT
+ * ============================================================
+ */
 export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   const watchlistData = useWatchlistData();
   
-  // Modal State
+  /*
+   * ============================================================
+   * STATE & HELPERS
+   * ============================================================
+   */
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [movieToAdd, setMovieToAdd] = useState<Movie | null>(null);
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const requestAddToList = React.useCallback((movie: Movie) => {
     // If no custom watchlists exist, just add it directly to the main watchlist
     if (watchlistData.customWatchlists.length === 0) {
@@ -61,6 +95,11 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setMovieToAdd(null), 200);
   }, []);
 
+  /*
+   * ============================================================
+   * RENDER / DERIVED VALUE
+   * ============================================================
+   */
   const value = React.useMemo(() => ({
     ...watchlistData,
     requestAddToList,
@@ -77,6 +116,11 @@ export function WatchlistProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/*
+ * ============================================================
+ * HOOK
+ * ============================================================
+ */
 export function useWatchlist() {
   const context = useContext(WatchlistContext);
   if (context === undefined) {

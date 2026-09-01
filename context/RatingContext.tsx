@@ -1,8 +1,18 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import React, { createContext, useContext } from 'react';
 import { useRatingsData } from '@/hooks/firebase/useRatingsData';
 import { UserReview } from '@/services/firebase/ratingService';
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 export type { UserReview };
 
 interface RatingContextType {
@@ -18,8 +28,18 @@ interface RatingContextType {
   getUserReviewText: (movieId: number) => string | null;
 }
 
+/*
+ * ============================================================
+ * CONTEXT
+ * ============================================================
+ */
 const RatingContext = createContext<RatingContextType | undefined>(undefined);
 
+/*
+ * ============================================================
+ * PROVIDER COMPONENT
+ * ============================================================
+ */
 export function RatingProvider({ children }: { children: React.ReactNode }) {
   const ratingsData = useRatingsData();
 
@@ -30,6 +50,11 @@ export function RatingProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/*
+ * ============================================================
+ * HOOK
+ * ============================================================
+ */
 export function useRatings() {
   const context = useContext(RatingContext);
   if (context === undefined) {

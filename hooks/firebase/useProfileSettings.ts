@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +23,11 @@ import { revalidatePage } from '@/app/actions/revalidate';
 import { notify as toast } from '@/lib/notify';
 import { useRouter } from 'next/navigation';
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface UseProfileSettingsReturn {
   // Tracked releases
   trackedReleases: number[];
@@ -52,7 +62,17 @@ export function useProfileSettings(): UseProfileSettingsReturn {
   const { user } = useAuth();
   const router = useRouter();
 
-  // ── Tracked Releases ────────────────────────────────────────
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
+
+  /*
+   * ============================================================
+   * TRACKED RELEASES
+   * ============================================================
+   */
   const [trackedReleases, setTrackedReleases] = useState<number[]>([]);
 
   useEffect(() => {
@@ -62,6 +82,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     return unsub;
   }, [user?.uid]);
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleToggleTrackedRelease = useCallback(
     async (
       movieId: number,
@@ -96,7 +121,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     [user, trackedReleases]
   );
 
-  // ── Top 5 ────────────────────────────────────────────────────
+  /*
+   * ============================================================
+   * TOP 5 MOVIES
+   * ============================================================
+   */
   const handleAddTopMovie = useCallback(
     async (movie: Movie, profile: ProfileSettings, setProfile: React.Dispatch<React.SetStateAction<ProfileSettings>>) => {
       if (!user?.uid) return;
@@ -149,7 +178,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     [user?.uid]
   );
 
-  // ── DNA Moods ────────────────────────────────────────────────
+  /*
+   * ============================================================
+   * DNA MOODS
+   * ============================================================
+   */
   const handleToggleDnaMood = useCallback(
     async (mood: string, profile: ProfileSettings, setProfile: React.Dispatch<React.SetStateAction<ProfileSettings>>) => {
       if (!user?.uid) return;
@@ -170,7 +203,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     [user?.uid, router]
   );
 
-  // ── Generic local toggle/select ───────────────────────────────
+  /*
+   * ============================================================
+   * GENERIC LOCAL SETTINGS
+   * ============================================================
+   */
   const handleLocalToggle = useCallback(
     async (field: keyof ProfileSettings, profile: ProfileSettings, setProfile: React.Dispatch<React.SetStateAction<ProfileSettings>>) => {
       if (!user?.uid) return;
@@ -202,7 +239,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     [user?.uid]
   );
 
-  // ── Active Sessions ───────────────────────────────────────────
+  /*
+   * ============================================================
+   * ACTIVE SESSIONS
+   * ============================================================
+   */
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -212,7 +253,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     return unsub;
   }, [user?.uid]);
 
-  // ── Audit Logs ────────────────────────────────────────────────
+  /*
+   * ============================================================
+   * AUDIT LOGS
+   * ============================================================
+   */
   const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
   const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
@@ -225,7 +270,11 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     return unsub;
   }, [user?.uid]);
 
-  // ── Billing ───────────────────────────────────────────────────
+  /*
+   * ============================================================
+   * BILLING
+   * ============================================================
+   */
   const [billingPlan, setBillingPlan] = useState('free');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [renewalDate, setRenewalDate] = useState('N/A');

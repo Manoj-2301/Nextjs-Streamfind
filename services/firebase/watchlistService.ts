@@ -1,16 +1,56 @@
+/*
+ * ============================================================
+ * WATCHLIST DATA SERVICE
+ * ============================================================
+ *
+ * Responsibility:
+ * Handles Firestore operations for the user's primary and custom
+ * watchlists.
+ *
+ * Used by:
+ * - hooks/firebase/useWatchlistData.ts
+ *
+ * Important:
+ * Contains only data-access logic. UI updates, local storage sync,
+ * and TanStack query caching are managed in the hook layer.
+ * ============================================================
+ */
+
+/*
+ * ============================================================
+ * IMPORTS & INITIALIZATION
+ * ============================================================
+ */
 import { getFirestore, collection, query, limit, getDocs, doc, setDoc, serverTimestamp, deleteDoc, addDoc, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { Movie } from '@/types';
-import { CustomWatchlist } from '@/context/WatchlistContext'; // Wait, I should probably move the CustomWatchlist interface to types, but let's just export it from here or use it. Actually, I will redefine it or import it.
+import { CustomWatchlist } from '@/context/WatchlistContext';
 
 const db = getFirestore(app);
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 export interface LocalWatchlistItem {
   movie: Movie;
   addedAt: number;
 }
 
-/** Fetch user's main watchlist (limited to 100 to prevent memory bloat on load) */
+/*
+ * ============================================================
+ * DATA FETCHING
+ * ============================================================
+ */
+
+/**
+ * Fetch user's main watchlist.
+ * 
+ * Why limited to 100:
+ * Prevents excessive memory bloat and massive initial network requests 
+ * if a user has added thousands of movies over time.
+ */
 export async function fetchWatchlist(uid: string): Promise<Movie[]> {
   const path = `users/${uid}/watchlist`;
   const q = query(collection(db, path), limit(100));
@@ -44,7 +84,15 @@ export async function isUserPremium(uid: string): Promise<boolean> {
   return userDoc.data()?.plan === 'premium';
 }
 
-/** Add a movie to the main watchlist */
+/*
+ * ============================================================
+ * MAIN WATCHLIST MUTATIONS
+ * ============================================================
+ */
+
+/** 
+ * Add a movie to the main watchlist.
+ */
 export async function addToWatchlistDB(uid: string, movie: Movie): Promise<void> {
   const path = `users/${uid}/watchlist/${movie.id}`;
   await setDoc(doc(db, path), {
@@ -59,7 +107,15 @@ export async function removeFromWatchlistDB(uid: string, movieId: number): Promi
   await deleteDoc(doc(db, path));
 }
 
-/** Create a new custom watchlist */
+/*
+ * ============================================================
+ * CUSTOM WATCHLIST MUTATIONS
+ * ============================================================
+ */
+
+/** 
+ * Create a new custom watchlist.
+ */
 export async function createCustomWatchlistDB(uid: string, name: string): Promise<void> {
   await addDoc(collection(db, `users/${uid}/customWatchlists`), {
     name,

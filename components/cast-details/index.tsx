@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import Link from 'next/link';
@@ -13,6 +18,11 @@ import MovieCard from '@/components/ui/movie-card';
 
 import Pagination from '@/components/ui/pagination';
 
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function CastDetails({
   initialCast,
   initialMovies,
@@ -24,6 +34,11 @@ export default function CastDetails({
   initialTotalPages?: number;
   initialCurrentPage?: number;
 }) {
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const params = useParams<{ id: string }>();  const id = params.id;
   const router = useRouter();
   
@@ -49,6 +64,11 @@ export default function CastDetails({
   const startX = useRef(0);
   const scrollLeftState = useRef(0);
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     if (scrollRef.current) {
@@ -76,6 +96,11 @@ export default function CastDetails({
     }
   };
 
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6">

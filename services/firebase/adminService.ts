@@ -90,7 +90,11 @@ export function subscribeToRatings(
   }, onError);
 }
 
-// ── Mutations ────────────────────────────────────────────────
+/*
+ * ============================================================
+ * ADMIN MUTATIONS
+ * ============================================================
+ */
 
 export async function updateUserDB(
   userId: string,

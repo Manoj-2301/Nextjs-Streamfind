@@ -71,7 +71,11 @@ export function useProfile(): UseProfileResult {
   const [sharedReviews, setSharedReviews] = useState<UserReview[]>([]);
   const [isLoadingSharedData, setIsLoadingSharedData] = useState(false);
 
-  // ── Main profile subscription ────────────────────────────────────────────────
+  /*
+   * ============================================================
+   * MAIN PROFILE SUBSCRIPTION
+   * ============================================================
+   */
   useEffect(() => {
     if (!targetUid) return;
 
@@ -126,7 +130,12 @@ export function useProfile(): UseProfileResult {
     return () => unsubscribe();
   }, [targetUid, isOwner, user]);
 
-  // ── Shared profile subscriptions (only when viewing another user's profile) ──
+  /*
+   * ============================================================
+   * SHARED PROFILE SUBSCRIPTIONS
+   * ============================================================
+   * Only active when viewing another user's profile.
+   */
   useEffect(() => {
     if (isOwner || !targetUid) {
       setSharedWatchlist([]);
@@ -157,7 +166,11 @@ export function useProfile(): UseProfileResult {
     };
   }, [targetUid, isOwner]);
 
-  // ── Write Actions ────────────────────────────────────────────────────────────
+  /*
+   * ============================================================
+   * WRITE ACTIONS
+   * ============================================================
+   */
 
   const handleToggleLike = useCallback(async (movieId: number, currentLiked: boolean) => {
     if (!user) return;

@@ -19,9 +19,11 @@ import { AuditEvent } from '@/lib/auditLogger';
 
 const db = () => getFirestore(app);
 
-// ─────────────────────────────────────────────────────────────
-// Subscriptions (realtime)
-// ─────────────────────────────────────────────────────────────
+/*
+ * ============================================================
+ * SUBSCRIPTIONS (REALTIME)
+ * ============================================================
+ */
 
 /**
  * Subscribe to a user's profile document in Firestore.
@@ -103,9 +105,11 @@ export function subscribeToSharedRatings(
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Writes
-// ─────────────────────────────────────────────────────────────
+/*
+ * ============================================================
+ * MUTATIONS (WRITES)
+ * ============================================================
+ */
 
 /** Merge arbitrary fields into a user's profile document. */
 export async function updateUserProfile(uid: string, fields: Record<string, unknown>): Promise<void> {
@@ -180,9 +184,11 @@ export async function saveDnaMoods(uid: string, moods: string[]): Promise<void> 
   await updateUserProfile(uid, { dnaMoods: moods });
 }
 
-// ─────────────────────────────────────────────────────────────
-// Tracked Releases
-// ─────────────────────────────────────────────────────────────
+/*
+ * ============================================================
+ * TRACKED RELEASES
+ * ============================================================
+ */
 
 /** Subscribe to a user's tracked release IDs. Returns unsubscribe. */
 export function subscribeToTrackedReleases(
@@ -218,9 +224,11 @@ export async function setTrackedRelease(
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Active Sessions
-// ─────────────────────────────────────────────────────────────
+/*
+ * ============================================================
+ * ACTIVE SESSIONS
+ * ============================================================
+ */
 
 /** Subscribe to a user's active sessions list. Returns unsubscribe. */
 export function subscribeToActiveSessions(
@@ -257,9 +265,11 @@ export function subscribeToActiveSessions(
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// Audit Logs + Billing
-// ─────────────────────────────────────────────────────────────
+/*
+ * ============================================================
+ * AUDIT LOGS & BILLING
+ * ============================================================
+ */
 
 /** Subscribe to audit logs (last 5) + get total count. Returns unsubscribe. */
 export function subscribeToAuditLogs(

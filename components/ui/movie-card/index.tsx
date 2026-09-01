@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { Star } from 'lucide-react';
@@ -9,6 +14,11 @@ import PlatformBadge from '@/components/ui/platform-badge';
 import { useInView } from 'motion/react';
 import { useMovieDetails } from '@/hooks/useTmdbQueries';
 
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface MovieCardProps {
   movie: Movie;
   accentColor?: string;
@@ -16,6 +26,11 @@ interface MovieCardProps {
   activeGenre?: string;
 }
 
+/*
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
 const getInitials = (name: string) => {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
@@ -23,7 +38,17 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MovieCard({ movie, accentColor = '#999', priority = false, activeGenre }: MovieCardProps) {
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [imgError, setImgError] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,6 +67,11 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
 
   const BLUR_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleImgError = () => {
     if (posterIndex < possibleUrls.length - 1) {
       setPosterIndex(p => p + 1);
@@ -50,6 +80,11 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
     }
   };
 
+  /*
+   * ============================================================
+   * DERIVED VALUE
+   * ============================================================
+   */
   const primaryPlatform = movie.platforms?.[0] || details?.platforms?.[0];
   
   // Prioritize displaying the selected/active genre if it matches one of the movie's genres
@@ -77,6 +112,11 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
     return '';
   };
 
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`}>
       <div

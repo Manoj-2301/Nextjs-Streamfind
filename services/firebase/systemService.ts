@@ -65,9 +65,11 @@ export function subscribeToSystemConfig(
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Writes
-// ─────────────────────────────────────────────────────────────
+/*
+ * ============================================================
+ * SYSTEM MUTATIONS (WRITES)
+ * ============================================================
+ */
 
 /** Toggle maintenance mode on/off. */
 export async function setMaintenanceMode(enabled: boolean): Promise<void> {

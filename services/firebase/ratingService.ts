@@ -1,7 +1,37 @@
+/*
+ * ============================================================
+ * RATING & REVIEW DATA SERVICE
+ * ============================================================
+ *
+ * Responsibility:
+ * Handles Firestore operations for user ratings, user reviews, 
+ * and global movie community reviews.
+ *
+ * Used by:
+ * - hooks/firebase/useRatingsData.ts
+ * - components/movie-details/index.tsx
+ *
+ * Important:
+ * Contains only data-access logic. Realtime subscription functions
+ * return cleanup functions that must be called on unmount.
+ * ============================================================
+ */
+
+/*
+ * ============================================================
+ * IMPORTS & INITIALIZATION
+ * ============================================================
+ */
 import { getFirestore, collection, collectionGroup, query, limit, onSnapshot, where, getDocs, doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 
 const db = getFirestore(app);
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 
 export interface UserReview {
   movieId: number;
@@ -13,7 +43,18 @@ export interface UserReview {
   liked?: boolean;
 }
 
-/** Fetch user's ratings and reviews */
+/*
+ * ============================================================
+ * USER DATA FETCHING
+ * ============================================================
+ */
+
+/** 
+ * Fetch user's ratings and reviews.
+ * 
+ * Limited to 100 to prevent massive initial payloads. If a user 
+ * has thousands of reviews, cursor pagination should be added later.
+ */
 export async function fetchUserRatings(uid: string): Promise<{ ratings: Record<number, number>; reviews: UserReview[] }> {
   const path = `users/${uid}/ratings`;
   const q = query(collection(db, path), limit(100));
@@ -40,7 +81,15 @@ export async function fetchUserRatings(uid: string): Promise<{ ratings: Record<n
   return { ratings, reviews };
 }
 
-/** Write rating to user document */
+/*
+ * ============================================================
+ * RATING MUTATIONS
+ * ============================================================
+ */
+
+/** 
+ * Write rating to user document. 
+ */
 export async function saveUserRatingDB(
   uid: string, 
   movieId: number, 
@@ -53,7 +102,10 @@ export async function saveUserRatingDB(
   }, { merge: true });
 }
 
-/** Write review to global movies collection */
+/** 
+ * Write review to global movies collection. 
+ * This enables querying reviews by movie without scanning all users.
+ */
 export async function saveGlobalReviewDB(
   movieId: number, 
   uid: string, 
@@ -71,7 +123,11 @@ export async function isUserPremium(uid: string): Promise<boolean> {
   const userDoc = await getDoc(doc(db, `users/${uid}`));
   return userDoc.data()?.plan === 'premium';
 }
-
+/*
+ * ============================================================
+ * COMMUNITY REVIEWS
+ * ============================================================
+ */
 export interface CommunityReview {
   userId: string;
   userName: string;
@@ -83,7 +139,17 @@ export interface CommunityReview {
 
 /**
  * Subscribe to real-time community reviews for a single movie.
- * Uses collectionGroup query across all users' ratings subcollections.
+ * 
+ * Why realtime:
+ * Keeps the movie details page updated instantly as other users rate it.
+ * 
+ * Why collectionGroup:
+ * Reviews are nested under `users/{uid}/ratings`. A collectionGroup query 
+ * finds all `ratings` subcollections across the database matching the movieId,
+ * which is much faster than scanning every user manually.
+ * 
+ * Cleanup:
+ * Requires calling the returned unsubscribe function on unmount.
  */
 export function subscribeToMovieReviews(
   movieId: number,
