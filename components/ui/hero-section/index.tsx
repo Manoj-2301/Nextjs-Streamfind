@@ -436,17 +436,17 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                 </motion.div>
               )}
             </AnimatePresence>
-            {isPlayingTrailer ? (
+            {/* {isPlayingTrailer ? (
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none transition-all duration-1000" />
             ) : (
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-background/20 to-background pointer-events-none transition-all duration-1000" />
-            )}
-            {/* <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" /> */}
+            )} */}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
           </div>
 
           {/* Trailer Controls */}
           {movie.trailerYoutubeId && (
-            <div className="absolute right-6 md:right-12 bottom-32 md:bottom-48 z-50 flex flex-col gap-4">
+            <div className="absolute right-6 md:right-12 bottom-12 md:bottom-48 z-50 flex flex-row md:flex-col gap-3 md:gap-4">
               <button
                 onClick={togglePlay}
                 className="w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
