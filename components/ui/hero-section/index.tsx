@@ -436,12 +436,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                 </motion.div>
               )}
             </AnimatePresence>
-            {isPlayingTrailer ? (
+            {/* {isPlayingTrailer ? (
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none transition-all duration-1000" />
             ) : (
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-background/20 to-background pointer-events-none transition-all duration-1000" />
-            )}
-            {/* <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" /> */}
+            )} */}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
           </div>
 
           {/* Trailer Controls */}
