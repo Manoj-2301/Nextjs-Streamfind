@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React from 'react';
@@ -7,12 +12,30 @@ import { AlertTriangle, Hammer, Cog } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useSystemConfig } from '@/hooks/firebase/useSystemConfig';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MaintenanceGuard({ children }: { children: React.ReactNode }) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { config, isLoading } = useSystemConfig();
   const isMaintenance = config.maintenanceMode;
 
   // Allow admin to bypass maintenance mode
   const pathname = usePathname();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.email === 'mt398401@gmail.com';
   const isAdminRoute = pathname?.startsWith('/admin');

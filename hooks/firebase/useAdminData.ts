@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { AdminUser, AdminRating, FeaturedCuration } from '@/components/admin/types';
@@ -11,7 +16,19 @@ import {
 import { getAuth } from 'firebase/auth';
 import { app } from '@/lib/firebase';
 
+
+/*
+ * ============================================================
+ * HOOK
+ * ============================================================
+ */
 export function useAdminData() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -21,6 +38,12 @@ export function useAdminData() {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!user || user.email !== 'mt398401@gmail.com') return;
     
@@ -47,6 +70,12 @@ export function useAdminData() {
     };
     syncUsers();
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleError = (err: Error) => {
       if (active) setError(err.message);
     };

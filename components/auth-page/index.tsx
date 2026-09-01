@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -10,13 +15,37 @@ import AuthPosterBg from './poster-bg';
 import { toast } from 'react-hot-toast';
 import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 type SignInStep = 'email' | 'password';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AuthPage() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [isSignUp, setIsSignUp] = useState(false);
   // Two-step sign-in state
   const [signInStep, setSignInStep] = useState<SignInStep>('email');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { register, handleSubmit, getValues, setValue, setFocus, reset } = useForm({
     defaultValues: { name: '', email: '', password: '', confirmPassword: '' }
   });
@@ -26,10 +55,22 @@ export default function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, loginWithEmail, signupWithEmail, loginWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
 
   // Redirect if already logged in (especially for mobile redirect logins)
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (user) {
       router.push('/');
@@ -37,6 +78,12 @@ export default function AuthPage() {
   }, [user, router]);
 
   // Auto-focus the active field on step change
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (signInStep === 'email') {
       setTimeout(() => setFocus('email'), 100);
@@ -46,6 +93,12 @@ export default function AuthPage() {
   }, [signInStep, setFocus]);
 
   // Reset to email step when toggling between sign-in and sign-up
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleToggleMode = () => {
     setIsSignUp(!isSignUp);
     setSignInStep('email');
@@ -125,6 +178,12 @@ export default function AuthPage() {
   };
   
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}

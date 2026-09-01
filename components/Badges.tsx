@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { Sparkles, MonitorPlay, Crown } from 'lucide-react';
 

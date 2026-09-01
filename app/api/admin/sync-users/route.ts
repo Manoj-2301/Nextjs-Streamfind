@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextResponse } from 'next/server';
 import { admin } from '@/lib/firebaseAdmin';
 

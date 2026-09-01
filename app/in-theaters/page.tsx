@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { Metadata } from 'next';
 import { getNowPlayingMovies } from '@/services/tmdbService';

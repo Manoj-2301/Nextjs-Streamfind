@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState } from 'react';
@@ -72,7 +77,19 @@ const TIERS = [
   }
 ];
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Pricing() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const router = useRouter();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
@@ -91,6 +108,12 @@ export default function Pricing() {
     });
   };
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleUpgrade = async (planId: string) => {
     if (!user) {
       toast.error('Please sign in to upgrade.');
@@ -179,6 +202,12 @@ export default function Pricing() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen pt-24 pb-16 px-4">
       <div className="max-w-6xl mx-auto">

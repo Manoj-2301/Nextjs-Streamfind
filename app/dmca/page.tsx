@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -5,7 +10,19 @@ export const metadata: Metadata = {
   description: 'Digital Millennium Copyright Act (DMCA) Policy for StreamFind.',
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function DMCAPolicyPage() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="container mx-auto px-4 py-20 max-w-4xl text-white">
       <h1 className="text-4xl font-black uppercase tracking-tighter mb-8">DMCA Policy</h1>

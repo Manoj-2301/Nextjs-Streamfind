@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { MetadataRoute } from 'next';
 import { fetchFromTmdb } from '@/services/tmdbService';
 

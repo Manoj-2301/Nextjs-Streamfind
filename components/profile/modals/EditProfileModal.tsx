@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { motion } from 'motion/react';
 import { X, Check, Lock } from 'lucide-react';
@@ -6,6 +11,12 @@ import { useRouter } from 'next/navigation';
 import Modal from '@/components/ui/modal';
 import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,6 +36,12 @@ interface EditProfileModalProps {
   profile: any;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function EditProfileModal({
   isOpen,
   onClose,
@@ -47,6 +64,12 @@ export default function EditProfileModal({
 
   if (!isOpen) return null;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Modal
       isOpen={isOpen}

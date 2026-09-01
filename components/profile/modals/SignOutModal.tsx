@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { motion } from 'motion/react';
 import { X, LogOut } from 'lucide-react';
@@ -5,17 +10,35 @@ import { useRouter } from 'next/navigation';
 import Modal from '@/components/ui/modal';
 import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface SignOutModalProps {
   isOpen: boolean;
   onClose: () => void;
   logout: () => Promise<void>;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SignOutModal({ isOpen, onClose, logout }: SignOutModalProps) {
   const router = useRouter();
 
   if (!isOpen) return null;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Modal
       isOpen={isOpen}

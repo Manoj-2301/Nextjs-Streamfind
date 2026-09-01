@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { escapeHtml } from '@/lib/utils';

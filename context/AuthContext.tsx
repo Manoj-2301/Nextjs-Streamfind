@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import { v4 as uuidv4 } from 'uuid';
 import { parseUserAgent } from '@/lib/deviceParser';
@@ -7,6 +12,12 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth, signInWithPopup, signInWithRedirect, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from '@/lib/firebase';
 import { registerSession, subscribeToSession, updateUserActivity, deleteSession } from '@/services/firebase/authService';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -21,13 +32,31 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SESSION_KEY = 'moviefind_session_id';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Keep track of listener to unsubscribe if needed
   const sessionListenerRef = useRef<() => void>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -195,6 +224,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     sendPasswordReset
   }), [user, loading, loginWithGoogle, loginWithEmail, signupWithEmail, logout, sendPasswordReset]);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <AuthContext.Provider value={value}>
       {children}

@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import { getFirestore } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -71,8 +76,20 @@ const matchGenre = (selectedGenre: string, movieGenres: string[]) => {
   });
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Browse({ initialData }: { initialData?: { movies: Movie[], totalPages: number } }) {
   const router = useRouter();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [genre, setGenre] = useState("All");
@@ -85,6 +102,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [allAvailablePlatforms, setAllAvailablePlatforms] = useState<WatchProvider[]>([]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const [profile, setProfile] = useState<{
     subscriptions: string[];
@@ -95,6 +118,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
   } | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!user) {
       setProfile(null);
@@ -123,6 +152,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
 
   // Always sync Firestore preferences → local filter state whenever profile changes
   // This ensures navigating back from Profile Settings reflects latest preferences ONLY if autoFilter is on
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!profile) return;
     
@@ -152,6 +187,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
     setCurrentPage(1);
   }, [profile]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const loadPlatforms = async () => {
       try {
@@ -187,6 +228,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
   }, [profile, platforms]);
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 500);
     return () => clearTimeout(t);
@@ -201,6 +248,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
     return undefined;
   }, [debouncedSearch]);
   
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (extractedYear && (!yearRange || yearRange[0] !== extractedYear || yearRange[1] !== extractedYear)) {
       setYearRange([extractedYear, extractedYear]);
@@ -243,10 +296,22 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
   const minYear = yearRange ? yearRange[0] : undefined;
   const maxYear = yearRange ? yearRange[1] : undefined;
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: searchData, isFetching: isSearchLoading, error: searchError } = useBrowseSearchMovies(
     debouncedSearch, currentPage, yearRange
   );
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: discoverData, isFetching: isDiscoverLoading, error: discoverError } = useBrowseDiscoverMovies(
     currentPage, genreId, minRating, minYear, maxYear, sortBy, language,
     providerContext.providerIds, providerContext.watchRegion, contentType, initialData
@@ -255,6 +320,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
   const isLoading = debouncedSearch ? isSearchLoading : isDiscoverLoading;
   const error = !!(debouncedSearch ? searchError : discoverError);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { processedMovies, apiTotalPages } = useMemo(() => {
     let results: Movie[] = [];
     let pages = 1;
@@ -290,6 +361,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
   const movies = processedMovies;
   const totalPages = apiTotalPages;
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (debouncedSearch && !isLoading && movies.length === 0) {
       toast.error("search correct movie name or show");
@@ -298,6 +375,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
 
   const currentMovies = movies;
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -309,6 +392,12 @@ export default function Browse({ initialData }: { initialData?: { movies: Movie[
 
   if (error) return <div className="pt-20"><ErrorMessage onRetry={retry} /></div>;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="container mx-auto px-4 md:px-6 lg:px-12 max-w-7xl py-6 md:py-6 overflow-hidden">
       

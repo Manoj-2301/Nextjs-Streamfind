@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,12 +25,30 @@ const localizeTmdbUrl = (url: string, countryCode: string): string => {
   }
 };
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface HeroSectionProps {
   movies: Movie[];
   affiliateLinks?: AffiliateLinks;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function HeroSection({ movies, affiliateLinks = {} }: HeroSectionProps) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
@@ -35,6 +58,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
 
     try {
@@ -108,6 +137,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   }, [movies.length]);
 
   // Viewport Observer
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -124,6 +159,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   }, []);
 
   // Auto-scroll logic
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (isPlayingTrailer) return;
 
@@ -134,7 +175,19 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     return () => clearInterval(interval);
   }, [currentIndex, isPlayingTrailer, paginate]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleVisibilityChange = () => {
       // If the user comes back to the tab and the trailer was supposed to be playing,
       // briefly reset it to force YouTube to autoplay again (since YouTube pauses background tabs)
@@ -148,6 +201,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   }, [isPlayingTrailer]);
 
   // Trailer countdown logic
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (isPlayingTrailer) return;
 
@@ -175,6 +234,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   // I will implement a "toggle" state based on isInView for the IFRAME content.
   const isVideoActive = isPlayingTrailer && !isInView; // As per specific instruction
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') paginate(-1);
@@ -184,6 +249,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [paginate]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movies.length > 0 && currentIndex >= movies.length) {
       setCurrentIndex(0);
@@ -250,6 +321,12 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     })
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <section ref={sectionRef} className="relative w-full h-[75vh] md:h-[90vh] overflow-hidden flex items-end bg-black">
       <AnimatePresence initial={false} custom={direction}>

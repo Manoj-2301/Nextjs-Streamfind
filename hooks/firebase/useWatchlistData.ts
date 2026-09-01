@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Movie } from '@/types';
@@ -23,19 +28,43 @@ import { CustomWatchlist } from '@/context/WatchlistContext'; // will need to ex
 const LOCAL_STORAGE_KEY = 'streamfind_anonymous_watchlist';
 const EXPIRY_TIME_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+
+/*
+ * ============================================================
+ * HOOK
+ * ============================================================
+ */
 export function useWatchlistData() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const queryClient = useQueryClient();
   
   const [watchlist, setWatchlist] = useState<Movie[]>([]);
   const [customWatchlists, setCustomWatchlists] = useState<CustomWatchlist[]>([]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: fetchedWatchlist = [] } = useQuery({
     queryKey: ['watchlist', user?.uid],
     queryFn: () => user ? fetchWatchlist(user.uid) : Promise.resolve([]),
     enabled: !!user,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: fetchedCustomLists = [] } = useQuery({
     queryKey: ['customWatchlists', user?.uid],
     queryFn: () => user ? fetchCustomWatchlists(user.uid) : Promise.resolve([]),
@@ -43,6 +72,12 @@ export function useWatchlistData() {
   });
 
   // Sync state with fetched data
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (user) {
       setWatchlist(fetchedWatchlist);
@@ -51,6 +86,12 @@ export function useWatchlistData() {
   }, [fetchedWatchlist, fetchedCustomLists, user]);
 
   // Handle local storage logic and merging
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     

@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 import SearchPage from '@/components/search-page';
 
@@ -6,6 +11,12 @@ export const metadata: Metadata = {
   description: 'Search for any movie, actor, or genre in our vast database.',
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SearchRoute() {
   return <SearchPage />;
 }

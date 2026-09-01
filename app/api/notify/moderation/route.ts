@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { admin } from '@/lib/firebaseAdmin';

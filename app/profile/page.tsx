@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 import { Suspense } from 'react';
 import ProfileComponent from '@/components/profile';
@@ -7,7 +12,19 @@ export const metadata: Metadata = {
   description: 'View your watch statistics, favorite genres, top movies list, and written critiques.',
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ProfilePage() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background flex flex-col items-center justify-center text-center">

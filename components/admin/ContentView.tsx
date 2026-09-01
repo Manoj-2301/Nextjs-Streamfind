@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,6 +13,12 @@ import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc } from 'fir
 import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ContentView({
   ratings,
   users,
@@ -59,6 +70,12 @@ export default function ContentView({
       });
   }, [ratings, users]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 2;
   const totalPages = Math.ceil(reviews.length / itemsPerPage);
@@ -105,6 +122,12 @@ export default function ContentView({
   };
 
   // Fetch trending based on active tab
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!isCurationModalOpen) return;
     setIsTrendingLoading(true);
@@ -123,6 +146,12 @@ export default function ContentView({
   }, [isCurationModalOpen, trendingTab]);
 
   // Handle Search
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -142,6 +171,12 @@ export default function ContentView({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSaveCuration = async () => {
     if (!editingCuration?.movieId || !editingCuration?.slotNo || !editingCuration?.type) {
       toast.error('Please fill all required fields and select a movie/tv show.');
@@ -337,6 +372,12 @@ export default function ContentView({
     );
   }
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -12,6 +17,12 @@ import { auth } from '@/lib/firebase';
 import { applyActionCode, confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
 
 /* ─── Types ─────────────────────────────────────────────── */
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 type Mode = 'verifyEmail' | 'resetPassword' | 'unknown';
 type Phase = 'loading' | 'form' | 'success' | 'error';
 
@@ -283,11 +294,23 @@ function ResetPasswordSection({ oobCode }: { oobCode: string }) {
 }
 
 /* ─── Main Page ──────────────────────────────────────────── */
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AuthActionPage() {
   const searchParams = useSearchParams();
   const mode   = (searchParams.get('mode') ?? 'unknown') as Mode;
   const oobCode = searchParams.get('oobCode') ?? '';
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}

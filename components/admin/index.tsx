@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -36,11 +41,29 @@ import {
   markQueryReadDB
 } from '@/services/firebase/adminService';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AdminComponent() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('analytics');
   const [isMounted, setIsMounted] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -70,6 +93,12 @@ export default function AdminComponent() {
   const [editFlagged, setEditFlagged] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleConfigureUser = (u: any) => {
     const originalUser = users.find(x => x.id === u.id);
     if (!originalUser) return;
@@ -360,6 +389,12 @@ export default function AdminComponent() {
     }
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen bg-background text-white selection:bg-brand/30 mt-[-64px] pt-0">
       {/* 1. Subtle Glass Header */}

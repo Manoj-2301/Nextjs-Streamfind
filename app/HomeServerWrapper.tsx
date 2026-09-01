@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Suspense } from 'react';
 import Home from '@/components/home';
 import { getTrendingMovies, getUpcomingMovies, getMoviesByGenre, getPopularMovies, getNowPlayingMovies } from '@/services/tmdbService';
@@ -23,7 +28,19 @@ export default async function HomeServerWrapper() {
   );
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export function HomeFallback() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-6 bg-black">
       <Loader2 className="w-12 h-12 text-brand animate-spin" />

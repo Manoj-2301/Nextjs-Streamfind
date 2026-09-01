@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -93,6 +98,12 @@ function DirectorNote({ movieId }: { movieId: number }) {
   );
 }
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface ProfileSettingsPanelProps {
   user: any;
   profile: ProfileSettings;
@@ -139,6 +150,12 @@ const SETTING_TABS = [
 
 const EMPTY_ACTIVITIES: any[] = [];
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ProfileSettingsPanel({
   user,
   profile,
@@ -156,10 +173,22 @@ export default function ProfileSettingsPanel({
   handleToggleLike,
   handleShareNote
 }: ProfileSettingsPanelProps) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [activeSettingTab, setActiveSettingTab] = useState<
     'notifications' | 'preferences' | 'privacy' | 'payment' | 'help' | 'tracking' | 'activity' | 'notes'
   >('notifications');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: recentActivities = EMPTY_ACTIVITIES } = useQuery({
     queryKey: ['recentActivities'],
     queryFn: async () => {
@@ -180,11 +209,23 @@ export default function ProfileSettingsPanel({
   const searchParams = useSearchParams();
   const router = useRouter();
   
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { customWatchlists, createCustomWatchlist, deleteCustomWatchlist } = useWatchlist();
 
   const [localBrowserEnabled, setLocalBrowserEnabled] = useState(true);
   const [localPushEnabled, setLocalPushEnabled] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     // Read local browser pref
     const browserPref = localStorage.getItem('streamfind_channel_browser');
@@ -202,6 +243,12 @@ export default function ProfileSettingsPanel({
     checkPush();
   }, []);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const tab = searchParams?.get('tab');
     if (tab) {
@@ -240,12 +287,24 @@ export default function ProfileSettingsPanel({
   const signOutTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     return () => {
       if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
     };
   }, []);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     setIsMounted(true);
     if (typeof window !== 'undefined') {
@@ -263,6 +322,12 @@ export default function ProfileSettingsPanel({
   const [tmdbLanguages, setTmdbLanguages] = useState<{ value: string, label: string }[]>([]);
   const [tmdbRegions, setTmdbRegions] = useState<{ value: string, label: string }[]>([]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const fetchTmdbConfig = async () => {
       try {
@@ -323,6 +388,12 @@ export default function ProfileSettingsPanel({
     });
   };
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleUpgrade = async () => {
     if (!user) return toast.error('You must be logged in to upgrade');
     setIsUpgrading(true);
@@ -430,6 +501,12 @@ export default function ProfileSettingsPanel({
 
   const scrollCarousel = (direction: 'left' | 'right') => {
     if (carouselRef.current) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
       const { scrollLeft, clientWidth } = carouselRef.current;
       const scrollTo = direction === 'left' ? scrollLeft - clientWidth * 0.8 : scrollLeft + clientWidth * 0.8;
       carouselRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
@@ -549,6 +626,12 @@ export default function ProfileSettingsPanel({
   const handleMoveTopMovie = async (index: number, direction: 'up' | 'down') => _handleMoveTopMovie(index, direction, profile, setProfile);
 
   // Fetch upcoming movies from TMDB
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const fetchUpcoming = async () => {
       setIsLoadingCalendar(true);
@@ -602,6 +685,12 @@ export default function ProfileSettingsPanel({
     await _handleToggleDnaMood(mood, profile, setProfile);
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="mt-8 md:mt-12 bg-[#050505]/40 border border-white/10 rounded-[2rem] md:rounded-[40px] p-4 md:p-8 shadow-[0_30px_60px_rgba(0,0,0,0.8)] relative font-sans">
       {/* Background Glows & Blur Layer */}

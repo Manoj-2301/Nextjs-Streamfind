@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { Filter, ChevronDown, Check, Lock } from 'lucide-react';
@@ -7,6 +12,12 @@ import { useRouter } from 'next/navigation';
 
 import { WatchProvider } from '@/services/tmdbService';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface FilterBarProps {
   onGenreChange: (genre: string) => void;
   onRatingChange: (rating: number | null) => void;
@@ -28,6 +39,12 @@ interface FilterBarProps {
   isPremium?: boolean;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function FilterBar({
   onGenreChange,
   onRatingChange,
@@ -49,10 +66,22 @@ export default function FilterBar({
   isPremium = true
 }: FilterBarProps) {
   const router = useRouter();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [platformSearch, setPlatformSearch] = useState("");
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (activeDropdown !== 'platform') {
       setPlatformSearch("");
@@ -95,7 +124,19 @@ export default function FilterBar({
     { label: "TV Shows Only", value: "tv" }
   ];
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setActiveDropdown(null);
@@ -116,6 +157,12 @@ export default function FilterBar({
     onPlatformChange(newPlatforms);
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="flex flex-wrap gap-2 md:gap-4 items-center relative" ref={containerRef}>
       <div className="p-2 md:p-3 bg-brand/10 border border-brand/20 rounded-lg md:rounded-xl text-brand">

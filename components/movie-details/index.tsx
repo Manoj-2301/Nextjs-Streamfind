@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -211,15 +216,45 @@ const LANGUAGE_MAP: Record<string, string> = {
   kn: 'Kannada', ml: 'Malayalam', mr: 'Marathi', bn: 'Bengali', gu: 'Gujarati'
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MovieDetails({ initialMovie }: { initialMovie?: Movie }) {
   const params = useParams<{ id: string }>(); const id = params.id;
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type') as 'movie' | 'tv' | null;
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { isInWatchlist, requestAddToList, removeFromWatchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
   
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: queryMovie, isLoading: isQueryLoading, error: queryError } = useMovieDetails(
     id ? Number(id) : 0, 
     typeParam || undefined
@@ -249,6 +284,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movie && id) {
       // Lazy load regional trailers in the background
@@ -270,6 +311,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     }
   }, [id, typeParam, movie?.id]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     return () => {
       if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
@@ -277,6 +324,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     };
   }, []);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleMouseDown = (ref: React.RefObject<HTMLDivElement | null>, e: React.MouseEvent) => {
     if (!ref.current) return;
     isDragging.current = true;
@@ -311,6 +364,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
   const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     getAffiliateLinks()
       .then(links => {
@@ -413,6 +472,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     }
   };
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (queryMovie && (!initialMovie || initialMovie.id !== queryMovie.id)) {
       setMovie(queryMovie);
@@ -423,6 +488,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   }, [queryMovie]);
 
   // Load existing critique text when movie is resolved
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movie) {
       setReviewInput(getUserReviewText(movie.id) || '');
@@ -430,6 +501,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   }, [movie, getUserReviewText]);
 
   // Track genre view when movie is loaded
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (movie && movie.genre) {
       import('@/lib/genreTracker').then(({ trackGenreView }) => {
@@ -439,6 +516,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   }, [movie]);
 
   // Real-time listener for community reviews + fallback to TMDB critics
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!id) return;
 
@@ -551,6 +634,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
     }
   };
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const handleResize = () => {
       updateScrollStatus(localScrollRef, setLocalScrollStatus);
@@ -647,6 +736,12 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
   const hideWatchSection = isUpcomingOrNew && !primaryPlatform && !isRunningInTheaters;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="pb-20">
 

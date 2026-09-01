@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useEffect } from 'react';
@@ -5,6 +10,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -15,6 +26,12 @@ export interface ModalProps {
   hideHeader?: boolean;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Modal({
   isOpen,
   onClose,
@@ -25,7 +42,19 @@ export default function Modal({
   hideHeader = false,
 }: ModalProps) {
   // Close on escape key
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -40,6 +69,12 @@ export default function Modal({
     };
   }, [isOpen, onClose]);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <AnimatePresence>
       {isOpen && (

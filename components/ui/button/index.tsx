@@ -1,6 +1,17 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg' | 'icon';

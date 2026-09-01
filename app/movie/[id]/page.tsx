@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import type { Metadata, ResolvingMetadata } from 'next';
 import MovieDetails from '@/components/movie-details';
 import { getMovieDetails } from '@/services/tmdbService';

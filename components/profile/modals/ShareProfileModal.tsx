@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
@@ -5,13 +10,31 @@ import { toast } from 'react-hot-toast';
 import Modal from '@/components/ui/modal';
 import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface ShareProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: any;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfileModalProps) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [copiedLink, setCopiedLink] = useState(false);
 
   if (!isOpen) return null;
@@ -24,6 +47,12 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Modal
       isOpen={isOpen}

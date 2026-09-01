@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -9,13 +14,37 @@ import { useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { applyActionCode } from 'firebase/auth';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 type VerifyStatus = 'loading' | 'success' | 'error' | 'invalid';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [status, setStatus] = useState<VerifyStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     const oobCode = searchParams.get('oobCode');
     const mode = searchParams.get('mode');
@@ -45,6 +74,12 @@ export default function VerifyEmailPage() {
     verify();
   }, [searchParams]);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}

@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -14,18 +19,48 @@ import {
 
 const EMPTY_RATINGS = { ratings: {}, reviews: [] as UserReview[] };
 
+
+/*
+ * ============================================================
+ * HOOK
+ * ============================================================
+ */
 export function useRatingsData() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [userRatings, setUserRatings] = useState<Record<number, number>>({});
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: fetchedRatings = EMPTY_RATINGS } = useQuery({
     queryKey: ['ratings', user?.uid],
     queryFn: () => user ? fetchUserRatings(user.uid) : Promise.resolve(EMPTY_RATINGS),
     enabled: !!user,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (user) {
       setUserRatings(fetchedRatings.ratings);

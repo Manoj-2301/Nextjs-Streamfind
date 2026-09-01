@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 import Sponsorship from '@/components/sponsorship';
 
@@ -6,6 +11,12 @@ export const metadata: Metadata = {
   description: 'Partner with StreamFind and reach millions of movie enthusiasts.',
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SponsorshipPage() {
   return <Sponsorship />;
 }

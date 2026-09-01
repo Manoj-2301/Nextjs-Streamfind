@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { ExternalLink, ShieldCheck } from 'lucide-react';
@@ -6,6 +11,12 @@ import React, { useState, useEffect } from 'react';
 import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import Image from 'next/image';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface WatchProviderCardProps {
   platform: Platform;
   key?: React.Key;
@@ -53,11 +64,29 @@ const localizeTmdbUrl = (url: string, countryCode: string): string => {
   }
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function WatchProviderCard({ platform }: WatchProviderCardProps) {
   const isPartner = platform.isSponsored || (platform as any).isPartner;
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
   const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     getAffiliateLinks()
       .then(links => {
@@ -127,6 +156,12 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
   const standardWatchUrl = localizeTmdbUrl(rawWatchUrl, userCountryCode);
   const watchUrl = resolveWatchUrl(platform.name, standardWatchUrl, affiliateLinks);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div
       className={`relative p-6 rounded-2xl flex flex-col items-center gap-4 transition-all hover:scale-[1.02] duration-300 group overflow-hidden ${

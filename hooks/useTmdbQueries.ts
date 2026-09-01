@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { useQuery, useQueries, useInfiniteQuery, UseQueryOptions } from '@tanstack/react-query';
 import { 
   getTrendingMovies, 

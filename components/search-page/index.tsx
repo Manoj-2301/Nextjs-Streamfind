@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
@@ -18,18 +23,48 @@ const getInitials = (name: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SearchPage() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchType, setSearchType] = useState<'movies' | 'people'>('movies');
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
     }, 500);
     return () => clearTimeout(handler);
   }, [search]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (debouncedSearch && searchType === 'movies') {
       import('@/lib/genreTracker').then(({ trackGenreSearch, logUserActivity }) => {
@@ -39,18 +74,42 @@ export default function SearchPage() {
     }
   }, [debouncedSearch, searchType]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: movieResults = [], isFetching: isMovieLoading } = useSearchMovies(searchType === 'movies' ? debouncedSearch : "");
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: peopleResults = [], isFetching: isPeopleLoading } = useSearchPeople(searchType === 'people' ? debouncedSearch : "");
 
   const results = searchType === 'movies' ? movieResults : peopleResults;
   const isLoading = searchType === 'movies' ? isMovieLoading : isPeopleLoading;
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (debouncedSearch && !isLoading && results.length === 0) {
       toast.error("No results found");
     }
   }, [results.length, isLoading, debouncedSearch]);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}

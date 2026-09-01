@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import type { Metadata } from 'next';
 import { Space_Grotesk, Bebas_Neue } from 'next/font/google';
 import './globals.css';
@@ -42,11 +47,23 @@ export const metadata: Metadata = {
   },
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${bebasNeue.variable}`}>
       <head>

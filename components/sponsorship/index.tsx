@@ -1,17 +1,46 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
 import { Send, Globe, MessageSquare, Briefcase } from 'lucide-react';
 import { useState, FormEvent } from 'react';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Sponsorship() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [submitted, setSubmitted] = useState(false);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0 }}

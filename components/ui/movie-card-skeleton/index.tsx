@@ -1,4 +1,16 @@
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function MovieCardSkeleton() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#111] border border-[#1a1a1a] flex-shrink-0 animate-pulse">
       {/* Full Area Pulse */}

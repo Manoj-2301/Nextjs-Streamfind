@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import { useSystemConfig } from '@/hooks/firebase/useSystemConfig';
 import { useProfile } from '@/hooks/firebase/useProfile';
@@ -55,9 +60,33 @@ const frames = [
   { id: 'ghost', name: 'Ghost Frame', containerClass: 'shadow-[0_0_60px_rgba(96,165,250,0.3)] bg-[#60A5FA]/10', spinClass: 'bg-[conic-gradient(from_0deg,transparent_70%,rgba(96,165,250,1)_100%)]' }
 ];
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function ProfileComponent() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, logout, loading: authLoading } = useAuth();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist: ownerWatchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { userReviews: ownerReviews } = useRatings();
   const router = useRouter();
 
@@ -80,6 +109,12 @@ export default function ProfileComponent() {
 
   // SSR Hydration Safeguard
   const [isMounted, setIsMounted] = useState(false);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => { setIsMounted(true); }, []);
 
   // ── UI-only state (no Firebase) ────────────────────────────────────────────
@@ -102,7 +137,19 @@ export default function ProfileComponent() {
   // ── System config via hook ─────────────────────────────────────────────────
   const [isShareEnabled, setIsShareEnabled] = useState(true);
   const [systemAchievements, setSystemAchievements] = useState<{ id: string; label: string; val: string; icon: string }[]>([]);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { config: systemConfig } = useSystemConfig();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     setIsShareEnabled(systemConfig.flags?.share ?? true);
     setSystemAchievements(systemConfig.achievements);
@@ -115,6 +162,12 @@ export default function ProfileComponent() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // ── Wrappers that add toast + router invalidation on top of hook actions ───
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleToggleSub = async (platformName: string) => {
     try {
       await _handleToggleSub(platformName);
@@ -233,6 +286,12 @@ export default function ProfileComponent() {
   };
 
   // ── Modals sync ────────────────────────────────────────────────────────────
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (isEditModalOpen) {
       setBioInput(profile.bio);
@@ -398,6 +457,12 @@ export default function ProfileComponent() {
     ? (user?.photoURL || profile.photoURL || null)
     : (profile.photoURL || null);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <>
       <div className="min-h-screen bg-[#050505] text-white selection:bg-brand/30 relative pb-32">

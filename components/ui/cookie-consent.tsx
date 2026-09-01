@@ -1,12 +1,35 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function CookieConsent() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [show, setShow] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     // Check if the user has already consented
     const consent = localStorage.getItem('streamfind_cookie_consent');
@@ -15,6 +38,12 @@ export default function CookieConsent() {
     }
   }, []);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleAccept = () => {
     localStorage.setItem('streamfind_cookie_consent', 'accepted');
     setShow(false);
@@ -25,6 +54,12 @@ export default function CookieConsent() {
     setShow(false);
   };
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <AnimatePresence>
       {show && (

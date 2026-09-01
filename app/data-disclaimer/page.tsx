@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
@@ -7,7 +12,19 @@ export const metadata: Metadata = {
   description: 'Information regarding our data sources and API usage from TMDB.',
 };
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function DataDisclaimerPage() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="container mx-auto px-4 py-20 max-w-4xl text-white">
       <h1 className="text-4xl font-black uppercase tracking-tighter mb-8">Data & API Disclaimer</h1>

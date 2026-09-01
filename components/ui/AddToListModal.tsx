@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React from 'react';
@@ -7,6 +12,12 @@ import { CheckCircle2, List as ListIcon, Plus } from 'lucide-react';
 import { notify as toast } from '@/lib/notify';
 import Modal from '@/components/ui/modal';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AddToListModal() {
   const { 
     isModalOpen, 
@@ -20,6 +31,12 @@ export default function AddToListModal() {
 
   if (!isModalOpen || !movieToAdd) return null;
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleDefaultWatchlist = async () => {
     try {
       await addToWatchlist(movieToAdd);
@@ -44,6 +61,12 @@ export default function AddToListModal() {
 
   const alreadyInDefault = isInWatchlist(movieToAdd.id);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <Modal
       isOpen={isModalOpen}

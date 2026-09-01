@@ -1,5 +1,16 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { MetadataRoute } from 'next';
 import { SEO_PLATFORMS, SEO_GENRES } from '@/lib/seo-config';
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
   

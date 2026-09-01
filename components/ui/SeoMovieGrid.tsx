@@ -1,7 +1,18 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { Movie } from '@/types';
 import MovieCard from '@/components/ui/movie-card';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function SeoMovieGrid({ movies, title, description }: { movies: Movie[], title: string, description?: string }) {
   if (!movies || movies.length === 0) {
     return (
@@ -11,6 +22,12 @@ export default function SeoMovieGrid({ movies, title, description }: { movies: M
     );
   }
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
       <div className="text-center mb-10 max-w-3xl mx-auto">

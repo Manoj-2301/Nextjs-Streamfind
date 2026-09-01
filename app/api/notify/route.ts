@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, updateDoc } from 'firebase/firestore';

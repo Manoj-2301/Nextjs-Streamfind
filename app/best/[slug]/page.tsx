@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 import React from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -6,6 +11,12 @@ import SeoMovieGrid from '@/components/ui/SeoMovieGrid';
 
 export const revalidate = 86400; // 24 hours ISR
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface PageProps {
   params: Promise<{ slug: string }>; // The file is named [genre]-[platform]/page.tsx, wait we should name the folder [slug] to avoid complex parsing in App Router directory names or just keep it as `[slug]` folder.
 }

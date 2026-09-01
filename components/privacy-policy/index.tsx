@@ -1,9 +1,26 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
 import { ShieldCheck, Eye, Lock, RefreshCcw } from 'lucide-react';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function PrivacyPolicy() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-4xl px-6 py-20">

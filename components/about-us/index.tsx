@@ -1,9 +1,26 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { motion } from 'motion/react';
 import { Globe, Users, Award, Shield } from 'lucide-react';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function AboutUs() {
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto max-w-5xl px-6 py-20">

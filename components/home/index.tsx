@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 import { getFirestore } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -21,6 +26,12 @@ const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), {
 });
 const SponsorBanner = dynamic(() => import('@/components/ui/sponsor-banner'), { ssr: true });
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface HomeProps {
   initialTrending?: Movie[];
   initialUpcoming?: Movie[];
@@ -29,6 +40,12 @@ interface HomeProps {
   initialNowPlaying?: Movie[];
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Home({
   initialTrending = [],
   initialUpcoming = [],
@@ -37,12 +54,30 @@ export default function Home({
   initialNowPlaying = []
 }: HomeProps) {
   const router = useRouter();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const [profile, setProfile] = useState<any | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
   const [profileReady, setProfileReady] = useState(!user);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (!user) {
       setProfile(null);
@@ -74,6 +109,12 @@ export default function Home({
     return () => unsubscribe();
   }, [user]);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: trending = initialTrending, isLoading: isTrendingLoading, isFetching: isTrendingFetching } = useQuery({
     queryKey: tmdbKeys.trending(profile || undefined),
     queryFn: ({ signal }) => getTrendingMovies(profile || undefined, { signal }),
@@ -81,6 +122,12 @@ export default function Home({
     initialData: initialTrending.length > 0 ? initialTrending : undefined,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: upcoming = initialUpcoming } = useQuery({
     queryKey: tmdbKeys.upcoming(profile || undefined),
     queryFn: ({ signal }) => getUpcomingMovies(profile || undefined, { signal }),
@@ -88,6 +135,12 @@ export default function Home({
     initialData: initialUpcoming.length > 0 ? initialUpcoming : undefined,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: sciFi = initialSciFi } = useQuery({
     queryKey: tmdbKeys.genre(878, profile || undefined),
     queryFn: ({ signal }) => getMoviesByGenre(878, profile || undefined, { signal }),
@@ -95,6 +148,12 @@ export default function Home({
     initialData: initialSciFi.length > 0 ? initialSciFi : undefined,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: nowPlaying = initialNowPlaying } = useQuery({
     queryKey: tmdbKeys.nowPlaying(profile || undefined),
     queryFn: ({ signal }) => getNowPlayingMovies(profile || undefined, { signal }),
@@ -102,6 +161,12 @@ export default function Home({
     initialData: initialNowPlaying.length > 0 ? initialNowPlaying : undefined,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: popularFallback = initialPopular } = useQuery({
     queryKey: tmdbKeys.popular(undefined),
     queryFn: ({ signal }) => getPopularMovies(undefined, { signal }),
@@ -109,6 +174,12 @@ export default function Home({
     initialData: initialPopular.length > 0 ? initialPopular : undefined,
   });
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: popularWithProfile = [] } = useQuery({
     queryKey: tmdbKeys.popular(profile || undefined),
     queryFn: ({ signal }) => getPopularMovies(profile || undefined, { signal }),
@@ -132,6 +203,12 @@ export default function Home({
     ? (recentItems.length === 1 ? recentItems[0].title : "your watchlist")
     : null;
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { data: affiliateLinks = {} } = useQuery({
     queryKey: ['affiliateLinks'],
     queryFn: async () => {
@@ -186,6 +263,12 @@ export default function Home({
     : heroFallback.slice(0, 5);
   const topRated = [...filteredTrending].sort((a, b) => b.rating - a.rating);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className="bg-background">
       {/* Subtle refresh indicator at top */}

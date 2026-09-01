@@ -1,8 +1,19 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { Platform } from '@/types';
 import Image from 'next/image';
 
+
+/*
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
 interface PlatformBadgeProps {
   platform: Platform;
   showLabel?: boolean;
@@ -10,6 +21,12 @@ interface PlatformBadgeProps {
   className?: string;
 }
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function PlatformBadge({ platform, showLabel = true, size = 'sm', className = "" }: PlatformBadgeProps) {
   const name = platform?.name || 'Unknown';
   const nameLower = name.toLowerCase();
@@ -46,6 +63,12 @@ export default function PlatformBadge({ platform, showLabel = true, size = 'sm',
   const isApple = nameLower.includes('apple');
   const textColor = isApple ? 'text-black' : 'text-white';
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <div className={`flex items-center gap-2 ${className}`} title={name}>
       <div 

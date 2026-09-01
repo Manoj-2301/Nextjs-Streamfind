@@ -1,7 +1,18 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { useEffect } from 'react';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function GlobalError({
   error,
   reset,
@@ -9,11 +20,23 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Global Error Caught:', error);
   }, [error]);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <html lang="en">
       <body className="bg-background min-h-screen flex items-center justify-center p-6">

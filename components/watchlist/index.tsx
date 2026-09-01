@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -13,14 +18,38 @@ import { app } from '@/lib/firebase';
 import { getFirestore, collection, query, onSnapshot } from 'firebase/firestore';
 import { Movie } from '@/types';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function WatchlistPage() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist, customWatchlists, removeFromWatchlist, removeFromCustomWatchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   
   const [selectedListId, setSelectedListId] = useState<string>('default');
   const [customListMovies, setCustomListMovies] = useState<Movie[]>([]);
   const [isLoadingCustom, setIsLoadingCustom] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     if (selectedListId === 'default' || !user) {
       setCustomListMovies([]);
@@ -47,6 +76,12 @@ export default function WatchlistPage() {
     return () => unsubscribe();
   }, [selectedListId, user]);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleRemove = async (movieId: number) => {
     try {
       if (selectedListId === 'default') {
@@ -67,6 +102,12 @@ export default function WatchlistPage() {
     ? 'My Watchlist' 
     : customWatchlists.find(l => l.id === selectedListId)?.name || 'Custom List';
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

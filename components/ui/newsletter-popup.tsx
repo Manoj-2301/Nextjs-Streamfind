@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,13 +14,31 @@ import { toast } from 'react-hot-toast';
 
 const STORAGE_KEY = 'sf_newsletter_popup_date';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function NewsletterPopup() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
     // Only show on home page
     if (typeof window === 'undefined') return;
@@ -33,6 +56,12 @@ export default function NewsletterPopup() {
     return () => clearTimeout(timer);
   }, []);
 
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
   const handleSubscribe = async () => {
     const emailToUse = user?.email || email.trim();
     if (!emailToUse || !/\S+@\S+\.\S+/.test(emailToUse)) {
@@ -87,6 +116,12 @@ export default function NewsletterPopup() {
 
   const handleClose = () => setIsOpen(false);
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <AnimatePresence>
       {isOpen && (

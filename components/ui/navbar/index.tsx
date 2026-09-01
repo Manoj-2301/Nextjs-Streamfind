@@ -1,3 +1,8 @@
+/*
+ * ============================================================
+ * IMPORTS
+ * ============================================================
+ */
 'use client';
 
 import Link from 'next/link';
@@ -11,15 +16,51 @@ import { useAuth } from '@/context/AuthContext';
 import GlobalSearch from '@/components/ui/global-search';
 import Button from '@/components/ui/button';
 
+
+/*
+ * ============================================================
+ * COMPONENT
+ * ============================================================
+ */
 export default function Navbar() {
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { watchlist } = useWatchlist();
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   const { user, loginWithGoogle, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
+
+  /*
+   * ============================================================
+   * STATE & DATA FETCHING
+   * ============================================================
+   */
   useEffect(() => {
+
+  /*
+   * ============================================================
+   * EVENT HANDLERS
+   * ============================================================
+   */
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
@@ -51,6 +92,12 @@ export default function Navbar() {
   const getMobileLinkClass = (path: string) =>
     `font-bold text-lg transition-colors ${pathname === path ? 'text-brand' : 'text-white/70 hover:text-brand'}`;
 
+
+  /*
+   * ============================================================
+   * RENDERING
+   * ============================================================
+   */
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#080808]/70 backdrop-blur-2xl border-b border-white/5 px-4 min-[931px]:px-8 flex items-center justify-between h-20 shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
       <Link href="/" className="flex items-center gap-2 group">
