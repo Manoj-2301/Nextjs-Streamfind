@@ -14,7 +14,8 @@ import MovieCardSkeleton from '@/components/ui/movie-card-skeleton';
 import { Movie } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
-import { searchMovies, getTrendingMovies, getMoviesByGenre, browseSearchMovies, browseDiscoverMovies, getWatchProviders, WatchProvider } from '@/services/tmdbService';
+import { getWatchProviders, WatchProvider } from '@/services/tmdbService';
+import { useBrowseSearchMovies, useBrowseDiscoverMovies } from '@/hooks/useTmdbQueries';
 import { toast } from 'react-hot-toast';
 
 const ITEMS_PER_PAGE = 20;
@@ -70,7 +71,7 @@ const matchGenre = (selectedGenre: string, movieGenres: string[]) => {
   });
 };
 
-export default function Browse() {
+export default function Browse({ initialData }: { initialData?: { movies: Movie[], totalPages: number } }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,11 +83,6 @@ export default function Browse() {
   const [contentType, setContentType] = useState<'movies' | 'tv' | 'both'>("both");
   const [sortBy, setSortBy] = useState("popularity");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [movies, setMovies] = useState<Movie[]>([]);
-
-  const [apiTotalPages, setApiTotalPages] = useState(1);
   const [allAvailablePlatforms, setAllAvailablePlatforms] = useState<WatchProvider[]>([]);
 
   const { user } = useAuth();
@@ -190,123 +186,116 @@ export default function Browse() {
     return platforms;
   }, [profile, platforms]);
 
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
-    // If a year is at the end of the search, sync it to the year filter
-    let extractedYear: number | undefined;
-    if (search) {
-      const match = search.match(/(.*)\s+(\d{4})$/);
-      if (match) {
-        extractedYear = parseInt(match[2]);
-        // Update year range dynamically if it's not already set to this year
-        if (!yearRange || yearRange[0] !== extractedYear || yearRange[1] !== extractedYear) {
-           setYearRange([extractedYear, extractedYear]);
+    const t = setTimeout(() => setDebouncedSearch(search), 500);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // If a year is at the end of the search, sync it to the year filter
+  const extractedYear = useMemo(() => {
+    if (debouncedSearch) {
+      const match = debouncedSearch.match(/(.*)\s+(\d{4})$/);
+      if (match) return parseInt(match[2]);
+    }
+    return undefined;
+  }, [debouncedSearch]);
+  
+  useEffect(() => {
+    if (extractedYear && (!yearRange || yearRange[0] !== extractedYear || yearRange[1] !== extractedYear)) {
+      setYearRange([extractedYear, extractedYear]);
+    }
+  }, [extractedYear, yearRange]);
+
+  const providerContext = useMemo(() => {
+    let providerIds: number[] | undefined;
+    let watchRegion: string | undefined;
+
+    if (activePlatforms.length > 0 && allAvailablePlatforms.length > 0) {
+      providerIds = activePlatforms
+        .map(pName => {
+          const found = allAvailablePlatforms.find(
+            ap => ap.name.toLowerCase() === pName.toLowerCase() ||
+                  ap.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(pName.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          );
+          return found?.id;
+        })
+        .filter((id): id is number => id !== undefined);
+
+      if (providerIds.length > 0) {
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (tz.includes('India') || tz.includes('Kolkata') || tz.includes('Calcutta') || tz.includes('Asia/Kolkata')) {
+            watchRegion = 'IN';
+          } else {
+            watchRegion = 'US';
+          }
+        } catch (e) {
+          watchRegion = 'IN';
         }
       }
     }
+    return { providerIds, watchRegion };
+  }, [activePlatforms, allAvailablePlatforms]);
 
-    const loadMovies = async () => {
-      setIsLoading(true);
-      setError(false);
-      try {
-        let results: Movie[] = [];
-        let pages = 1;
+  const genreId = genre !== "All" ? GENRE_MAP[genre] : undefined;
+  const minRating = rating || undefined;
+  const minYear = yearRange ? yearRange[0] : undefined;
+  const maxYear = yearRange ? yearRange[1] : undefined;
 
-        let providerIds: number[] | undefined;
-        let watchRegion: string | undefined;
+  const { data: searchData, isFetching: isSearchLoading, error: searchError } = useBrowseSearchMovies(
+    debouncedSearch, currentPage, yearRange
+  );
 
-        if (activePlatforms.length > 0 && allAvailablePlatforms.length > 0) {
-          providerIds = activePlatforms
-            .map(pName => {
-              const found = allAvailablePlatforms.find(
-                ap => ap.name.toLowerCase() === pName.toLowerCase() ||
-                      ap.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(pName.toLowerCase().replace(/[^a-z0-9]/g, ''))
-              );
-              return found?.id;
-            })
-            .filter((id): id is number => id !== undefined);
+  const { data: discoverData, isFetching: isDiscoverLoading, error: discoverError } = useBrowseDiscoverMovies(
+    currentPage, genreId, minRating, minYear, maxYear, sortBy, language,
+    providerContext.providerIds, providerContext.watchRegion, contentType, initialData
+  );
 
-          if (providerIds.length > 0) {
-            try {
-              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-              if (tz.includes('India') || tz.includes('Kolkata') || tz.includes('Calcutta') || tz.includes('Asia/Kolkata')) {
-                watchRegion = 'IN';
-              } else {
-                watchRegion = 'US';
-              }
-            } catch (e) {
-              watchRegion = 'IN';
-            }
-          }
+  const isLoading = debouncedSearch ? isSearchLoading : isDiscoverLoading;
+  const error = !!(debouncedSearch ? searchError : discoverError);
+
+  const { processedMovies, apiTotalPages } = useMemo(() => {
+    let results: Movie[] = [];
+    let pages = 1;
+
+    if (debouncedSearch) {
+      if (searchData) {
+        results = searchData.movies;
+        pages = searchData.totalPages;
+        
+        if (genre !== "All") {
+          results = results.filter(m => matchGenre(genre, m.genre));
         }
-
-        if (search) {
-          // TMDB search API doesn't support advanced filtering natively, but we now pass yearRange
-          const data = await browseSearchMovies(search, currentPage, yearRange);
-          results = data.movies;
-          pages = data.totalPages;
-          
-          // Apply active genre filter locally to search results
-          if (genre !== "All") {
-            results = results.filter(m => matchGenre(genre, m.genre));
-          }
-
-          // Apply active language filter locally to search results
-          if (language !== "All") {
-            results = results.filter(m => m.language?.toLowerCase() === language.toLowerCase());
-          }
-
-          if (results.length === 0) {
-            toast.error("search correct movie name or show");
-          }
-        } else {
-          // Use discover API for advanced filtering
-          const genreId = genre !== "All" ? GENRE_MAP[genre] : undefined;
-          const minRating = rating || undefined;
-          const minYear = yearRange ? yearRange[0] : undefined;
-          const maxYear = yearRange ? yearRange[1] : undefined;
-
-          const data = await browseDiscoverMovies(
-            currentPage,
-            genreId,
-            minRating,
-            minYear,
-            maxYear,
-            sortBy,
-            language,
-            providerIds,
-            watchRegion,
-            contentType
-          );
-
-          results = data.movies;
-          pages = data.totalPages;
+        if (language !== "All") {
+          results = results.filter(m => m.language?.toLowerCase() === language.toLowerCase());
         }
-
-        // Apply activePlatforms filter locally for Search mode ONLY, or if server-side provider mapping failed
-        // Only apply local filter if it would produce results (don't blank out due to missing watch provider data)
-        if (activePlatforms.length > 0 && (search || !providerIds || providerIds.length === 0)) {
-          const localFiltered = results.filter(m => m.platforms?.some(p => activePlatforms.some(sub => matchPlatform(sub, p.name))));
-          // Only apply if we still have results; otherwise show unfiltered (API-side filter already applied)
-          if (localFiltered.length > 0) {
-            results = localFiltered;
-          }
-        }
-
-        setMovies(results);
-        setApiTotalPages(pages);
-      } catch (err) {
-        console.error('Error loading browse movies:', err);
-        setError(true);
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } else {
+      if (discoverData) {
+        results = discoverData.movies;
+        pages = discoverData.totalPages;
+      }
+    }
 
-    const timer = setTimeout(loadMovies, 500);
-    return () => clearTimeout(timer);
-  }, [search, genre, rating, yearRange, activePlatforms, sortBy, sortOrder, currentPage, language, contentType, allAvailablePlatforms]);
+    if (activePlatforms.length > 0 && (debouncedSearch || !providerContext.providerIds || providerContext.providerIds.length === 0)) {
+      const localFiltered = results.filter(m => m.platforms?.some(p => activePlatforms.some(sub => matchPlatform(sub, p.name))));
+      if (localFiltered.length > 0) {
+        results = localFiltered;
+      }
+    }
+    return { processedMovies: results, apiTotalPages: pages };
+  }, [debouncedSearch, searchData, discoverData, genre, language, activePlatforms, providerContext.providerIds]);
 
+  const movies = processedMovies;
   const totalPages = apiTotalPages;
+
+  useEffect(() => {
+    if (debouncedSearch && !isLoading && movies.length === 0) {
+      toast.error("search correct movie name or show");
+    }
+  }, [movies.length, isLoading, debouncedSearch]);
+
   const currentMovies = movies;
 
   const handlePageChange = (page: number) => {
@@ -315,9 +304,7 @@ export default function Browse() {
   };
 
   const retry = () => {
-    setError(false);
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 800);
+    window.location.reload();
   };
 
   if (error) return <div className="pt-20"><ErrorMessage onRetry={retry} /></div>;

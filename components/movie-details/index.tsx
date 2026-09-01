@@ -10,7 +10,8 @@ import Image from 'next/image';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings } from '@/context/RatingContext';
 import { useState, useEffect, useRef } from 'react';
-import { getMovieDetails, getMovieReviews, CriticReview } from '@/services/tmdbService';
+import { getMovieReviews, CriticReview } from '@/services/tmdbService';
+import { useMovieDetails } from '@/hooks/useTmdbQueries';
 import { Movie, Platform } from '@/types';
 import { app } from '@/lib/firebase';
 import { collection, query, onSnapshot, collectionGroup, where, getFirestore } from 'firebase/firestore';
@@ -219,12 +220,19 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const { isInWatchlist, requestAddToList, removeFromWatchlist } = useWatchlist();
   const { setUserRating, getUserRating, getUserReviewText } = useRatings();
   const [isShared, setIsShared] = useState(false);
-  const [isLoading, setIsLoading] = useState(!initialMovie);
-  const [error, setError] = useState(false);
+  
+  const { data: queryMovie, isLoading: isQueryLoading, error: queryError } = useMovieDetails(
+    id ? Number(id) : 0, 
+    typeParam || undefined
+  );
+
   const [movie, setMovie] = useState<Movie | null>(initialMovie || null);
   const [selectedTrailer, setSelectedTrailer] = useState<{ key: string, site: string } | null>(
     initialMovie?.trailerYoutubeId ? { key: initialMovie.trailerYoutubeId, site: initialMovie.trailerSite || 'YouTube' } : null
   );
+
+  const isLoading = (!initialMovie && isQueryLoading);
+  const error = !!queryError;
 
   const [isTrailerDropdownOpen, setIsTrailerDropdownOpen] = useState(false);
   const [showAllCast, setShowAllCast] = useState(false);
@@ -407,29 +415,13 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   };
 
   useEffect(() => {
-    const fetchDetails = async () => {
-      if (!id) return;
-      if (initialMovie && initialMovie.id === Number(id)) {
-        setIsLoading(false);
-        return;
+    if (queryMovie && (!initialMovie || initialMovie.id !== queryMovie.id)) {
+      setMovie(queryMovie);
+      if (queryMovie.trailerYoutubeId && !selectedTrailer) {
+        setSelectedTrailer({ key: queryMovie.trailerYoutubeId, site: queryMovie.trailerSite || 'YouTube' });
       }
-      setIsLoading(true);
-      setError(false);
-      try {
-        const details = await getMovieDetails(Number(id), typeParam || undefined);
-        setMovie(details);
-        setSelectedTrailer(
-          details?.trailerYoutubeId ? { key: details.trailerYoutubeId, site: details.trailerSite || 'YouTube' } : null
-        );
-      } catch (err) {
-        console.error('Error fetching details:', err);
-        setError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDetails();
-  }, [id, typeParam, initialMovie]);
+    }
+  }, [queryMovie]);
 
   // Load existing critique text when movie is resolved
   useEffect(() => {

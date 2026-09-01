@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Loader2, Calendar, MapPin, X } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
-import { getCastDetails, getCastMovies } from '@/services/tmdbService';
+import { useState, useRef } from 'react';
+import { useCastDetails, useCastMovies } from '@/hooks/useTmdbQueries';
 import { Movie, CastMember } from '@/types';
 import ErrorMessage from '@/components/ui/error-message';
 import MovieCard from '@/components/ui/movie-card';
@@ -26,15 +26,23 @@ export default function CastDetails({
 }) {
   const params = useParams<{ id: string }>();  const id = params.id;
   const router = useRouter();
-  const [cast, setCast] = useState<CastMember | null>(initialCast || null);
-  const [movies, setMovies] = useState<Movie[]>(initialMovies || []);
-  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  
   const [currentPage, setCurrentPage] = useState(initialCurrentPage);
-  const [isLoading, setIsLoading] = useState(!initialCast);
-  const [isMoviesLoading, setIsMoviesLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const personId = parseInt(id || '0');
+
+  const { data: castData, isLoading: isCastLoading, error: castError } = useCastDetails(personId);
+  const { data: moviesData, isFetching: isMoviesFetching } = useCastMovies(personId, currentPage);
+
+  const cast = castData || initialCast;
+  const error = !!castError;
+  const isLoading = !initialCast && isCastLoading;
+  
+  const isMoviesLoading = isMoviesFetching;
+  const movies = moviesData?.items || initialMovies || [];
+  const totalPages = moviesData?.totalPages || initialTotalPages;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -62,54 +70,9 @@ export default function CastDetails({
     scrollRef.current.scrollLeft = scrollLeftState.current - walk;
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-      const personId = parseInt(id);
-      if (isNaN(personId)) {
-        setError(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (initialCast && initialCast.id === personId) {
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setError(false);
-      try {
-        const [details, castMovies] = await Promise.all([
-          getCastDetails(personId),
-          getCastMovies(personId, 1)
-        ]);
-        setCast(details);
-        setMovies(castMovies.items);
-        setTotalPages(castMovies.totalPages);
-        setCurrentPage(castMovies.currentPage);
-      } catch (err) {
-        console.error('Error fetching cast details:', err);
-        setError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [id, initialCast]);
-
-  const handlePageChange = async (page: number) => {
-    if (!id || page === currentPage) return;
-    const personId = parseInt(id);
-    setIsMoviesLoading(true);
-    try {
-      const data = await getCastMovies(personId, page);
-      setMovies(data.items);
-      setTotalPages(data.totalPages);
-      setCurrentPage(data.currentPage);
-    } catch (err) {
-      console.error('Error fetching paginated movies', err);
-    } finally {
-      setIsMoviesLoading(false);
+  const handlePageChange = (page: number) => {
+    if (page !== currentPage) {
+      setCurrentPage(page);
     }
   };
 

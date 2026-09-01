@@ -4,15 +4,16 @@ import { useRouter } from 'next/navigation';
 import HeroSection from '@/components/ui/hero-section';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect, useState, useMemo, useRef } from 'react';
-import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies } from '@/services/tmdbService';
+import { useEffect, useState, useMemo } from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { tmdbKeys } from '@/hooks/useTmdbQueries';
+import { getTrendingMovies, getMoviesByGenre, getRecommendations, getPopularMovies, getUpcomingMovies, getNowPlayingMovies } from '@/services/tmdbService';
 import { Movie } from '@/types';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import { app } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { getNowPlayingMovies } from '@/services/tmdbService';
 
 const ScrollableRow = dynamic(() => import('@/components/ui/scrollable-row'), {
   ssr: true,
@@ -36,28 +37,11 @@ export default function Home({
   initialNowPlaying = []
 }: HomeProps) {
   const router = useRouter();
-  const [trending, setTrending] = useState<Movie[]>(initialTrending);
-  const [upcoming, setUpcoming] = useState<Movie[]>(initialUpcoming);
-  const [sciFi, setSciFi] = useState<Movie[]>(initialSciFi);
-  const [recommendations, setRecommendations] = useState<Movie[]>(initialPopular);
-  const [nowPlaying, setNowPlaying] = useState<Movie[]>(initialNowPlaying);
-  const [recSource, setRecSource] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(initialTrending.length === 0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const { watchlist } = useWatchlist();
   const { user } = useAuth();
   const [profile, setProfile] = useState<any | null>(null);
   const [isDnaExpanded, setIsDnaExpanded] = useState(false);
-  const [heroFallback, setHeroFallback] = useState<Movie[]>(initialTrending);
-  const [featuredPartner, setFeaturedPartner] = useState<{
-    movieName: string;
-    providerName: string;
-    offerText?: string;
-    affiliateUrl: string;
-  } | null>(null);
-  const [affiliateLinks, setAffiliateLinks] = useState<any>({});
-  // Track whether the profile has been fetched at least once to avoid flicker
-  const [profileReady, setProfileReady] = useState(!user); // true immediately if no user
+  const [profileReady, setProfileReady] = useState(!user);
 
   useEffect(() => {
     if (!user) {
@@ -80,11 +64,9 @@ export default function Home({
             watchRegion: data.watchRegion || 'IN',
             dnaMoods: data.dnaMoods || [],
             dnaRuntime: data.dnaRuntime,
-
             prefContentType: data.prefContentType || 'both'
           });
         }
-        // Mark profile as ready after first snapshot (even if doc doesn't exist)
         setProfileReady(true);
       });
     });
@@ -92,170 +74,113 @@ export default function Home({
     return () => unsubscribe();
   }, [user]);
 
-  const filterKey = useMemo(() => JSON.stringify({
-    autoFilter: profile?.autoFilter,
-    dnaMoods: profile?.dnaMoods,
-    subscriptions: profile?.subscriptions,
-    prefLanguage: profile?.prefLanguage,
-    watchRegion: profile?.watchRegion,
-    dnaRuntime: profile?.dnaRuntime,
+  const { data: trending = initialTrending, isLoading: isTrendingLoading, isFetching: isTrendingFetching } = useQuery({
+    queryKey: tmdbKeys.trending(profile || undefined),
+    queryFn: ({ signal }) => getTrendingMovies(profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialTrending.length > 0 ? initialTrending : undefined,
+  });
 
-    prefContentType: profile?.prefContentType,
-  }), [profile]);
+  const { data: upcoming = initialUpcoming } = useQuery({
+    queryKey: tmdbKeys.upcoming(profile || undefined),
+    queryFn: ({ signal }) => getUpcomingMovies(profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialUpcoming.length > 0 ? initialUpcoming : undefined,
+  });
 
-  const initialMainFetchDone = useRef(false);
+  const { data: sciFi = initialSciFi } = useQuery({
+    queryKey: tmdbKeys.genre(878, profile || undefined),
+    queryFn: ({ signal }) => getMoviesByGenre(878, profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialSciFi.length > 0 ? initialSciFi : undefined,
+  });
 
-  useEffect(() => {
-    // Wait until the authenticated user's profile has been fetched from Firestore
-    if (!profileReady) return;
+  const { data: nowPlaying = initialNowPlaying } = useQuery({
+    queryKey: tmdbKeys.nowPlaying(profile || undefined),
+    queryFn: ({ signal }) => getNowPlayingMovies(profile || undefined, { signal }),
+    enabled: profileReady,
+    initialData: initialNowPlaying.length > 0 ? initialNowPlaying : undefined,
+  });
 
-    const abortController = new AbortController();
-    const signal = abortController.signal;
+  const { data: popularFallback = initialPopular } = useQuery({
+    queryKey: tmdbKeys.popular(undefined),
+    queryFn: ({ signal }) => getPopularMovies(undefined, { signal }),
+    enabled: profileReady && trending.length === 0,
+    initialData: initialPopular.length > 0 ? initialPopular : undefined,
+  });
 
-    const loadData = async () => {
-      const hasData = trending.length > 0 || heroFallback.length > 0;
+  const { data: popularWithProfile = [] } = useQuery({
+    queryKey: tmdbKeys.popular(profile || undefined),
+    queryFn: ({ signal }) => getPopularMovies(profile || undefined, { signal }),
+    enabled: profileReady && watchlist.length === 0,
+  });
 
-      // Determine if the user has custom filters that require re-fetching the main arrays
-      const hasCustomFilters = !!(
-        profile?.autoFilter || 
-        (profile?.subscriptions && profile.subscriptions.length > 0) || 
-        (profile?.dnaMoods && profile.dnaMoods.length > 0) || 
-        (profile?.watchRegion && profile.watchRegion !== 'IN') || 
-        (profile?.prefLanguage && profile.prefLanguage !== 'en') ||
-        (profile?.prefContentType && profile.prefContentType !== 'both')
-      );
+  const recentItems = watchlist.slice(-2);
+  const recQueries = useQueries({
+    queries: recentItems.map(item => ({
+      queryKey: tmdbKeys.recommendations(item.id),
+      queryFn: ({ signal }) => getRecommendations(item.id, undefined, { signal }),
+      enabled: profileReady,
+    }))
+  });
 
-      // Skip the heavy main fetch if we already have initial data from the server,
-      // it's the first time running this effect, and the user has no custom filters.
-      const skipMainFetch = hasData && !initialMainFetchDone.current && !hasCustomFilters;
-      initialMainFetchDone.current = true;
+  const recommendations = watchlist.length > 0
+    ? Array.from(new Map(recQueries.flatMap(q => q.data || []).map(m => [m.id, m])).values()).slice(0, 20)
+    : popularWithProfile;
 
-      if (!skipMainFetch) {
-        if (!hasData) {
-          setIsLoading(true);
-        } else {
-          setIsRefreshing(true);
-        }
+  const recSource = watchlist.length > 0 
+    ? (recentItems.length === 1 ? recentItems[0].title : "your watchlist")
+    : null;
+
+  const { data: affiliateLinks = {} } = useQuery({
+    queryKey: ['affiliateLinks'],
+    queryFn: async () => {
+      const { getAffiliateLinks } = await import('@/services/affiliateService');
+      return getAffiliateLinks();
+    },
+    enabled: profileReady,
+  });
+
+  const featuredKey = Object.keys(affiliateLinks).find(key => {
+    const linkData = affiliateLinks[key];
+    return typeof linkData === 'object' && linkData?.isFeatured;
+  });
+
+  const featuredPartner = useMemo(() => {
+    if (featuredKey && trending.length > 0) {
+      const topMovie = trending[0];
+      const linkData = affiliateLinks[featuredKey] as any;
+      const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
+      let movieName = topMovie.title || 'Top Movie';
+      if (movieName.includes(':')) {
+        const parts = movieName.split(':');
+        movieName = parts[parts.length - 1].trim();
       }
+      return {
+        movieName,
+        providerName,
+        offerText: linkData.offerText,
+        affiliateUrl: linkData.url,
+      };
+    }
+    return null;
+  }, [featuredKey, affiliateLinks, trending]);
 
-      let currentTrending = trending;
-      try {
-        if (!skipMainFetch) {
-          // Always fetch fresh data when profile preferences change
-          const [trendingData, upcomingData, sciFiData, nowPlayingData] = await Promise.all([
-            getTrendingMovies(profile || undefined, { signal }),
-            getUpcomingMovies(profile || undefined, { signal }),
-            getMoviesByGenre(878, profile || undefined, { signal }), // 878 is Sci-Fi genre ID in TMDB
-            getNowPlayingMovies(profile || undefined, { signal })
-          ]);
+  const heroFallback = trending.length === 0 ? popularFallback.slice(0, 5) : trending.slice(0, 5);
 
-          setTrending(trendingData);
-          setUpcoming(upcomingData);
-          setSciFi(sciFiData);
-          setNowPlaying(nowPlayingData);
-
-          // If filters narrowed results to 0, fetch unfiltered popular content for the hero
-          if (trendingData.length === 0) {
-            const fallbackData = await getPopularMovies(undefined, { signal });
-            setHeroFallback(fallbackData.slice(0, 5));
-          } else {
-            setHeroFallback(trendingData.slice(0, 5));
-          }
-          currentTrending = trendingData;
-        }
-
-        // Fetch Recommendations based on watchlist
-        if (watchlist.length > 0) {
-          // Take recommendations from the most recent 2 items for a diverse set
-          const recentItems = watchlist.slice(-2);
-          const recPromises = recentItems.map(item => getRecommendations(item.id));
-          const recResults = await Promise.all(recPromises);
-
-          // Flatten and remove duplicates
-          const seen = new Set(watchlist.map(m => m.id));
-          const allRecs: Movie[] = [];
-
-          recResults.forEach(list => {
-            list.forEach(movie => {
-              if (!seen.has(movie.id)) {
-                allRecs.push(movie);
-                seen.add(movie.id);
-              }
-            });
-          });
-
-          setRecommendations(allRecs.slice(0, 20));
-          if (recentItems.length === 1) {
-            setRecSource(recentItems[0].title);
-          } else {
-            setRecSource("your watchlist");
-          }
-        } else {
-          const popularData = await getPopularMovies(profile || undefined, { signal });
-          setRecommendations(popularData);
-          setRecSource(null);
-        }
-
-        // Fetch Featured Partner
-        const { getAffiliateLinks } = await import('@/services/affiliateService');
-        const links = await getAffiliateLinks();
-        setAffiliateLinks(links);
-        const featuredKey = Object.keys(links).find(key => {
-          const linkData = links[key];
-          return typeof linkData === 'object' && linkData?.isFeatured;
-        });
-
-        if (featuredKey && currentTrending.length > 0) {
-          const topMovie = currentTrending[0];
-          const linkData = links[featuredKey] as any;
-
-          const providerName = featuredKey.charAt(0).toUpperCase() + featuredKey.slice(1);
-
-          let movieName = topMovie.title || 'Top Movie';
-          if (movieName.includes(':')) {
-            const parts = movieName.split(':');
-            movieName = parts[parts.length - 1].trim();
-          }
-
-          setFeaturedPartner({
-            movieName,
-            providerName,
-            offerText: linkData.offerText,
-            affiliateUrl: linkData.url,
-          });
-        } else {
-          setFeaturedPartner(null);
-        }
-
-      } catch (error: any) {
-        if (error.name === 'AbortError') return;
-        console.error('Error loading home data:', error);
-      } finally {
-        if (!signal.aborted) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
-      }
-    };
-    loadData();
-
-    return () => {
-      abortController.abort('Component unmounted');
-    };
-  }, [watchlist.length, profileReady, filterKey]);
-  if (isLoading && trending.length === 0 && heroFallback.length === 0) {
+  if (isTrendingLoading && trending.length === 0 && heroFallback.length === 0) {
     return (
       <div className="w-full h-[75vh] md:h-[90vh] bg-surface animate-pulse rounded-none" />
     );
   }
 
+  const isRefreshing = isTrendingFetching;
   const filteredTrending = trending;
   const filteredUpcoming = upcoming;
   const filteredSciFi = sciFi;
   const filteredRecs = recommendations;
   const filteredNowPlaying = nowPlaying;
 
-  // Hero always uses the best available: filtered trending, or fallback popular content
   const featuredMovies = filteredTrending.length > 0
     ? filteredTrending.slice(0, 5)
     : heroFallback.slice(0, 5);

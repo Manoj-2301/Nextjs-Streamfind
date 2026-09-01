@@ -62,7 +62,7 @@ export default function AdminComponent() {
       setIsDataLoading(true);
       setError(null);
       try {
-        const { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc } = await import('firebase/firestore');
+        const { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, query, limit } = await import('firebase/firestore');
         const { app } = await import('@/lib/firebase');
         const db = getFirestore(app);
 
@@ -103,7 +103,8 @@ export default function AdminComponent() {
           if (active) setError('Failed to fetch featured_curations: ' + err.message);
         });
 
-        const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+        const usersQuery = query(collection(db, 'users'), limit(500));
+        const unsubUsers = onSnapshot(usersQuery, (snap) => {
           if (!active) return;
           const items: AdminUser[] = [];
           snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as AdminUser));
@@ -134,7 +135,8 @@ export default function AdminComponent() {
           if (active) setError('Failed to fetch users: ' + err.message);
         });
 
-        const unsubRatings = onSnapshot(collectionGroup(db, 'ratings'), (snap) => {
+        const ratingsQuery = query(collectionGroup(db, 'ratings'), limit(500));
+        const unsubRatings = onSnapshot(ratingsQuery, (snap) => {
           if (!active) return;
           const items: AdminRating[] = [];
           snap.forEach(docSnap => {

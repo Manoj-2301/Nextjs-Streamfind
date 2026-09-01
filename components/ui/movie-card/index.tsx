@@ -4,8 +4,10 @@ import { Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Movie } from '@/types';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import PlatformBadge from '@/components/ui/platform-badge';
+import { useInView } from 'motion/react';
+import { useMovieDetails } from '@/hooks/useTmdbQueries';
 
 interface MovieCardProps {
   movie: Movie;
@@ -24,6 +26,12 @@ const getInitials = (name: string) => {
 export default function MovieCard({ movie, accentColor = '#999', priority = false, activeGenre }: MovieCardProps) {
   const [imgError, setImgError] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "200px" });
+
+  const { data: details } = useMovieDetails(movie.id, movie.type, {
+    enabled: isInView && (!movie.platforms || movie.platforms.length === 0)
+  });
 
   // Collect available image URLs to try, and downsize poster from w500 to w342 for the card thumbnail
   const possibleUrls = [
@@ -42,7 +50,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
     }
   };
 
-  const primaryPlatform = movie.platforms?.[0];
+  const primaryPlatform = movie.platforms?.[0] || details?.platforms?.[0];
   
   // Prioritize displaying the selected/active genre if it matches one of the movie's genres
   const displayGenre = React.useMemo(() => {
@@ -72,6 +80,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
   return (
     <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`}>
       <div
+        ref={ref}
         className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all hover:scale-[1.03] duration-300 flex-shrink-0"
       >
         {/* Background Image / Fallback */}
