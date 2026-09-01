@@ -1,11 +1,11 @@
 'use client';
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { parseUserAgent } from '@/lib/deviceParser';
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, signInWithPopup, signInWithRedirect, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, app } from '@/lib/firebase';
+import { auth, signInWithPopup, signInWithRedirect, googleProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from '@/lib/firebase';
+import { registerSession, subscribeToSession, updateUserActivity, deleteSession } from '@/services/firebase/authService';
 
 interface AuthContextType {
   user: User | null;
@@ -24,7 +24,6 @@ const SESSION_KEY = 'moviefind_session_id';
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const db = getFirestore(app);
   
   // Keep track of listener to unsubscribe if needed
   const sessionListenerRef = useRef<() => void>(null);
@@ -44,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const deviceInfo = parseUserAgent(navigator.userAgent);
-        const sessionRef = doc(db, `users/${currentUser.uid}/sessions/${sessionId}`);
 
         // Fetch approximate location via IP (free, no key required)
         let locationStr = 'Location unavailable';
@@ -65,63 +63,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
           // Update session document
-          await setDoc(sessionRef, {
-            sessionId,
-            deviceInfo,
-            lastActive: serverTimestamp(),
-            ...(isNewSession ? { createdAt: serverTimestamp(), location: locationStr } : {})
-          }, { merge: true });
+          await registerSession(currentUser.uid, sessionId, deviceInfo, isNewSession, locationStr);
 
           // Start listening for remote invalidation
           if (sessionListenerRef.current) {
             sessionListenerRef.current(); // Unsubscribe old listener
           }
           
-          sessionListenerRef.current = onSnapshot(sessionRef, (snapshot) => {
-            // If the document is deleted remotely, we forcefully sign out the client
-            if (!snapshot.exists() && snapshot.metadata.fromCache === false) {
-              console.warn("Session invalidated remotely. Logging out.");
-              // Don't call our custom logout() because that tries to delete the doc again
-              localStorage.removeItem(SESSION_KEY);
-              signOut(auth);
-            }
+          sessionListenerRef.current = subscribeToSession(currentUser.uid, sessionId, () => {
+            console.warn("Session invalidated remotely. Logging out.");
+            // Don't call our custom logout() because that tries to delete the doc again
+            localStorage.removeItem(SESSION_KEY);
+            signOut(auth);
           });
 
           // Update user's lastActive and loginStreak
-          const userRef = doc(db, `users/${currentUser.uid}`);
-          const userSnap = await getDoc(userRef);
+          await updateUserActivity(currentUser.uid);
           
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
-            let newStreak = userData.loginStreak || 1;
-            
-            if (userData.lastActive) {
-              const lastActiveDate = userData.lastActive.toDate();
-              const now = new Date();
-              const lastActiveDay = new Date(lastActiveDate.getFullYear(), lastActiveDate.getMonth(), lastActiveDate.getDate());
-              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-              
-              const diffTime = today.getTime() - lastActiveDay.getTime();
-              const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-              
-              if (diffDays === 1) {
-                newStreak += 1; // Consecutive day
-              } else if (diffDays > 1) {
-                newStreak = 1; // Streak broken
-              }
-              // If diffDays === 0, keep current streak
-            }
-            
-            await setDoc(userRef, { 
-              lastActive: serverTimestamp(),
-              loginStreak: newStreak
-            }, { merge: true });
-          } else {
-            await setDoc(userRef, {
-              lastActive: serverTimestamp(),
-              loginStreak: 1
-            }, { merge: true });
-          }
         } catch (error) {
           console.error("Failed to register session/streak:", error);
         }
@@ -142,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionListenerRef.current();
       }
     };
-  }, [db]);
+  }, []);
 
   const loginWithGoogle = React.useCallback(async () => {
     try {
@@ -217,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sessionId = localStorage.getItem(SESSION_KEY);
         if (sessionId) {
           // Delete our session from Firestore cleanly
-          await deleteDoc(doc(db, `users/${user.uid}/sessions/${sessionId}`));
+          await deleteSession(user.uid, sessionId);
         }
       }
       localStorage.removeItem(SESSION_KEY);
@@ -225,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  }, [user, db]);
+  }, [user]);
 
   const value = React.useMemo(() => ({
     user,

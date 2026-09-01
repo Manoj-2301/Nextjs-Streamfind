@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { useAuth } from '@/context/AuthContext';
 import GlobalSearch from '@/components/ui/global-search';
+import Button from '@/components/ui/button';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -183,11 +184,12 @@ export default function Navbar() {
             </div>
           ) : (
             <Link href="/auth">
-              <button
-                className="bg-gradient-to-r from-brand to-rose-500 shadow-[0_0_20px_rgba(255,40,78,0.3)] text-white px-6 py-2.5 rounded-full text-xs font-black flex items-center gap-2 uppercase tracking-widest transition-transform duration-300 hover:scale-105 active:scale-95"
+              <Button
+                variant="primary"
+                className="rounded-full uppercase tracking-widest text-xs font-black gap-2 shadow-[0_0_20px_rgba(255,40,78,0.3)]"
               >
                 <LogIn className="w-4 h-4" /> SIGN IN
-              </button>
+              </Button>
             </Link>
           )}
 
@@ -315,9 +317,11 @@ export default function Navbar() {
                 <Link
                   href="/auth"
                   onClick={() => setIsMenuOpen(false)}
-                  className="w-full bg-brand p-3 rounded font-black text-white flex items-center justify-center gap-2"
+                  className="w-full block"
                 >
-                  <LogIn className="w-5 h-5" /> SIGN IN
+                  <Button variant="primary" className="w-full gap-2">
+                    <LogIn className="w-5 h-5" /> SIGN IN
+                  </Button>
                 </Link>
               )}
             </div>

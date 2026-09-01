@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
+import Button from '@/components/ui/button';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
   if (!url || !url.includes('themoviedb.org')) return url;
@@ -348,22 +349,23 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                     rel="noopener noreferrer"
                     className="w-full sm:w-auto"
                   >
-                    <button
-                      className={`w-full sm:w-auto px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 uppercase flex items-center justify-center gap-2 ${getPartnerStyles(primaryPlatform)}`}
+                    <Button
+                      className={`w-full sm:w-auto font-bold text-xs md:text-[13px] tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 uppercase gap-2 ${getPartnerStyles(primaryPlatform)}`}
                     >
                       <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> WATCH ON {primaryPlatform.name}
-                    </button>
+                    </Button>
                   </a>
                 )}
 
 
 
                 <Link href={`/movie/${movie.id}${movie.type ? `?type=${movie.type}` : ''}`} className="w-full sm:w-auto">
-                  <button
-                    className="w-full sm:w-auto glass px-5 md:px-8 h-10 md:h-12 rounded-md font-bold text-xs md:text-[13px] tracking-widest hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 text-white uppercase flex items-center justify-center gap-2"
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto font-bold text-xs md:text-[13px] tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 uppercase gap-2 glass border-0"
                   >
                     VIEW DETAILS
-                  </button>
+                  </Button>
                 </Link>
               </div>
             </div>

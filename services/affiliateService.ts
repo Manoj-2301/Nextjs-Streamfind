@@ -1,6 +1,6 @@
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '@/lib/firestoreUtils';
 
 export interface AffiliateLinkConfig {
   url: string;
@@ -12,9 +12,9 @@ export interface AffiliateLinks {
   [platformKey: string]: string | AffiliateLinkConfig; // string for backwards compatibility
 }
 
-// Under user's current security rules, document path '/users/global_config/ratings/affiliates'
-// is globally readable (matches /{path=**}/ratings/{movieId}) and admin-writable.
+// Under current Firestore security rules, this path is globally readable (admin-writable).
 const AFFILIATE_DOC_PATH = ['users', 'global_config', 'ratings', 'affiliates'];
+const db = getFirestore(app);
 
 let cachedLinks: AffiliateLinks | null = null;
 let fetchPromise: Promise<AffiliateLinks> | null = null;
@@ -28,14 +28,14 @@ export async function getAffiliateLinks(): Promise<AffiliateLinks> {
 
   fetchPromise = (async () => {
     try {
-      const docRef = doc(getFirestore(app), AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
+      const docRef = doc(db, AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         cachedLinks = docSnap.data() as AffiliateLinks;
         return cachedLinks;
       }
     } catch (error) {
-      console.error('Failed to fetch affiliate links from Firestore:', error);
+      handleFirestoreError(error, OperationType.GET, AFFILIATE_DOC_PATH.join('/'));
     }
     return {};
   })();
@@ -49,9 +49,14 @@ export async function getAffiliateLinks(): Promise<AffiliateLinks> {
  * Saves/updates global affiliate links in Firestore and updates the cache.
  */
 export async function saveAffiliateLinks(links: AffiliateLinks): Promise<void> {
-  const docRef = doc(getFirestore(app), AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
-  await setDoc(docRef, links);
-  cachedLinks = links;
+  const docRef = doc(db, AFFILIATE_DOC_PATH[0], AFFILIATE_DOC_PATH[1], AFFILIATE_DOC_PATH[2], AFFILIATE_DOC_PATH[3]);
+  try {
+    await setDoc(docRef, links);
+    cachedLinks = links;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, AFFILIATE_DOC_PATH.join('/'));
+    throw error; // re-throw so callers can show toast errors
+  }
 }
 
 /**

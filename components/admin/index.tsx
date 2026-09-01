@@ -1,20 +1,11 @@
 'use client';
-import { getFirestore } from 'firebase/firestore';
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-import { toast, ToastBar } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
+import { getAuth } from 'firebase/auth';
 import { app } from '@/lib/firebase';
-import {
-  collection,
-  getDocs,
-  collectionGroup,
-  doc,
-  deleteDoc,
-  updateDoc
-} from 'firebase/firestore';
 import {
   Users,
   Shield,
@@ -24,7 +15,6 @@ import {
   LayoutDashboard,
   X,
   Mail,
-  MessageCircle,
   AlertTriangle,
   ExternalLink
 } from 'lucide-react';
@@ -34,188 +24,43 @@ import UsersView from './UsersView';
 import ContentView from './ContentView';
 import SystemView from './SystemView';
 import AffiliatesView from './AffiliatesView';
-import ContactQueriesView, { ContactQuery } from './ContactQueriesView';
-import { AdminUser, AdminRating, FeaturedCuration } from './types';
+import ContactQueriesView from './ContactQueriesView';
+import { AdminUser } from './types';
+import { useAdminData } from '@/hooks/firebase/useAdminData';
+import {
+  updateUserDB,
+  deleteUserAndDataDB,
+  deleteReviewDB,
+  approveReviewDB,
+  deleteQueryDB,
+  markQueryReadDB
+} from '@/services/firebase/adminService';
 
 export default function AdminComponent() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('analytics');
-
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [ratings, setRatings] = useState<AdminRating[]>([]);
-  const [queries, setQueries] = useState<ContactQuery[]>([]);
-  const [curations, setCurations] = useState<FeaturedCuration[]>([]);
-  const [isDataLoading, setIsDataLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (!user || user.email !== 'mt398401@gmail.com') return;
-    let active = true;
+  const {
+    users,
+    ratings,
+    queries,
+    curations,
+    isDataLoading,
+    error,
+    setUsers,
+    setRatings,
+    setQueries,
+    setCurations,
+    setError,
+    setIsDataLoading
+  } = useAdminData();
 
-    const setupListeners = async () => {
-      if (!isMounted) return;
-      setIsDataLoading(true);
-      setError(null);
-      try {
-        const { getFirestore, collection, collectionGroup, onSnapshot, doc, updateDoc, query, limit } = await import('firebase/firestore');
-        const { app } = await import('@/lib/firebase');
-        const db = getFirestore(app);
 
-        // Sync users with Firebase Auth to purge deleted users
-        try {
-          const { getAuth } = await import('firebase/auth');
-          const auth = getAuth(app);
-          const token = await auth.currentUser?.getIdToken();
-          
-          await fetch('/api/admin/sync-users', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          });
-        } catch (e) {
-          console.warn('Failed to sync users with auth:', e);
-        }
-
-        // Setup real-time listeners
-        const unsubQueries = onSnapshot(collection(db, 'contact_queries'), (snap) => {
-          if (!active) return;
-          const items: ContactQuery[] = [];
-          snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as ContactQuery));
-          setQueries(items);
-        }, (err) => {
-          if (active) setError('Failed to fetch contact_queries: ' + err.message);
-        });
-
-        const unsubCurations = onSnapshot(collection(db, 'featured_curations'), (snap) => {
-          if (!active) return;
-          const items: FeaturedCuration[] = [];
-          snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as FeaturedCuration));
-          items.sort((a, b) => (a.slotNo || '').localeCompare(b.slotNo || ''));
-          setCurations(items);
-        }, (err) => {
-          if (active) setError('Failed to fetch featured_curations: ' + err.message);
-        });
-
-        const usersQuery = query(collection(db, 'users'), limit(500));
-        const unsubUsers = onSnapshot(usersQuery, (snap) => {
-          if (!active) return;
-          const items: AdminUser[] = [];
-          snap.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() } as AdminUser));
-          
-          // Auto-mark inactive
-          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-          items.forEach(u => {
-            if (u.status === 'Inactive') return;
-            const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().getTime() : null;
-            if (lastActive !== null && lastActive < thirtyDaysAgo) {
-              updateDoc(doc(db, 'users', u.id), { status: 'Inactive' }).catch(e => console.warn(e));
-              u.status = 'Inactive';
-              if (u.email) {
-                fetch('/api/notify/moderation', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    userEmail: u.email,
-                    userName: u.displayName || u.email.split('@')[0] || 'Cinephile',
-                    type: 'inactive'
-                  })
-                }).catch(e => console.warn(e));
-              }
-            }
-          });
-          setUsers(items);
-        }, (err) => {
-          if (active) setError('Failed to fetch users: ' + err.message);
-        });
-
-        const ratingsQuery = query(collectionGroup(db, 'ratings'), limit(500));
-        const unsubRatings = onSnapshot(ratingsQuery, (snap) => {
-          if (!active) return;
-          const items: AdminRating[] = [];
-          snap.forEach(docSnap => {
-            const parts = docSnap.ref.path.split('/');
-            const userId = parts[1] || '';
-            const movieId = parts[3] || '';
-            items.push({ id: docSnap.id, userId, movieId, ...docSnap.data() } as AdminRating);
-          });
-          setRatings(items);
-          setIsDataLoading(false);
-
-          // Asynchronously fetch missing movie titles from TMDB API proxy
-          const ratingsMissingTitles = items.filter(r => !r.movieTitle && r.movieId);
-          if (ratingsMissingTitles.length > 0) {
-            import('@/services/tmdbService').then(({ getMovieDetails }) => {
-              Promise.all(
-                ratingsMissingTitles.map(async (r) => {
-                  try {
-                    const movie = await getMovieDetails(Number(r.movieId));
-                    if (movie && movie.title) {
-                      return { userId: r.userId, movieId: r.movieId, title: movie.title };
-                    }
-                  } catch (e) {
-                    console.warn(`Failed to resolve title for movie ID ${r.movieId}:`, e);
-                  }
-                  return null;
-                })
-              ).then((resolved) => {
-                const titleMap = new Map<string, string>();
-                resolved.forEach((item) => {
-                  if (item) {
-                    titleMap.set(`${item.userId}_${item.movieId}`, item.title);
-                  }
-                });
-                if (titleMap.size > 0 && active) {
-                  setRatings(prev => prev.map(r => {
-                    const key = `${r.userId}_${r.movieId}`;
-                    if (titleMap.has(key)) {
-                      return { ...r, movieTitle: titleMap.get(key) };
-                    }
-                    return r;
-                  }));
-                }
-              });
-            }).catch(e => console.warn('Failed to dynamically import tmdbService in index.tsx:', e));
-          }
-        }, (err) => {
-          if (active) {
-            setError(err.message || String(err));
-            setIsDataLoading(false);
-          }
-        });
-
-        return () => {
-          unsubQueries();
-          unsubCurations();
-          unsubUsers();
-          unsubRatings();
-        };
-
-      } catch (err: any) {
-        console.error("Error loading admin dashboard metrics:", err);
-        if (active) {
-          setError(err.message || String(err));
-          setIsDataLoading(false);
-        }
-      }
-    };
-
-    let cleanupListeners: (() => void) | void;
-    setupListeners().then(cleanup => {
-      cleanupListeners = cleanup;
-    });
-
-    return () => {
-      active = false;
-      if (cleanupListeners) cleanupListeners();
-    };
-  }, [user, isMounted]);
 
   // Configure User Modal state
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -239,8 +84,7 @@ export default function AdminComponent() {
     if (!selectedUser) return;
     setIsSavingUser(true);
     try {
-      const userRef = doc(getFirestore(app), 'users', selectedUser.id);
-      await updateDoc(userRef, {
+      await updateUserDB(selectedUser.id, {
         displayName: editName,
         status: editStatus,
         flagged: editFlagged
@@ -249,12 +93,10 @@ export default function AdminComponent() {
       const wasJustFlagged = editFlagged && !selectedUser.flagged;
       const wasJustInactivated = editStatus === 'Inactive' && selectedUser.status !== 'Inactive';
 
-      // Send moderation email if status changed
       const userEmail = selectedUser.email;
       const userName = editName || selectedUser.email?.split('@')[0] || 'Cinephile';
 
       if (userEmail && wasJustFlagged) {
-        // Find the most recent review text for this user to include in the email
         const latestReview = ratings
           .filter(r => r.userId === selectedUser.id && r.reviewText)
           .sort((a, b) => {
@@ -267,13 +109,9 @@ export default function AdminComponent() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userEmail,
-            userName,
-            type: 'flagged',
+            userEmail, userName, type: 'flagged',
             reviewText: latestReview?.reviewText || undefined
           })
-        }).then(res => {
-          if (!res.ok) console.warn('Flag email may not have sent:', res.status);
         }).catch(err => console.warn('Flag email error:', err));
       }
 
@@ -282,19 +120,12 @@ export default function AdminComponent() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userEmail, userName, type: 'inactive' })
-        }).then(res => {
-          if (!res.ok) console.warn('Inactive email may not have sent:', res.status);
         }).catch(err => console.warn('Inactive email error:', err));
       }
 
       setUsers(prev => prev.map(u => {
         if (u.id === selectedUser.id) {
-          return {
-            ...u,
-            displayName: editName,
-            status: editStatus,
-            flagged: editFlagged
-          };
+          return { ...u, displayName: editName, status: editStatus, flagged: editFlagged };
         }
         return u;
       }));
@@ -304,8 +135,8 @@ export default function AdminComponent() {
       const emailNote = (wasJustFlagged || wasJustInactivated) ? ' A notification email has been sent to the user.' : '';
       toast.success(`User configuration saved successfully.${emailNote}`);
     } catch (err) {
-      console.error("Error updating user configuration:", err);
-      toast.error("Failed to update user: " + (err instanceof Error ? err.message : String(err)));
+      console.error('Error updating user configuration:', err);
+      toast.error('Failed to update user: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSavingUser(false);
     }
@@ -350,72 +181,34 @@ export default function AdminComponent() {
   const executeDeleteUser = async (userId: string) => {
     try {
       setIsDataLoading(true);
-
-      // 1. Fetch user's reviews/ratings to clean up public movie review records
       const userRatings = ratings.filter(r => r.userId === userId);
+      await deleteUserAndDataDB(userId, userRatings);
 
-      // Delete all public movie review subcollection docs
-      for (const rating of userRatings) {
-        try {
-          await deleteDoc(doc(getFirestore(app), `movies/${rating.movieId}/reviews/${userId}`));
-        } catch (e) {
-          console.warn(`Could not delete public review for movie ${rating.movieId}:`, e);
-        }
-      }
-
-      // Delete all rating subcollection docs
-      for (const rating of userRatings) {
-        try {
-          await deleteDoc(doc(getFirestore(app), `users/${userId}/ratings/${rating.movieId}`));
-        } catch (e) {
-          console.warn(`Could not delete rating ${rating.movieId}:`, e);
-        }
-      }
-
-      // Delete all watchlist documents
+      // Delete from Firebase Authentication via secure API
       try {
-        const watchlistSnap = await getDocs(collection(getFirestore(app), `users/${userId}/watchlist`));
-        for (const docSnap of watchlistSnap.docs) {
-          await deleteDoc(docSnap.ref);
-        }
-      } catch (e) {
-        console.warn("Could not delete watchlist subcollection:", e);
-      }
-
-      // 2. Delete main user profile document
-      await deleteDoc(doc(getFirestore(app), 'users', userId));
-
-      // 3. Delete from Firebase Authentication via our secure API
-      try {
-        const { getAuth } = await import('firebase/auth');
         const auth = getAuth(app);
         const token = await auth.currentUser?.getIdToken();
-        
         const res = await fetch('/api/admin/delete-user', {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ uid: userId })
         });
         const data = await res.json();
         if (!res.ok) {
-           console.error("Auth deletion failed:", data.error);
-           toast.error("Data deleted, but failed to erase Auth record: " + data.error, { duration: 2000 });
+          console.error('Auth deletion failed:', data.error);
+          toast.error('Data deleted, but failed to erase Auth record: ' + data.error, { duration: 2000 });
         }
       } catch (e) {
-        console.error("Failed to call delete-user API:", e);
+        console.error('Failed to call delete-user API:', e);
       }
 
-      // 4. Update local state
       setUsers(prev => prev.filter(u => u.id !== userId));
       setRatings(prev => prev.filter(r => r.userId !== userId));
       setIsDataLoading(false);
-      toast.success("User and all associated database records have been deleted successfully.", { duration: 2000 });
+      toast.success('User and all associated database records have been deleted successfully.', { duration: 2000 });
     } catch (err) {
-      console.error("Error deleting user document recursively:", err);
-      toast.error("Failed to delete user: " + (err instanceof Error ? err.message : String(err)), { duration: 2000 });
+      console.error('Error deleting user document recursively:', err);
+      toast.error('Failed to delete user: ' + (err instanceof Error ? err.message : String(err)), { duration: 2000 });
       setIsDataLoading(false);
     }
   };
@@ -442,17 +235,9 @@ export default function AdminComponent() {
 
   const executeDeleteReview = async (userId: string, movieId: string) => {
     try {
-      await deleteDoc(doc(getFirestore(app), `users/${userId}/ratings/${movieId}`));
+      await deleteReviewDB(userId, movieId);
 
-      // Clean up public movie review doc if possible (similar to handleDeleteUser logic)
-      try {
-        await deleteDoc(doc(getFirestore(app), `movies/${movieId}/reviews/${userId}`));
-      } catch (e) {
-        console.warn(`Could not delete public review for movie ${movieId}:`, e);
-      }
-
-      // Notify user about removal
-      const user = users.find(u => u.id === userId);
+      const foundUser = users.find(u => u.id === userId);
       const rating = ratings.find(r => r.userId === userId && r.movieId === movieId);
       
       let resolvedMovieTitle = rating?.movieTitle;
@@ -460,31 +245,27 @@ export default function AdminComponent() {
         try {
           const { getMovieDetails } = await import('@/services/tmdbService');
           const movie = await getMovieDetails(Number(movieId));
-          if (movie && movie.title) {
-            resolvedMovieTitle = movie.title;
-          }
+          if (movie && movie.title) resolvedMovieTitle = movie.title;
         } catch (e) {
-          console.warn(`Failed to resolve movie title from TMDB in handleDeleteReview:`, e);
+          console.warn('Failed to resolve movie title from TMDB in handleDeleteReview:', e);
         }
       }
 
-      if (user?.email) {
+      if (foundUser?.email) {
         fetch('/api/notify/moderation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userEmail: user.email,
-            userName: user.displayName || user.email.split('@')[0] || 'Cinephile',
+            userEmail: foundUser.email,
+            userName: foundUser.displayName || foundUser.email.split('@')[0] || 'Cinephile',
             type: 'removed',
             movieTitle: resolvedMovieTitle || 'Unknown Movie',
             reason: 'inappropriate content'
           })
-        }).then(res => {
-          if (!res.ok) console.warn('Removal email may not have sent:', res.status);
         }).catch(err => console.warn('Removal email failed:', err));
       }
       setRatings(prev => prev.filter(r => !(r.userId === userId && String(r.movieId) === String(movieId))));
-      toast.success("Review deleted successfully.");
+      toast.success('Review deleted successfully.');
     } catch (err) {
       console.error('Error deleting review document:', err);
       toast.error('Failed to delete review: ' + (err instanceof Error ? err.message : String(err)));
@@ -493,19 +274,17 @@ export default function AdminComponent() {
 
   const handleApproveReview = async (userId: string, movieId: string) => {
     try {
-      await updateDoc(doc(getFirestore(app), `users/${userId}/ratings/${movieId}`), {
-        approved: true
-      });
+      await approveReviewDB(userId, movieId);
       setRatings(prev => prev.map(r => {
         if (r.userId === userId && String(r.movieId) === String(movieId)) {
           return { ...r, approved: true };
         }
         return r;
       }));
-      toast.success("Review approved successfully.");
+      toast.success('Review approved successfully.');
     } catch (err) {
-      console.error("Error approving review:", err);
-      toast.error("Failed to approve review: " + (err instanceof Error ? err.message : String(err)));
+      console.error('Error approving review:', err);
+      toast.error('Failed to approve review: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -563,7 +342,7 @@ export default function AdminComponent() {
 
   const executeDeleteQuery = async (id: string) => {
     try {
-      await deleteDoc(doc(getFirestore(app), 'contact_queries', id));
+      await deleteQueryDB(id);
       setQueries(prev => prev.filter(q => q.id !== id));
       toast.success('Query deleted successfully');
     } catch (error) {
@@ -574,9 +353,7 @@ export default function AdminComponent() {
 
   const handleMarkQueryAsRead = async (id: string) => {
     try {
-      await updateDoc(doc(getFirestore(app), 'contact_queries', id), {
-        status: 'Read'
-      });
+      await markQueryReadDB(id);
       setQueries(prev => prev.map(q => q.id === id ? { ...q, status: 'Read' } : q));
     } catch (error) {
       console.error('Error updating query status:', error);

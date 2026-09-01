@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import MovieCard from '@/components/ui/movie-card';
+import Button from '@/components/ui/button';
 import { useWatchlist } from '@/context/WatchlistContext';
 import { Bookmark, Rocket, Trash2, Loader2, List as ListIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -128,9 +129,9 @@ export default function WatchlistPage() {
             You haven't saved any movies here yet. Explore our library and add some!
           </p>
           <Link href="/browse">
-            <button className="px-8 py-3 bg-brand text-white font-black rounded-lg hover:bg-red-700 transition-all glow-hover flex items-center gap-3 uppercase tracking-widest text-xs">
+            <Button className="font-black uppercase tracking-widest text-xs gap-3">
                <Rocket className="w-5 h-5" /> START EXPLORING
-            </button>
+            </Button>
           </Link>
         </div>
       )}

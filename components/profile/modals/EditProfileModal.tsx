@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { X, Check, Lock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import Modal from '@/components/ui/modal';
+import Button from '@/components/ui/button';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -46,21 +48,13 @@ export default function EditProfileModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8 md:p-12">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-[#050505] border border-white/10 rounded-[2rem] sm:rounded-[40px] w-full max-w-2xl max-h-full relative z-10 overflow-y-auto no-scrollbar shadow-2xl"
-      >
-        <div className="p-6 sm:p-8 md:p-12 space-y-6 sm:space-y-8">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      hideHeader
+      className="max-w-2xl sm:rounded-[40px]"
+    >
+      <div className="p-6 sm:p-8 md:p-12 space-y-6 sm:space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-3xl font-black uppercase italic tracking-tight">Edit <span className="text-brand">Identity</span></h2>
             <button onClick={onClose} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
@@ -147,22 +141,23 @@ export default function EditProfileModal({
           </div>
 
           <div className="pt-4 flex gap-4">
-            <button
+            <Button
+              variant="secondary"
+              isLoading={isSaving}
               onClick={handleSaveProfile}
-              disabled={isSaving}
-              className="flex-1 bg-white text-black py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand hover:text-white transition-all disabled:opacity-50"
+              className="flex-1 py-5 rounded-2xl text-xs hover:bg-brand hover:text-white"
             >
-              {isSaving ? 'Synchronizing...' : 'Save Changes'}
-            </button>
-            <button
+              {!isSaving && 'Save Changes'}
+            </Button>
+            <Button
+              variant="ghost"
               onClick={onClose}
-              className="px-8 bg-white/5 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+              className="px-8 py-5 rounded-2xl text-xs bg-white/5 hover:bg-white/10"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }

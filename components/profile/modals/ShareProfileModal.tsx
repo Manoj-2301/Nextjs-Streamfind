@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import Modal from '@/components/ui/modal';
+import Button from '@/components/ui/button';
 
 interface ShareProfileModalProps {
   isOpen: boolean;
@@ -23,21 +25,13 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-8 md:p-12">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-[#050505] border border-white/10 rounded-[2rem] sm:rounded-[40px] w-full max-w-md max-h-full relative z-10 overflow-y-auto no-scrollbar shadow-2xl"
-      >
-        <div className="p-6 sm:p-8 md:p-10 space-y-6 sm:space-y-8">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      hideHeader
+      className="max-w-md sm:rounded-[40px]"
+    >
+      <div className="p-6 sm:p-8 md:p-10 space-y-6 sm:space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black uppercase italic tracking-tight">Share <span className="text-brand">Profile</span></h2>
             <button onClick={onClose} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10">
@@ -130,9 +124,10 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
                 value={typeof window !== 'undefined' && user ? `${window.location.origin}/profile?uid=${user.uid}` : ''}
                 className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white/60 font-semibold focus:outline-none"
               />
-              <button
+              <Button
+                variant="secondary"
                 onClick={copyPublicLink}
-                className="px-6 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand hover:text-white transition-all shrink-0 flex items-center gap-2"
+                className="px-6 rounded-2xl text-[10px] shrink-0 gap-2 h-auto py-3 hover:bg-brand hover:text-white"
               >
                 {copiedLink ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -145,11 +140,10 @@ export default function ShareProfileModal({ isOpen, onClose, user }: ShareProfil
                   </svg>
                 )}
                 {copiedLink ? 'Copied' : 'Copy'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }

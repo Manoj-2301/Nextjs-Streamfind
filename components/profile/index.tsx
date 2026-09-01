@@ -1,6 +1,6 @@
 'use client';
-import { getFirestore } from 'firebase/firestore';
-
+import { useSystemConfig } from '@/hooks/firebase/useSystemConfig';
+import { useProfile } from '@/hooks/firebase/useProfile';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/context/AuthContext';
@@ -8,8 +8,6 @@ import { useWatchlist } from '@/context/WatchlistContext';
 import { useRatings, UserReview } from '@/context/RatingContext';
 import { getMovieAdditionalDetails, MovieAdditionalDetails } from '@/services/tmdbService';
 import { Movie } from '@/types';
-import { app } from '@/lib/firebase';
-import { doc, setDoc, onSnapshot, collection, query } from 'firebase/firestore';
 import { updateProfile, verifyBeforeUpdateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
@@ -62,43 +60,29 @@ export default function ProfileComponent() {
   const { watchlist: ownerWatchlist } = useWatchlist();
   const { userReviews: ownerReviews } = useRatings();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const sharedUid = searchParams ? searchParams.get('uid') : null;
-  const isOwner = !sharedUid || (user && user.uid === sharedUid);
-  const targetUid = sharedUid || user?.uid;
 
-  const [sharedWatchlist, setSharedWatchlist] = useState<Movie[]>([]);
-  const [sharedReviews, setSharedReviews] = useState<UserReview[]>([]);
-  const [isLoadingSharedData, setIsLoadingSharedData] = useState(false);
+  // ── Profile hook: all Firebase state + actions ─────────────────────────────
+  const {
+    profile, setProfile,
+    isOwner, targetUid,
+    sharedWatchlist, sharedReviews, isLoadingSharedData,
+    handleToggleLike,
+    handleSaveProfileEdit,
+    handleToggleSub: _handleToggleSub,
+    handleTogglePref: _handleTogglePref,
+    handleRegionChange: _handleRegionChange,
+    handleToggleGenre: _handleToggleGenre,
+    handleSavePhotoURL,
+  } = useProfile();
 
   const watchlist = isOwner ? ownerWatchlist : sharedWatchlist;
   const userReviews = isOwner ? ownerReviews : sharedReviews;
 
   // SSR Hydration Safeguard
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-    if (typeof window !== 'undefined') {
-    }
-  }, []);
+  useEffect(() => { setIsMounted(true); }, []);
 
-  // Profile data syncing with Firestore
-  const [profile, setProfile] = useState<ProfileSettings>({
-    bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
-    favoriteGenres: [],
-    subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
-    notifyNewRelease: true,
-    notifyFavGenres: true,
-    notifyLeavingSoon: true,
-    isPublic: true,
-    avatarFrame: 'none',
-    top10: [],
-    autoFilter: false,
-    photoURL: '',
-    weeklyDigest: true,
-    watchRegion: 'IN',
-  });
-
+  // ── UI-only state (no Firebase) ────────────────────────────────────────────
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
@@ -114,104 +98,104 @@ export default function ProfileComponent() {
   const [reauthAction, setReauthAction] = useState<'email' | 'password' | 'both' | null>(null);
   const [modalError, setModalError] = useState('');
   const [modalSuccess, setModalSuccess] = useState('');
+
+  // ── System config via hook ─────────────────────────────────────────────────
   const [isShareEnabled, setIsShareEnabled] = useState(true);
   const [systemAchievements, setSystemAchievements] = useState<{ id: string; label: string; val: string; icon: string }[]>([]);
-
+  const { config: systemConfig } = useSystemConfig();
   useEffect(() => {
-    const db = getFirestore(app);
-    const unsubscribe = onSnapshot(doc(db, 'system', 'config'), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.flags && data.flags.share !== undefined) {
-          setIsShareEnabled(data.flags.share);
-        }
-        if (data.achievements) {
-          setSystemAchievements(data.achievements);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    setIsShareEnabled(systemConfig.flags?.share ?? true);
+    setSystemAchievements(systemConfig.achievements);
+  }, [systemConfig]);
 
-  // Dynamic Director & Critic insights from TMDB for Rated Movies
   const [additionalDetails, setAdditionalDetails] = useState<Record<number, MovieAdditionalDetails>>({});
 
-
-  useEffect(() => {
-    // TMDB additional details are now fetched on-demand (lazy load)
-    // inside the Director's Note component in ProfileSettingsPanel
-    // to prevent network flooding and profile lag on load.
-  }, []);
-  // Helper to toggle like status of reviews in Firestore
-  const handleToggleLike = async (movieId: number, currentLiked: boolean) => {
-    if (!user) return;
-    try {
-      const ratingRef = doc(getFirestore(app), `users/${user.uid}/ratings/${movieId}`);
-      await setDoc(ratingRef, { liked: !currentLiked }, { merge: true });
-    } catch (e) {
-      console.error("Error toggling like:", e);
-    }
-  };
-
-  // Helper to share specific review notes using Web Share API or copying link
-  const handleShareNote = async (movieId: number, movieTitle: string) => {
-    if (typeof window === 'undefined') return;
-    const shareUrl = `${window.location.origin}/movie/${movieId}`;
-    const shareData = {
-      title: `Director's Note: ${movieTitle}`,
-      text: `Check out my critique and notes for "${movieTitle}" on StreamFind!`,
-      url: shareUrl
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success(`Copied link for "${movieTitle}" to clipboard!`);
-      }
-    } catch (e) {
-      console.error("Error sharing note:", e);
-    }
-  };
-
-
-  // Image Upload
+  // ── Image Upload ───────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  // ── Wrappers that add toast + router invalidation on top of hook actions ───
+  const handleToggleSub = async (platformName: string) => {
+    try {
+      await _handleToggleSub(platformName);
+      const isSub = profile.subscriptions?.includes(platformName);
+      toast.success(isSub ? `Unsubscribed from ${platformName}` : `Subscribed to ${platformName}`);
+      router.refresh();
+      revalidatePage('/'); revalidatePage('/browse');
+    } catch { toast.error("Failed to update subscription"); }
+  };
+
+  const handleTogglePref = async (field: string) => {
+    try {
+      await _handleTogglePref(field);
+      toast.success("Preference updated");
+      router.refresh();
+      revalidatePage('/'); revalidatePage('/browse');
+    } catch { toast.error("Failed to update preference"); }
+  };
+
+  const handleRegionChange = async (region: string) => {
+    try {
+      await _handleRegionChange(region);
+      toast.success(`Region updated to ${region}`);
+      router.refresh();
+      revalidatePage('/'); revalidatePage('/browse');
+    } catch { toast.error("Failed to update region"); }
+  };
+
+  const handleToggleGenre = async (genre: string) => {
+    try {
+      await _handleToggleGenre(
+        genre,
+        profile.email,
+        profile.displayName,
+        (g) => {
+          fetch('/api/notify/welcome-genre', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: user?.uid,
+              email: profile.email || user?.email,
+              displayName: profile.displayName || user?.displayName || user?.email,
+              genre: g,
+            }),
+          }).catch(console.error);
+        }
+      );
+      const isAdding = !(profile.favoriteGenres || []).includes(genre);
+      toast.success(isAdding ? `Added ${genre} to favorites` : `Removed ${genre} from favorites`);
+    } catch { toast.error("Failed to update favorite genres"); }
+  };
+
+  const copyPublicLink = () => {
+    if (typeof window === 'undefined') return;
+    const link = `${window.location.origin}/profile?uid=${user?.uid}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  // ── Share profile (Web Share API with modal fallback) ──────────────────────
   const handleShareProfile = async () => {
     if (typeof window === 'undefined' || !user) return;
     const shareUrl = `${window.location.origin}/profile?uid=${user.uid}`;
-    const shareData = {
-      title: 'StreamFind Cinema Profile',
-      text: `Check out my custom cinema profile, top movies, and binge statistics on StreamFind!`,
-      url: shareUrl,
-    };
-
     if (navigator.share) {
       try {
-        await navigator.share(shareData);
-        console.log('Profile shared successfully via Web Share API!');
+        await navigator.share({ title: 'StreamFind Cinema Profile', text: 'Check out my cinema profile!', url: shareUrl });
       } catch (err: any) {
-        // If it was not aborted by user, open our custom modal as a secondary option
-        if (err.name !== 'AbortError') {
-          setIsShareModalOpen(true);
-        }
+        if (err.name !== 'AbortError') setIsShareModalOpen(true);
       }
     } else {
-      // Fallback: Open our gorgeous share modal
       setIsShareModalOpen(true);
     }
   };
 
+  // ── Image upload (SVG sanitize + proxy upload + Firestore save) ────────────
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     let file = e.target.files?.[0];
     if (!file || !user) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be smaller than 5MB");
-      return;
-    }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be smaller than 5MB"); return; }
 
     if (file.type === 'image/svg+xml') {
       try {
@@ -228,41 +212,17 @@ export default function ProfileComponent() {
 
     setIsUploadingImage(true);
     try {
-      let finalImageUrl = "";
       const formData = new FormData();
       formData.append('image', file);
-
-      try {
-        const proxyResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!proxyResponse.ok) {
-          const errorData = await proxyResponse.json();
-          throw new Error(errorData.error || "Failed to upload image via proxy");
-        }
-
-        const data = await proxyResponse.json();
-        finalImageUrl = data.url;
-
-      } catch (uploadError: any) {
-        console.error("Upload failed:", uploadError);
-        toast.error(uploadError.message || "Failed to upload image");
-        setIsUploadingImage(false);
-        return;
+      const proxyResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!proxyResponse.ok) {
+        const errorData = await proxyResponse.json();
+        throw new Error(errorData.error || "Failed to upload image via proxy");
       }
-
-      // Update Firebase Auth profile with the successful URL (from either service)
+      const { url: finalImageUrl } = await proxyResponse.json();
+      // Update Auth profile, then Firestore via service
       await updateProfile(user, { photoURL: finalImageUrl });
-
-      // Save photoURL to Firestore as a robust backup/sync mechanism
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { photoURL: finalImageUrl }, { merge: true });
-
-      setProfile(prev => ({ ...prev, photoURL: finalImageUrl }));
-
-      // Force a reload to guarantee Next.js app-wide components reload the new photo URL from Auth session
+      await handleSavePhotoURL(finalImageUrl);
       window.location.reload();
     } catch (err: any) {
       console.error("Error uploading image:", err);
@@ -272,192 +232,29 @@ export default function ProfileComponent() {
     }
   };
 
-  // Load shared user's watchlist and reviews if not owner
-  useEffect(() => {
-    if (isOwner || !targetUid) {
-      setSharedWatchlist([]);
-      setSharedReviews([]);
-      return;
-    }
-
-    setIsLoadingSharedData(true);
-    const watchlistPath = `users/${targetUid}/watchlist`;
-    const watchlistQuery = query(collection(getFirestore(app), watchlistPath));
-    const unsubscribeWatchlist = onSnapshot(watchlistQuery, (snapshot) => {
-      const items: Movie[] = [];
-      snapshot.forEach((doc) => {
-        items.push(doc.data() as Movie);
-      });
-      setSharedWatchlist(items);
-    }, (error) => {
-      console.error("Error loading shared watchlist:", error);
-    });
-
-    const ratingsPath = `users/${targetUid}/ratings`;
-    const ratingsQuery = query(collection(getFirestore(app), ratingsPath));
-    const unsubscribeRatings = onSnapshot(ratingsQuery, (snapshot) => {
-      const reviews: UserReview[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        reviews.push({
-          movieId: Number(docSnap.id),
-          rating: data.rating,
-          movieTitle: data.movieTitle || 'Unknown Movie',
-          moviePoster: data.moviePoster || '',
-          reviewText: data.reviewText || '',
-          updatedAt: data.updatedAt,
-          liked: !!data.liked
-        });
-      });
-      setSharedReviews(reviews);
-      setIsLoadingSharedData(false);
-    }, (error) => {
-      console.error("Error loading shared ratings:", error);
-      setIsLoadingSharedData(false);
-    });
-
-    return () => {
-      unsubscribeWatchlist();
-      unsubscribeRatings();
-    };
-  }, [targetUid, isOwner]);
-
-  // One-time forced sync: when owner visits their own profile, always write latest auth data to Firestore
-  useEffect(() => {
-    if (!isOwner || !user || !user.uid) return;
-
-    const syncAuthToFirestore = async () => {
-      try {
-        const docRef = doc(getFirestore(app), `users/${user.uid}`);
-        await setDoc(docRef, {
-          displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff',
-          email: user.email || '',
-          photoURL: user.photoURL || '',
-        }, { merge: true });
-      } catch (err) {
-        console.error("Error syncing auth data to Firestore:", err);
-      }
-    };
-
-    syncAuthToFirestore();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, isOwner]);
-
-  // Firestore read
-  useEffect(() => {
-    if (!targetUid) return;
-
-    const path = `users/${targetUid}`;
-    const docRef = doc(getFirestore(app), path);
-
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as ProfileSettings & { frameId?: string; email?: string; displayName?: string };
-
-        // Proactively write email/displayName/photoURL to Firestore if they are missing, empty, or outdated
-        const hasMissingEmail = !data.email && user?.email;
-        const hasMissingDisplayName = !data.displayName && user?.displayName;
-        const hasMissingPhoto = !data.photoURL && user?.photoURL;
-        const hasMismatchedEmail = data.email && user?.email && data.email !== user.email;
-        const hasMismatchedName = data.displayName && user?.displayName && data.displayName !== user.displayName;
-        const hasMismatchedPhoto = data.photoURL && user?.photoURL && data.photoURL !== user.photoURL;
-
-        if (isOwner && user && (
-          hasMissingEmail ||
-          hasMissingDisplayName ||
-          hasMissingPhoto ||
-          hasMismatchedEmail ||
-          hasMismatchedName ||
-          hasMismatchedPhoto
-        )) {
-          setDoc(docRef, {
-            email: user.email || data.email || '',
-            displayName: user.displayName || data.displayName || user.email?.split('@')[0] || 'Movie Buff',
-            photoURL: user.photoURL || data.photoURL || ''
-          }, { merge: true }).catch(console.error);
-        }
-
-        setProfile(prev => ({
-          ...prev,
-          ...data,
-          // Guard all fields: prefer Firestore data over defaults, but keep previous if Firestore has empty value
-          displayName: data.displayName || prev.displayName,
-          email: data.email || prev.email,
-          favoriteGenres: data.favoriteGenres || prev.favoriteGenres,
-          subscriptions: data.subscriptions || prev.subscriptions,
-          top10: data.top10 || prev.top10,
-          avatarFrame: (data.avatarFrame || data.frameId || prev.avatarFrame) as ProfileSettings['avatarFrame'],
-          bio: data.bio || prev.bio,
-          autoFilter: data.autoFilter !== undefined ? data.autoFilter : prev.autoFilter,
-          photoURL: data.photoURL || prev.photoURL,
-          notifyFavGenres: data.notifyFavGenres !== undefined ? data.notifyFavGenres : prev.notifyFavGenres,
-        }));
-      } else {
-        // Initialize user document in Firestore if it doesn't exist
-        if (isOwner && user) {
-          setDoc(docRef, {
-            bio: "Exploring the infinite multiverse of cinema, one frame at a time. High-key addicted to neo-noirs.",
-            favoriteGenres: [],
-            subscriptions: ['Netflix', 'Disney+', 'HBO Max'],
-            notifyNewRelease: true,
-            notifyFavGenres: true,
-            notifyLeavingSoon: true,
-            isPublic: true,
-            avatarFrame: 'none',
-            top10: [],
-            autoFilter: false,
-            photoURL: user.photoURL || '',
-            email: user.email || '',
-            displayName: user.displayName || user.email?.split('@')[0] || 'Movie Buff'
-          }).catch(console.error);
-        }
-      }
-    }, (error) => {
-      console.error("Profile onSnapshot error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [targetUid, isOwner, user]);
-
-  // Modals sync
+  // ── Modals sync ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isEditModalOpen) {
       setBioInput(profile.bio);
       setEditDisplayName(user?.displayName || user?.email?.split('@')[0] || "");
       setEditFrameId(profile.avatarFrame);
       setNewEmail(user?.email || "");
-      setNewPassword("");
-      setCurrentPassword("");
-      setReauthNeeded(false);
-      setReauthAction(null);
-      setModalError("");
-      setModalSuccess("");
+      setNewPassword(""); setCurrentPassword("");
+      setReauthNeeded(false); setReauthAction(null);
+      setModalError(""); setModalSuccess("");
     }
   }, [isEditModalOpen, profile.bio, profile.avatarFrame, user]);
 
+  // ── Save profile (auth + Firestore via hook) ───────────────────────────────
   const handleSaveProfile = async () => {
     if (!user) return;
-    setIsSaving(true);
-    setModalError('');
-    setModalSuccess('');
+    setIsSaving(true); setModalError(''); setModalSuccess('');
     try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-
-      // Save both avatarFrame and frameId (for backward compatibility with Vite app)
-      const savePromise = setDoc(docRef, {
-        bio: bioInput,
-        avatarFrame: editFrameId,
-        frameId: editFrameId,
-        displayName: editDisplayName
-      }, { merge: true });
-
+      await handleSaveProfileEdit({ bio: bioInput ?? '', avatarFrame: (editFrameId ?? 'none') as 'none' | 'neon' | 'gold' | 'ghost', displayName: editDisplayName ?? '' });
       const authPromise = editDisplayName !== user.displayName
         ? updateProfile(user, { displayName: editDisplayName })
         : Promise.resolve();
-
-      await Promise.all([savePromise, authPromise]);
-
-      setProfile(prev => ({ ...prev, bio: bioInput, avatarFrame: editFrameId, displayName: editDisplayName }));
+      await authPromise;
 
       const emailChanged = newEmail && newEmail !== user.email;
       const passwordChanged = newPassword && newPassword.length >= 6;
@@ -467,163 +264,47 @@ export default function ProfileComponent() {
           const credential = EmailAuthProvider.credential(user.email || '', currentPassword);
           await reauthenticateWithCredential(user, credential);
         }
-
         try {
-          if (emailChanged) {
-            await verifyBeforeUpdateEmail(user, newEmail);
-            toast.success(`Verification link sent to ${newEmail}. Please verify before your email is updated.`);
-          }
-          if (passwordChanged) {
-            await updatePassword(user, newPassword);
-          }
+          if (emailChanged) { await verifyBeforeUpdateEmail(user, newEmail); toast.success(`Verification link sent to ${newEmail}.`); }
+          if (passwordChanged) { await updatePassword(user, newPassword); }
         } catch (authError: any) {
           if (authError.code === 'auth/requires-recent-login') {
             setReauthNeeded(true);
             setReauthAction(emailChanged && passwordChanged ? 'both' : emailChanged ? 'email' : 'password');
-            setIsSaving(false);
-            return;
-          } else {
-            throw authError;
-          }
+            setIsSaving(false); return;
+          } else { throw authError; }
         }
       }
 
       setModalSuccess("Profile updated successfully!");
       toast.success("Profile updated successfully!");
-      setTimeout(() => {
-        setIsEditModalOpen(false);
-      }, 1500);
+      setTimeout(() => setIsEditModalOpen(false), 1500);
     } catch (error: any) {
-      console.error("Error saving profile:", error);
-      let msg = error.message || "An error occurred while saving the profile.";
-      if (error.code === 'auth/invalid-email') {
-        msg = "Invalid email address.";
-      } else if (error.code === 'auth/weak-password') {
-        msg = "Password should be at least 6 characters.";
-      } else if (error.code === 'auth/email-already-in-use') {
-        msg = "This email is already registered to another account.";
-      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-        msg = "Incorrect current password. Reauthentication failed.";
-      }
-      setModalError(msg);
-      toast.error(msg);
-    } finally {
-      setIsSaving(false);
-    }
+      const msg = {
+        'auth/invalid-email': 'Invalid email address.',
+        'auth/weak-password': 'Password should be at least 6 characters.',
+        'auth/email-already-in-use': 'This email is already registered.',
+        'auth/invalid-credential': 'Incorrect current password.',
+        'auth/wrong-password': 'Incorrect current password.',
+      }[(error.code as string)] || error.message || 'An error occurred.';
+      setModalError(msg); toast.error(msg);
+    } finally { setIsSaving(false); }
   };
 
-  const handleToggleSub = async (platformName: string) => {
-    if (!user) return;
-    let updatedSubs = [...(profile.subscriptions || [])];
-    if (updatedSubs.includes(platformName)) {
-      updatedSubs = updatedSubs.filter(s => s !== platformName);
-    } else {
-      updatedSubs.push(platformName);
-    }
-
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { subscriptions: updatedSubs }, { merge: true });
-      toast.success(updatedSubs.includes(platformName) ? `Subscribed to ${platformName}` : `Unsubscribed from ${platformName}`);
-      router.refresh();
-      // Instantly trigger server-side revalidation of home and browse pages
-      revalidatePage('/');
-      revalidatePage('/browse');
-    } catch (err) {
-      console.error("Error toggling subscriptions:", err);
-      toast.error("Failed to update subscription");
-    }
-  };
-
-  const handleTogglePref = async (field:
-    | 'notifyNewRelease' | 'notifyLeavingSoon' | 'isPublic' | 'autoFilter'
-    | 'notifyFavGenres' | 'weeklyDigest'
-    | 'notifyNewEpisodes' | 'notifyNewSeasons'
-    | 'notifyPlatformAdded' | 'notifyNewFeatures'
-    | 'notifyWatchHistoryRecs' | 'notifySimilarContent'
-    | 'notifyTrendingGenres'
-    | 'channelEmail'
-  ) => {
-    if (!user) return;
-    try {
-      // Read the effective current value — match the UI default of `true` for undefined fields
-      const currentValue = (profile[field] as boolean | undefined) ?? true;
-      const newValue = !currentValue;
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { [field]: newValue }, { merge: true });
-      setProfile(prev => ({ ...prev, [field]: newValue }));
-      toast.success("Preference updated");
-      router.refresh();
-      // Instantly trigger server-side revalidation of home and browse pages
-      revalidatePage('/');
-      revalidatePage('/browse');
-    } catch (err) {
-      console.error("Error updating preference:", err);
-      toast.error("Failed to update preference");
-    }
-  };
-
-  const handleRegionChange = async (region: string) => {
-    if (!user) return;
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { watchRegion: region }, { merge: true });
-      setProfile(prev => ({ ...prev, watchRegion: region }));
-      toast.success(`Region updated to ${region}`);
-      router.refresh();
-      // Instantly trigger server-side revalidation of home and browse pages
-      revalidatePage('/');
-      revalidatePage('/browse');
-    } catch (err) {
-      console.error("Error updating region:", err);
-      toast.error("Failed to update region");
-    }
-  };
-
-  const handleToggleGenre = async (genre: string) => {
-    if (!user) return;
-    let updatedGenres = [...(profile.favoriteGenres || [])];
-    let isFirstGenreSelection = false;
-
-    if (updatedGenres.includes(genre)) {
-      updatedGenres = updatedGenres.filter(g => g !== genre);
-    } else {
-      updatedGenres.push(genre);
-      if (!profile.favoriteGenres || profile.favoriteGenres.length === 0) {
-        isFirstGenreSelection = true;
-      }
-    }
-
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { favoriteGenres: updatedGenres }, { merge: true });
-
-      if (isFirstGenreSelection) {
-        fetch('/api/notify/welcome-genre', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            uid: user.uid,
-            email: profile.email || user.email,
-            displayName: profile.displayName || user.displayName || user.email,
-            genre: genre
-          })
-        }).catch(console.error);
-      }
-      toast.success(updatedGenres.includes(genre) ? `Added ${genre} to favorites` : `Removed ${genre} from favorites`);
-    } catch (err) {
-      console.error("Error toggling genre:", err);
-      toast.error("Failed to update favorite genres");
-    }
-  };
-
-  const copyPublicLink = () => {
+  // ── Helper to share review notes ───────────────────────────────────────────
+  const handleShareNote = async (movieId: number, movieTitle: string) => {
     if (typeof window === 'undefined') return;
-    const link = `${window.location.origin}/profile?uid=${user?.uid}`;
-    navigator.clipboard.writeText(link);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    const shareUrl = `${window.location.origin}/movie/${movieId}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Director's Note: ${movieTitle}`, text: `My critique for "${movieTitle}" on StreamFind!`, url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success(`Copied link for "${movieTitle}" to clipboard!`);
+      }
+    } catch (e) { console.error("Error sharing note:", e); }
   };
+
 
   const ratingCount = userReviews.length;
   const watchCount = watchlist.length;
@@ -688,7 +369,7 @@ export default function ProfileComponent() {
     );
   }
 
-  if (!user && !sharedUid) {
+  if (!user && !targetUid) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <motion.div

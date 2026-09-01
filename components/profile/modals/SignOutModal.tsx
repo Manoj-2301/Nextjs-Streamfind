@@ -2,6 +2,8 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Modal from '@/components/ui/modal';
+import Button from '@/components/ui/button';
 
 interface SignOutModalProps {
   isOpen: boolean;
@@ -15,28 +17,20 @@ export default function SignOutModal({ isOpen, onClose, logout }: SignOutModalPr
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-sm max-h-full bg-[#050505] border border-white/10 rounded-[2rem] sm:rounded-[32px] p-6 shadow-2xl overflow-y-auto no-scrollbar"
-      >
-        <div className="absolute top-0 right-0 p-6">
-          <button
-            onClick={onClose}
-            className="text-white/40 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      hideHeader
+      className="p-6 sm:rounded-[32px] max-w-sm"
+    >
+      <div className="absolute top-0 right-0 p-6 z-10">
+        <button
+          onClick={onClose}
+          className="text-white/40 hover:text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
         <div className="flex flex-col items-center text-center gap-4 pt-4">
           <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
@@ -49,25 +43,26 @@ export default function SignOutModal({ isOpen, onClose, logout }: SignOutModalPr
           </div>
 
           <div className="w-full flex gap-3 mt-4">
-            <button
+            <Button
+              variant="secondary"
               onClick={onClose}
-              className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+              className="flex-1 py-4 text-[10px]"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="danger"
               onClick={async () => {
                 onClose();
                 await logout();
                 router.push('/');
               }}
-              className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg shadow-red-500/20"
+              className="flex-1 py-4 text-[10px]"
             >
               Yes, Leave
-            </button>
+            </Button>
           </div>
         </div>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }

@@ -13,10 +13,9 @@ import { useState, useEffect, useRef } from 'react';
 import { getMovieReviews, CriticReview } from '@/services/tmdbService';
 import { useMovieDetails } from '@/hooks/useTmdbQueries';
 import { Movie, Platform } from '@/types';
-import { app } from '@/lib/firebase';
-import { collection, query, onSnapshot, collectionGroup, where, getFirestore } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { getAffiliateLinks, resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
+import { subscribeToMovieReviews } from '@/services/firebase/ratingService';
 import Pagination from '@/components/ui/pagination';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 
@@ -443,38 +442,19 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   useEffect(() => {
     if (!id) return;
 
-    // 1. Subscribe to Firestore community reviews using collection group query under user ratings
-    const q = query(collectionGroup(getFirestore(app), 'ratings'), where('movieId', '==', Number(id)));
-
-    let unsubscribeFirestore = () => { };
+    let unsubscribeFirestore = () => {};
 
     const loadAllReviews = async () => {
-      // 2. Fetch TMDB critic reviews
+      // Fetch TMDB critic reviews
       let tmdbReviews: CriticReview[] = [];
       try {
         tmdbReviews = await getMovieReviews(Number(id), typeParam || undefined);
       } catch (e) {
-        console.error("Error fetching TMDB reviews:", e);
+        console.error('Error fetching TMDB reviews:', e);
       }
 
-      unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-        const firestoreList: any[] = [];
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.reviewText) {
-            firestoreList.push({
-              userId: data.userId || docSnap.ref.parent.parent?.id || 'anonymous',
-              userName: data.userName || 'Anonymous Film Buff',
-              userPhoto: data.userPhoto || '',
-              rating: data.rating || 5,
-              reviewText: data.reviewText,
-              isCritic: false
-            });
-          }
-        });
-
-        // Map TMDB critic reviews to matching structure
-        const mappedCritics = tmdbReviews.map((r, idx) => ({
+      const mapCritics = (reviews: CriticReview[]) =>
+        reviews.map((r, idx) => ({
           userId: `critic-${idx}`,
           userName: r.author,
           userPhoto: '',
@@ -483,21 +463,16 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
           isCritic: true
         }));
 
-        // Combine feeds: custom community first, followed by professional critics
-        setCommunityReviews([...firestoreList, ...mappedCritics]);
-      }, (err) => {
-        console.warn("Firestore reviews subscription failed (please update security rules in Firebase Console). Falling back to TMDB reviews only.", err);
-        // Fall back gracefully to TMDB critic reviews only
-        const mappedCritics = tmdbReviews.map((r, idx) => ({
-          userId: `critic-${idx}`,
-          userName: r.author,
-          userPhoto: '',
-          rating: 5,
-          reviewText: r.content,
-          isCritic: true
-        }));
-        setCommunityReviews(mappedCritics);
-      });
+      unsubscribeFirestore = subscribeToMovieReviews(
+        Number(id),
+        (firestoreList) => {
+          setCommunityReviews([...firestoreList, ...mapCritics(tmdbReviews)]);
+        },
+        (err) => {
+          console.warn('Firestore reviews subscription failed (check security rules). Falling back to TMDB reviews only.', err);
+          setCommunityReviews(mapCritics(tmdbReviews));
+        }
+      );
     };
 
     loadAllReviews();
@@ -506,6 +481,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       unsubscribeFirestore();
     };
   }, [id, typeParam]);
+
 
   const getPartnerStyles = (platform: Platform) => {
     const isPartner = platform.isSponsored || (platform as any).isPartner;

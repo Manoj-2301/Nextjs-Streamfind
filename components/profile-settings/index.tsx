@@ -22,6 +22,16 @@ import { app } from '@/lib/firebase';
 import { getFirestore, doc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs, writeBatch, updateDoc, deleteField, deleteDoc, addDoc, getCountFromServer } from 'firebase/firestore';
 import { logSecurityEvent, AuditEvent } from '@/lib/auditLogger';
 import { CustomSelect } from '@/components/ui/CustomSelect';
+import { useProfileSettings } from '@/hooks/firebase/useProfileSettings';
+import { revokeSession } from '@/services/firebase/sessionService';
+import { 
+  fetchUserAuditLogs, 
+  fetchUserSearchHistory, 
+  clearSearchHistory, 
+  clearWatchHistory, 
+  deleteCurationData, 
+  submitSupportTicket 
+} from '@/services/firebase/accountService';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -199,6 +209,23 @@ export default function ProfileSettingsPanel({
     }
   }, [searchParams]);
 
+  const {
+    trackedReleases,
+    handleToggleTrackedRelease: _handleToggleTrackedRelease,
+    handleAddTopMovie: _handleAddTopMovie,
+    handleRemoveTopMovie: _handleRemoveTopMovie,
+    handleMoveTopMovie: _handleMoveTopMovie,
+    handleToggleDnaMood: _handleToggleDnaMood,
+    handleLocalToggle: _handleLocalToggle,
+    handleLocalSelect: _handleLocalSelect,
+    activeSessions,
+    auditLogs,
+    totalAuditLogs,
+    billingPlan,
+    invoices,
+    renewalDate,
+  } = useProfileSettings();
+
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isLogoutAllModalOpen, setIsLogoutAllModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -206,13 +233,8 @@ export default function ProfileSettingsPanel({
   const [clearedTimelineIds, setClearedTimelineIds] = useState<string[]>([]);
   const [showActivityPopup, setShowActivityPopup] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
-  const [totalAuditLogs, setTotalAuditLogs] = useState(0);
 
-  // Billing states
-  const [billingPlan, setBillingPlan] = useState<string>('free');
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [renewalDate, setRenewalDate] = useState<string>('N/A');
+  // Billing states — now sourced from useProfileSettings hook
   const [isUpgrading, setIsUpgrading] = useState(false);
   
   const signOutTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,53 +245,6 @@ export default function ProfileSettingsPanel({
       if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    const db = getFirestore(app);
-    const auditRef = collection(db, `users/${user.uid}/audit_logs`);
-    const q = query(auditRef, orderBy('timestamp', 'desc'), limit(5));
-
-    // Fetch the true total count of audit logs (alerts) for the badge
-    getCountFromServer(auditRef).then((snap) => {
-      setTotalAuditLogs(snap.data().count);
-    }).catch((error) => {
-      if (error.code !== 'permission-denied') console.error('Count fetch error:', error);
-    });
-
-    const unsubscribeAudit = onSnapshot(q, (snapshot) => {
-      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditEvent));
-      setAuditLogs(logs);
-    }, (error) => {
-      // Silently handle permission errors for new users without data yet
-      if (error.code !== 'permission-denied') {
-        console.error('Audit logs listener error:', error);
-      }
-    });
-
-    const userDocRef = doc(db, `users/${user.uid}`);
-    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setBillingPlan(data.plan || 'free');
-        setInvoices(data.invoices || []);
-        if (data.subscriptionUpdatedAt) {
-          const date = data.subscriptionUpdatedAt.toDate();
-          date.setFullYear(date.getFullYear() + 1); // Mock 1 year validity
-          setRenewalDate(date.toLocaleDateString());
-        }
-      }
-    }, (error) => {
-      if (error.code !== 'permission-denied') {
-        console.error('User doc listener error:', error);
-      }
-    });
-
-    return () => {
-      unsubscribeAudit();
-      unsubscribeUser();
-    };
-  }, [user?.uid]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -548,55 +523,8 @@ export default function ProfileSettingsPanel({
     }, 400);
   };
 
-  const handleAddTopMovie = async (movie: Movie) => {
-    const currentTop10 = profile.top10 || [];
-    if (!user || currentTop10.length >= 5) return;
-    if (currentTop10.some(m => m.id === movie.id)) return;
-    const updatedTop10 = [...currentTop10, movie];
-    const sanitizedTop10 = JSON.parse(JSON.stringify(updatedTop10));
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { top10: sanitizedTop10 }, { merge: true });
-      setProfile(prev => ({ ...prev, top10: updatedTop10 }));
-      setSearchQuery(''); setSearchResults([]); setShowSearch(false);
-      toast.success(`${movie.title} added to Top 5`);
-    } catch (err) {
-      console.error("Error adding to Top 5:", err);
-      toast.error("Failed to add movie to Top 5");
-    }
-  };
 
-  const handleRemoveTopMovie = async (movieId: number) => {
-    if (!user || !profile.top10) return;
-    const updatedTop10 = profile.top10.filter(m => m.id !== movieId);
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
-      setProfile(prev => ({ ...prev, top10: updatedTop10 }));
-    } catch (error) {
-      console.error('Error removing top movie:', error);
-      alert('Failed to remove movie.');
-    }
-  };
 
-  const handleMoveTopMovie = async (index: number, direction: 'up' | 'down') => {
-    if (!user || !profile.top10) return;
-    const updatedTop10 = [...profile.top10];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= updatedTop10.length) return;
-    const temp = updatedTop10[index];
-    updatedTop10[index] = updatedTop10[targetIndex];
-    updatedTop10[targetIndex] = temp;
-    try {
-      const docRef = doc(getFirestore(app), `users/${user.uid}`);
-      await setDoc(docRef, { top10: updatedTop10 }, { merge: true });
-      setProfile(prev => ({ ...prev, top10: updatedTop10 }));
-      toast.success("Reordered Top 5");
-    } catch (err) {
-      console.error("Error reordering Top 5:", err);
-      toast.error("Failed to reorder movies");
-    }
-  };
 
   const topTen = profile.top10 ? profile.top10.slice(0, 5) : [];
   const [isTwoFactorModalOpen, setIsTwoFactorModalOpen] = useState(false);
@@ -613,8 +541,12 @@ export default function ProfileSettingsPanel({
 
   // --- Release Calendar State ---
   const [upcomingMovies, setUpcomingMovies] = useState<{ id: number; title: string; release_date: string; poster_path: string | null }[]>([]);
-  const [trackedReleases, setTrackedReleases] = useState<number[]>([]);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+
+  // Top 5 handlers — delegated to useProfileSettings
+  const handleAddTopMovie = async (movie: Movie) => _handleAddTopMovie(movie, profile, setProfile);
+  const handleRemoveTopMovie = async (movieId: number) => _handleRemoveTopMovie(movieId, profile, setProfile);
+  const handleMoveTopMovie = async (index: number, direction: 'up' | 'down') => _handleMoveTopMovie(index, direction, profile, setProfile);
 
   // Fetch upcoming movies from TMDB
   useEffect(() => {
@@ -650,140 +582,24 @@ export default function ProfileSettingsPanel({
     fetchUpcoming();
   }, []);
 
-  // Subscribe to user's tracked releases in Firestore
-  useEffect(() => {
-    if (!user?.uid) return;
-    const db = getFirestore(app);
-    const q = collection(db, `users/${user.uid}/trackedReleases`);
-    const unsub = onSnapshot(q, (snap) => {
-      setTrackedReleases(snap.docs.map(d => Number(d.id)));
-    }, (err) => {
-      if (err.code !== 'permission-denied') console.error('Tracked releases error:', err);
-    });
-    return () => unsub();
-  }, [user?.uid]);
+  // Subscribe to user's tracked releases — handled by useProfileSettings hook
 
-  // Toggle tracking a release + auto-enable notifyNewRelease toggle
+  // Toggle tracking a release
   const handleToggleTrackedRelease = async (movieId: number, movieTitle: string) => {
-    if (!user?.uid) { toast.error('Please log in to track releases'); return; }
-    const db = getFirestore(app);
-    const docRef = doc(db, `users/${user.uid}/trackedReleases/${movieId}`);
-    const isTracked = trackedReleases.includes(movieId);
-    try {
-      if (isTracked) {
-        await deleteDoc(docRef);
-        toast.success(`Removed "${movieTitle}" from reminders`);
-      } else {
-        await setDoc(docRef, { movieId, title: movieTitle, trackedAt: new Date() });
-        toast.success(`🔔 Tracking "${movieTitle}" — you'll be notified on release!`);
-        // Auto-enable the notifyNewRelease toggle if it's currently off
-        if (!profile.notifyNewRelease) {
-          await handleTogglePref('notifyNewRelease');
-        }
-
-        // Trigger universal email notification (will silently abort if email channel is off)
-        try {
-          const token = await user.getIdToken();
-          fetch('/api/notifications/email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              type: 'TRACK_RELEASE',
-              data: { movieTitle }
-            })
-          }).catch(console.error); // Run in background
-        } catch (e) {
-          console.error('Failed to send tracking email notification', e);
-        }
-      }
-    } catch (err) {
-      console.error('Error toggling tracked release:', err);
-      toast.error('Failed to update release tracker');
-    }
+    await _handleToggleTrackedRelease(movieId, movieTitle, profile, handleTogglePref);
   };
-  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  // Active sessions — now handled by useProfileSettings hook
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    const db = getFirestore(app);
-    const q = query(collection(db, 'users', user.uid, 'sessions'), orderBy('lastActive', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const currentSessionId = localStorage.getItem('moviefind_session_id');
-      const sessions = snapshot.docs.map(doc => {
-        const data = doc.data();
-        let lastActiveStr = 'Unknown';
-        if (data.lastActive) {
-          const date = data.lastActive.toDate();
-          const diffMs = Date.now() - date.getTime();
-          if (diffMs < 5 * 60 * 1000) lastActiveStr = 'Active now';
-          else if (diffMs < 60 * 60 * 1000) lastActiveStr = `${Math.floor(diffMs / 60000)} mins ago`;
-          else if (diffMs < 24 * 60 * 60 * 1000) lastActiveStr = `${Math.floor(diffMs / 3600000)} hours ago`;
-          else lastActiveStr = date.toLocaleDateString();
-        }
-        return {
-          id: doc.id,
-          device: data.deviceInfo?.fullString || 'Unknown Device',
-          browser: data.deviceInfo?.browser || 'Unknown',
-          location: data.location || 'Location unavailable',
-          lastActive: lastActiveStr,
-          current: doc.id === currentSessionId
-        };
-      });
-      setActiveSessions(sessions);
-    });
-    return () => unsubscribe();
-  }, [user]);
   const handleLocalToggle = async (field: keyof ProfileSettings) => {
-    const newValue = !profile[field];
-    setProfile(prev => ({ ...prev, [field]: newValue }));
-    if (user) {
-      try {
-        const docRef = doc(getFirestore(app), `users/${user.uid}`);
-        await setDoc(docRef, { [field]: newValue }, { merge: true });
-        toast.success('Preference updated successfully');
-        // Immediate UI update; no need for router refresh or revalidation
-      } catch (err) {
-        console.error("Failed to update preference", err);
-        toast.error("Failed to save to database");
-      }
-    }
+    await _handleLocalToggle(field, profile, setProfile);
   };
 
   const handleLocalSelect = async (field: keyof ProfileSettings, value: any) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
-    if (user) {
-      try {
-        const docRef = doc(getFirestore(app), `users/${user.uid}`);
-        await setDoc(docRef, { [field]: value }, { merge: true });
-        toast.success('Settings updated');
-        // Immediate UI update; no need for router refresh or revalidation
-      } catch (err) {
-        console.error("Failed to update settings", err);
-        toast.error("Failed to save to database");
-      }
-    }
+    await _handleLocalSelect(field, value, setProfile);
   };
+
   const handleToggleDnaMood = async (mood: string) => {
-    const moods = profile.dnaMoods || [];
-    let updated = moods.includes(mood) ? moods.filter(m => m !== mood) : [...moods, mood];
-    setProfile(prev => ({ ...prev, dnaMoods: updated }));
-    if (user) {
-      try {
-        const docRef = doc(getFirestore(app), `users/${user.uid}`);
-        await setDoc(docRef, { dnaMoods: updated }, { merge: true });
-        toast.success(`${mood} filter updated`);
-        router.refresh();
-        // Instantly trigger server-side revalidation of home and browse pages
-        revalidatePage('/');
-        revalidatePage('/browse');
-      } catch (err) {
-        console.error("Failed to update dnaMoods", err);
-        toast.error("Failed to save to database");
-      }
-    }
+    await _handleToggleDnaMood(mood, profile, setProfile);
   };
 
   return (
@@ -1494,14 +1310,14 @@ export default function ProfileSettingsPanel({
                           <span className="text-[10px] font-black text-white/40 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5">{session.lastActive}</span>
                           {!session.current && (
                             <button
-                              onClick={async () => {
-                                try {
-                                  await deleteDoc(doc(getFirestore(app), `users/${user.uid}/sessions/${session.id}`));
-                                  toast.success(`Logged out of ${session.device}.`);
-                                } catch (e) {
-                                  toast.error('Failed to logout device.');
-                                }
-                              }}
+                                onClick={async () => {
+                                  try {
+                                    await revokeSession(user.uid, session.id);
+                                    toast.success(`Logged out of ${session.device}.`);
+                                  } catch (e) {
+                                    toast.error('Failed to logout device.');
+                                  }
+                                }}
                               className="text-[10px] font-black text-red-500/70 hover:text-red-400 hover:bg-red-500/10 px-3 py-1.5 rounded-xl transition-all duration-300 uppercase tracking-widest border border-transparent hover:border-red-500/20"
                             >
                               Logout
@@ -1527,16 +1343,8 @@ export default function ProfileSettingsPanel({
                           if (!user?.uid || !user?.email) { toast.error('No account found.'); return; }
                           const loadingToast = toast.loading('Compiling your data archive…');
                           try {
-                            const db = getFirestore(app);
-                            const auditSnap = await getDocs(
-                              collection(db, 'users', user.uid, 'audit_logs')
-                            );
-                            const auditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                            const searchSnap = await getDocs(
-                              collection(db, 'users', user.uid, 'search_history')
-                            );
-                            const searchHistory = searchSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            const auditLogs = await fetchUserAuditLogs(user.uid);
+                            const searchHistory = await fetchUserSearchHistory(user.uid);
 
                             const { generateUserDataPdf } = await import('@/lib/pdfGenerator');
                             const pdfData = {
@@ -1603,19 +1411,7 @@ export default function ProfileSettingsPanel({
                               .forEach(k => localStorage.removeItem(k));
 
                             if (user?.uid) {
-                              const db = getFirestore(app);
-                              await updateDoc(doc(db, `users/${user.uid}`), {
-                                searchHistory: deleteField(),
-                                recentSearches: deleteField(),
-                              });
-                              try {
-                                const shDocs = await getDocs(collection(db, `users/${user.uid}/search_history`));
-                                if (!shDocs.empty) {
-                                  const batch = writeBatch(db);
-                                  shDocs.forEach(d => batch.delete(d.ref));
-                                  await batch.commit();
-                                }
-                              } catch { }
+                              await clearSearchHistory(user.uid);
                             }
 
                             logSecurityEvent(user?.uid, 'Search History Cleared', 'All search history wiped from local storage and Firebase.', 'bg-orange-400');
@@ -1632,13 +1428,7 @@ export default function ProfileSettingsPanel({
                           if (!user?.uid) return;
                           const loadingToast = toast.loading('Clearing watch history…');
                           try {
-                            const db = getFirestore(app);
-                            const batch = writeBatch(db);
-                            const wlDocs = await getDocs(collection(db, `users/${user.uid}/watchlist`));
-                            wlDocs.forEach(d => batch.delete(d.ref));
-                            const rvDocs = await getDocs(collection(db, `users/${user.uid}/reviews`));
-                            rvDocs.forEach(d => batch.delete(d.ref));
-                            await batch.commit();
+                            await clearWatchHistory(user.uid);
                             logSecurityEvent(user?.uid, 'Watch History Cleared', 'Watchlist and reviews wiped from Firebase and local state.', 'bg-red-500');
                             toast.dismiss(loadingToast);
                             toast.success('Watch history cleared from all sources.');
@@ -1653,13 +1443,7 @@ export default function ProfileSettingsPanel({
                           if (!user?.uid) return;
                           const loadingToast = toast.loading('Deleting curation data…');
                           try {
-                            const db = getFirestore(app);
-                            await updateDoc(doc(db, `users/${user.uid}`), {
-                              dnaMoods: deleteField(),
-                              dnaRuntime: deleteField(),
-
-                              top10: deleteField(),
-                            });
+                            await deleteCurationData(user.uid);
                             setProfile(prev => ({
                               ...prev,
                               dnaMoods: [],
@@ -2017,17 +1801,14 @@ export default function ProfileSettingsPanel({
                           if (!supportMessage) return toast.error('Please enter a message');
                           setIsSubmittingSupport(true);
                           try {
-                            const db = getFirestore(app);
                             const type = supportMessage.startsWith('Type:') ? supportMessage.split(':')[1].split('\n')[0] : 'Submit Ticket';
                             const msg = supportMessage.includes('\n') ? supportMessage.substring(supportMessage.indexOf('\n') + 1).trim() : supportMessage;
                             
-                            await addDoc(collection(db, 'support_tickets'), {
-                              userId: user?.uid || 'anonymous',
+                            await submitSupportTicket({
+                              uid: user?.uid || 'anonymous',
                               email: user?.email || '',
                               type: type,
-                              message: msg || supportMessage,
-                              status: 'open',
-                              createdAt: new Date().toISOString()
+                              message: msg || supportMessage
                             });
                             
                             toast.success('Ticket submitted successfully!');
