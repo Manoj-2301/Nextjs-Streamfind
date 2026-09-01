@@ -38,7 +38,7 @@ export function useSystemConfig(): UseSystemConfigResult {
    */
   const [config, setConfig] = useState<SystemConfig>({
     maintenanceMode: false,
-    flags: { share: true, analytics: true, realTime: false },
+    flags: { heroAutoplay: false, share: true, analytics: true, realTime: false },
     achievements: [],
     customIcons: [],
   });

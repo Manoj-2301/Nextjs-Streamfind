@@ -4,6 +4,7 @@ import { app } from '@/lib/firebase';
 export interface SystemConfig {
   maintenanceMode: boolean;
   flags: {
+    heroAutoplay?: boolean;
     share?: boolean;
     analytics?: boolean;
     realTime?: boolean;
@@ -24,7 +25,7 @@ export interface SystemConfig {
 
 const DEFAULT_CONFIG: SystemConfig = {
   maintenanceMode: false,
-  flags: { share: true, analytics: true, realTime: false },
+  flags: { heroAutoplay: false, share: true, analytics: true, realTime: false },
   achievements: [],
   customIcons: [],
 };

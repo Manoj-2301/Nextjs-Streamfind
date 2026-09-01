@@ -6,7 +6,12 @@
 'use client';
 
 import Image, { ImageProps } from 'next/image';
-import LiteYouTubeEmbed from 'react-lite-youtube-embed';
+import dynamic from 'next/dynamic';
+
+const LiteYouTubeEmbed = dynamic(() => import('react-lite-youtube-embed'), {
+  ssr: false, // Ensure client-side only loading since it depends on window/DOM
+  loading: () => <div className="w-full h-full bg-black/50 animate-pulse flex items-center justify-center">Loading Video...</div>
+});
 
 
 /*

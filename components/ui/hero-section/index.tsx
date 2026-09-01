@@ -6,13 +6,15 @@
 'use client';
 
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { Play, Square, Volume2, VolumeX, ExternalLink, Loader2, AlertCircle, Info } from 'lucide-react';
 import { Movie, Platform } from '@/types';
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { resolveWatchUrl, AffiliateLinks } from '@/services/affiliateService';
 import { OptimizedImage, OptimizedIframe } from '@/components/ui/optimized-media';
 import Button from '@/components/ui/button';
+import { useSystemConfig } from '@/hooks/firebase/useSystemConfig';
+import { useMovieDetails } from '@/hooks/useTmdbQueries';
 
 const localizeTmdbUrl = (url: string, countryCode: string): string => {
   if (!url || !url.includes('themoviedb.org')) return url;
@@ -52,11 +54,22 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isPlayingTrailer, setIsPlayingTrailer] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isManualPlay, setIsManualPlay] = useState(false);
   const [isInView, setIsInView] = useState(true);
   const [hasStartedTrailerOnce, setHasStartedTrailerOnce] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [userCountryCode, setUserCountryCode] = useState<string>('IN');
+
+  const baseMovie = movies[currentIndex] || movies[0];
+  const { data: movieDetails } = useMovieDetails(baseMovie?.id, baseMovie?.type as 'movie' | 'tv', {
+    enabled: !!baseMovie?.id && !baseMovie?.trailerYoutubeId,
+  });
+
+  const movie = movieDetails || baseMovie;
+  const { config, isLoading: isConfigLoading } = useSystemConfig();
 
 
   /*
@@ -134,6 +147,8 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     setCurrentIndex((prevIndex) => (prevIndex + newDirection + movies.length) % movies.length);
     setIsPlayingTrailer(false);
     setHasStartedTrailerOnce(false);
+    setIsManualPlay(false);
+    setIsMuted(true);
   }, [movies.length]);
 
   // Viewport Observer
@@ -183,11 +198,11 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
    */
   useEffect(() => {
 
-  /*
-   * ============================================================
-   * EVENT HANDLERS
-   * ============================================================
-   */
+    /*
+     * ============================================================
+     * EVENT HANDLERS
+     * ============================================================
+     */
     const handleVisibilityChange = () => {
       // If the user comes back to the tab and the trailer was supposed to be playing,
       // briefly reset it to force YouTube to autoplay again (since YouTube pauses background tabs)
@@ -208,13 +223,13 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
    * ============================================================
    */
   useEffect(() => {
-    if (isPlayingTrailer) return;
+    if (isPlayingTrailer || isConfigLoading) return;
 
     // Clear existing timer
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    // Only start timer if in view and movie has a trailer
-    if (isInView && movies[currentIndex]?.trailerYoutubeId) {
+    // Only start timer if in view, movie has a trailer, AND heroAutoplay is enabled globally
+    if (isInView && movies[currentIndex]?.trailerYoutubeId && config.flags?.heroAutoplay) {
       timerRef.current = setTimeout(() => {
         setIsPlayingTrailer(true);
         setHasStartedTrailerOnce(true);
@@ -224,7 +239,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentIndex, isInView, isPlayingTrailer, movies]);
+  }, [currentIndex, isInView, isPlayingTrailer, movies, config.flags?.heroAutoplay, isConfigLoading]);
 
   // Specific user request: Pause when scroll IN, Resume when scroll OUT after it has started
   const shouldActuallyPlay = isPlayingTrailer && (!isInView || !hasStartedTrailerOnce);
@@ -261,6 +276,33 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     }
   }, [movies.length, currentIndex]);
 
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMuted(!isMuted);
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      const isVimeo = movies[currentIndex]?.trailerSite?.toLowerCase() === 'vimeo';
+      if (isVimeo) {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: isMuted ? 1 : 0 }), '*');
+      } else {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: isMuted ? 'unMute' : 'mute' }), '*');
+      }
+    }
+  };
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPlayingTrailer) {
+      setIsPlayingTrailer(false);
+      setIsManualPlay(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    } else {
+      setIsManualPlay(true);
+      setIsPlayingTrailer(true);
+      setHasStartedTrailerOnce(true);
+      setIsMuted(false); // Play unmuted when manually triggered
+    }
+  };
+
   if (!movies || movies.length === 0 || !movies[currentIndex]) {
     return (
       <div className="w-full h-[75vh] md:h-[90vh] bg-black flex items-center justify-center">
@@ -269,7 +311,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     );
   }
 
-  const movie = movies[currentIndex];
+
 
   // Select the primary watch platform for the CTA button
   const primaryPlatform = movie?.platforms?.[0];
@@ -376,10 +418,11 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                   className="absolute inset-0"
                 >
                   <iframe
+                    ref={iframeRef}
                     className="w-full h-full scale-110 md:scale-125 pointer-events-none"
                     src={movie.trailerSite?.toLowerCase() === 'vimeo'
-                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=0&background=1`
-                      : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=0&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
+                      ? `https://player.vimeo.com/video/${movie.trailerYoutubeId}?autoplay=1&loop=1&muted=${isManualPlay ? 0 : 1}&background=1`
+                      : `https://www.youtube.com/embed/${movie.trailerYoutubeId}?autoplay=1&mute=${isManualPlay ? 0 : 1}&controls=0&modestbranding=1&showinfo=0&rel=0&loop=1&playlist=${movie.trailerYoutubeId}&iv_load_policy=3&disablekb=1&enablejsapi=1`
                     }
                     title={movie.title}
                     frameBorder="0"
@@ -393,8 +436,35 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                 </motion.div>
               )}
             </AnimatePresence>
-            <div className="absolute inset-0 hero-gradient" />
+            {isPlayingTrailer ? (
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none transition-all duration-1000" />
+            ) : (
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-background/20 to-background pointer-events-none transition-all duration-1000" />
+            )}
+            {/* <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" /> */}
           </div>
+
+          {/* Trailer Controls */}
+          {movie.trailerYoutubeId && (
+            <div className="absolute right-6 md:right-12 bottom-32 md:bottom-48 z-50 flex flex-col gap-4">
+              <button
+                onClick={togglePlay}
+                className="w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
+                aria-label={isPlayingTrailer ? "Stop Trailer" : "Play Trailer"}
+              >
+                {isPlayingTrailer ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+              </button>
+              {isPlayingTrailer && (
+                <button
+                  onClick={toggleMute}
+                  className="w-12 h-12 rounded-full glass border border-white/10 flex items-center justify-center text-white hover:bg-white/10 transition-all hover:scale-105 active:scale-95"
+                  aria-label={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Content */}
           <div className="relative z-10 container mx-auto px-6 md:px-12 max-w-7xl h-full flex flex-col justify-end pb-32 md:pb-48">

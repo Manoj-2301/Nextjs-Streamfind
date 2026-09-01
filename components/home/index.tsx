@@ -286,12 +286,12 @@ export default function Home({
               <Sparkles className="w-4 h-4 fill-current" />
               {recSource ? `Because of ${recSource}` : "Recommended for You"}
             </div>
-            <ScrollableRow title="" movies={filteredRecs} className="!py-0" />
+            <ScrollableRow title="" movies={filteredRecs} className="!py-0" priorityImages={true} />
           </div>
         )}
 
         {filteredUpcoming.length > 0 && (
-          <ScrollableRow title="Upcoming Movies" movies={filteredUpcoming} />
+          <ScrollableRow title="Upcoming Movies" movies={filteredUpcoming} priorityImages={true} />
         )}
 
         {filteredNowPlaying.length > 0 && (

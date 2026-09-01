@@ -19,6 +19,19 @@ export interface CastMember {
   images?: string[];
 }
 
+export interface Person {
+  id: number;
+  name: string;
+  profileUrl: string;
+  knownForDepartment: string;
+  knownFor: {
+    id: number;
+    title: string;
+    mediaType: string;
+  }[];
+  popularity: number;
+}
+
 export interface Movie {
   id: number;
   title: string;

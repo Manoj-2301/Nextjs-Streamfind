@@ -12,6 +12,7 @@ import { RatingProvider } from '@/context/RatingContext';
 import { WatchlistProvider } from '@/context/WatchlistContext';
 
 
+
 /*
  * ============================================================
  * COMPONENT
@@ -27,8 +28,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
+        staleTime: 5 * 60 * 1000, // 5 minutes (ideal for mostly static TMDB data)
+        gcTime: 30 * 60 * 1000, // Keep in memory for 30 minutes for fast back-navigation
         refetchOnWindowFocus: false,
+        retry: 1, // Only retry once to avoid waterfall delays on failed TMDB endpoints
       },
     },
   }));

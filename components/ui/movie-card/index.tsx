@@ -54,10 +54,6 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "200px" });
 
-  const { data: details } = useMovieDetails(movie.id, movie.type, {
-    enabled: isInView && (!movie.platforms || movie.platforms.length === 0)
-  });
-
   // Collect available image URLs to try, and downsize poster from w500 to w342 for the card thumbnail
   const possibleUrls = [
     movie.posterUrl?.replace('/w500/', '/w342/'),
@@ -85,7 +81,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
    * DERIVED VALUE
    * ============================================================
    */
-  const primaryPlatform = movie.platforms?.[0] || details?.platforms?.[0];
+  const primaryPlatform = movie.platforms?.[0];
   
   // Prioritize displaying the selected/active genre if it matches one of the movie's genres
   const displayGenre = React.useMemo(() => {
@@ -155,7 +151,7 @@ export default function MovieCard({ movie, accentColor = '#999', priority = fals
 
         {/* Top-Right: Genre Chip */}
         {displayGenre && (
-          <div className="absolute top-2.5 right-2.5 z-10 bg-[#0a0a0a]/90 backdrop-blur-md border border-white/10 px-2 py-1 rounded-md shadow-md flex items-center justify-center">
+          <div className="absolute top-2.5 right-2.5 z-10 bg-[#0a0a0a]/90 border border-white/10 px-2 py-1 rounded-md shadow-md flex items-center justify-center">
             <span className="font-sans text-[9px] font-black uppercase tracking-wider text-white/95 leading-none">
               {displayGenre}
             </span>
