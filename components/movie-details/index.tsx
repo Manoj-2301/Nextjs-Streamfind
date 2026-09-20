@@ -363,7 +363,8 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [isManualPlay, setIsManualPlay] = useState(false);
-  const [userCountryCode, setUserCountryCode] = useState<string>('IN');
+  const [userCountryCode, setUserCountryCode] = useState<string | null>(null);
+  const [detectedCountryCode, setDetectedCountryCode] = useState<string | null>(null);
   const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
 
@@ -418,7 +419,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       }
 
       if (detectedCode) {
-        setUserCountryCode(detectedCode);
+        setDetectedCountryCode(detectedCode);
       }
     } catch (e) {
       console.error('Error detecting country locally:', e);
@@ -428,7 +429,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
       .then(res => res.json())
       .then(data => {
         if (data && data.country) {
-          setUserCountryCode(data.country.toUpperCase());
+          setDetectedCountryCode(data.country.toUpperCase());
         }
       })
       .catch(err => console.error('Error fetching country from API:', err));
@@ -637,13 +638,17 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const saved = movie ? isInWatchlist(movie.id) : false;
   const userRating = movie ? getUserRating(movie.id) : 0;
 
-  const localPlatforms = movie ? [...(movie.platforms || [])]
-    .filter(p => p.countries?.includes(userCountryCode))
-    .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)) : [];
+  const localPlatforms = movie?.platforms && userCountryCode
+    ? movie.platforms
+        .filter(p => p.countries?.includes(userCountryCode))
+        .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0))
+    : [];
 
-  const otherPlatforms = movie ? [...(movie.platforms || [])]
-    .filter(p => !p.countries?.includes(userCountryCode))
-    .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0)) : [];
+  const otherPlatforms = movie?.platforms
+    ? movie.platforms
+        .filter(p => !userCountryCode || !p.countries?.includes(userCountryCode))
+        .sort((a, b) => (b.isSponsored ? 1 : 0) - (a.isSponsored ? 1 : 0))
+    : [];
 
   const [localScrollStatus, setLocalScrollStatus] = useState({ canScrollLeft: false, canScrollRight: true });
   const [otherScrollStatus, setOtherScrollStatus] = useState({ canScrollLeft: false, canScrollRight: true });
@@ -703,9 +708,10 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   })();
 
   // Calculate a mock average based on IMDb + user rating (scaled to 10 for consistency)
-  const displayedRating = (movie && userRating)
+  const isValidRating = typeof movie?.rating === 'number' && movie.rating > 0 && movie.rating <= 10;
+  const displayedRating = (movie && userRating && isValidRating)
     ? ((movie.rating + (userRating * 2)) / 2).toFixed(1)
-    : movie?.rating;
+    : (isValidRating ? movie.rating : 'N/A');
 
   const toggleWatchlist = () => {
     if (saved) {
@@ -748,14 +754,20 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
   const currentYear = new Date().getFullYear();
   const isUpcomingOrNew = movie ? movie.year >= currentYear : false;
 
-  // Check if movie is currently in theaters (released in the last 60 days or in the future)
+  // Check if movie has verified showtimes.
+  // We no longer rely purely on release date to avoid misleading CTAs.
+  // We check if a specific ticketing platform exists (e.g. Fandango, BookMyShow)
+  // or a showtime property exists. For now, we only show it if we explicitly have a ticketing URL.
   const isRunningInTheaters = (() => {
-    if (!movie || !movie.releaseDate || movie.type === 'tv') return false;
-    const releaseTime = new Date(movie.releaseDate).getTime();
-    const now = new Date().getTime();
-    const daysSinceRelease = (now - releaseTime) / (1000 * 3600 * 24);
-    // Let's assume a movie is in theaters if it released within the last 60 days or is upcoming
-    return daysSinceRelease > -365 && daysSinceRelease < 60;
+    if (!movie || movie.type === 'tv') return false;
+    // Note: To show tickets CTA, we need verified showtime data.
+    // TMDB watch/providers sometimes include 'Fandango' or 'BookMyShow'.
+    return !!movie.platforms?.some(p => 
+      p.name.toLowerCase().includes('fandango') || 
+      p.name.toLowerCase().includes('bookmyshow') ||
+      p.name.toLowerCase().includes('amc') ||
+      p.name.toLowerCase().includes('cinemark')
+    );
   })();
 
   const hideWatchSection = isUpcomingOrNew && !primaryPlatform && !isRunningInTheaters;
@@ -893,7 +905,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                 <a
                   href={resolveWatchUrl(
                     primaryPlatform.name,
-                    localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode] || primaryPlatform.watchUrls?.['IN'] || primaryPlatform.watchUrl, userCountryCode),
+                    localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode || ''] || primaryPlatform.watchUrl, userCountryCode || ''),
                     affiliateLinks
                   )}
                   target="_blank"
@@ -961,9 +973,11 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
 
               <div className="flex flex-wrap items-center gap-5 md:gap-8 text-white/90 mb-6 md:mb-8 pb-6 md:pb-8 border-b border-white/10 uppercase text-[11px] md:text-[13px] font-black tracking-widest drop-shadow-md">
                 <div className="flex items-center gap-4 md:gap-6">
-                  <UserScore rating={movie.rating} />
-                  <div className="flex items-center gap-2 border-l border-white/20 pl-4 md:pl-6 leading-none h-6">
-                    <span className="bg-[#F5C518] text-black px-2.5 py-1 rounded-md shadow-[0_2px_12px_rgba(245,197,24,0.3)]">IMDb {displayedRating}</span>
+                  {isValidRating && <UserScore rating={movie.rating} />}
+                  <div className={`flex items-center gap-2 ${isValidRating ? 'border-l border-white/20 pl-4 md:pl-6' : ''} leading-none h-6`}>
+                    <span className="bg-[#F5C518] text-black px-2.5 py-1 rounded-md shadow-[0_2px_12px_rgba(245,197,24,0.3)]">
+                      {isValidRating ? `IMDb ${displayedRating}` : 'IMDb — Not rated'}
+                    </span>
                     {userRating && <span className="text-brand ml-2">(Voted {userRating})</span>}
                   </div>
                 </div>
@@ -1361,11 +1375,37 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
               {/* Where to Watch Section */}
               {!hideWatchSection && (
                 <div className="bg-surface/30 rounded-xl p-6 md:p-10 border border-white/5 overflow-hidden">
-                  <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-brand mb-6 flex items-center gap-3">
-                    <span className="w-3 md:w-4 h-0.5 bg-brand"></span> WHERE TO WATCH
-                  </h2>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                    <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-brand flex items-center gap-3">
+                      <span className="w-3 md:w-4 h-0.5 bg-brand"></span> WHERE TO WATCH
+                    </h2>
+                    <select
+                      value={userCountryCode || ''}
+                      onChange={(e) => setUserCountryCode(e.target.value || null)}
+                      className="bg-black/60 border border-white/10 rounded-lg p-2 text-[10px] uppercase font-black tracking-widest text-white outline-none w-full md:w-auto hover:border-brand/50 transition-colors"
+                    >
+                      <option value="">Select your country</option>
+                      {Object.keys(COUNTRY_NAMES).map(code => (
+                        <option key={code} value={code}>{COUNTRY_NAMES[code]}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                  {localPlatforms.length > 0 && (
+                  {!userCountryCode ? (
+                    <div className="mb-8 text-center py-10 bg-black/40 rounded-xl border border-white/5">
+                      <p className="text-white/50 text-sm font-bold tracking-widest uppercase">
+                        Select your country to see streaming availability.
+                      </p>
+                      {detectedCountryCode && (
+                        <button 
+                          onClick={() => setUserCountryCode(detectedCountryCode)}
+                          className="mt-4 px-4 py-2 bg-brand/20 text-brand border border-brand/30 rounded text-xs font-black uppercase tracking-widest hover:bg-brand/30 transition-all"
+                        >
+                          Use Detected: {COUNTRY_NAMES[detectedCountryCode] || detectedCountryCode}
+                        </button>
+                      )}
+                    </div>
+                  ) : localPlatforms.length > 0 ? (
                     <div className="mb-8">
                       <div className="mb-4">
                         <span className="text-[10px] font-black uppercase tracking-widest text-white/50 flex items-center gap-1.5">
@@ -1413,7 +1453,7 @@ export default function MovieDetails({ initialMovie }: { initialMovie?: Movie })
                         </div>
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   {otherPlatforms.length > 0 && (
                     <div>

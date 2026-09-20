@@ -83,7 +83,7 @@ export async function POST(request: Request) {
           <img src="${posterUrl}" alt="${topMovie.title}" style="width: 100%; height: auto; display: block;" />
           <div style="padding: 20px;">
             <h2 style="margin: 0 0 10px 0; font-size: 20px; font-weight: 800;">${topMovie.title}</h2>
-            <p style="color: #888; font-size: 14px; margin: 0 0 15px 0;">IMDb: ${topMovie.vote_average}</p>
+            ${typeof topMovie.vote_average === 'number' && topMovie.vote_average > 0 && topMovie.vote_average <= 10 ? `<p style="color: #888; font-size: 14px; margin: 0 0 15px 0;">IMDb: ${topMovie.vote_average}</p>` : ''}
             <p style="color: #bbb; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
               ${topMovie.overview}
             </p>

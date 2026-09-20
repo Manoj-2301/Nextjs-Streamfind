@@ -61,7 +61,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
   const sectionRef = useRef<HTMLElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const [userCountryCode, setUserCountryCode] = useState<string>('IN');
+  const [userCountryCode, setUserCountryCode] = useState<string | null>(null);
 
   const baseMovie = movies[currentIndex] || movies[0];
   const { data: movieDetails } = useMovieDetails(baseMovie?.id, baseMovie?.type as 'movie' | 'tv', {
@@ -117,9 +117,9 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
         else if (lang.includes('-AU')) detectedCode = 'AU';
       }
 
-      if (detectedCode) {
-        setUserCountryCode(detectedCode);
-      }
+      // if (detectedCode) {
+      //   setUserCountryCode(detectedCode);
+      // }
     } catch (e) {
       console.error('Error detecting country locally:', e);
     }
@@ -133,11 +133,11 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
     fetch('/api/country')
       .then(res => res.json())
       .then(data => {
-        if (data && data.country) {
-          const code = data.country.toUpperCase();
-          sessionStorage.setItem('sf_country', code);
-          setUserCountryCode(code);
-        }
+        // if (data && data.country) {
+        //   const code = data.country.toUpperCase();
+        //   sessionStorage.setItem('sf_country', code);
+        //   setUserCountryCode(code);
+        // }
       })
       .catch(err => console.error('Error fetching country from API:', err));
   }, []);
@@ -472,7 +472,9 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
               className="max-w-3xl"
             >
               <div className="flex items-center gap-3 mb-4 md:mb-6 text-xs font-bold transition-opacity duration-700">
-                <span className="bg-yellow-500 text-black px-2 py-0.5 rounded shadow-lg font-black">IMDb {movie.rating}</span>
+                {typeof movie?.rating === 'number' && movie.rating > 0 && movie.rating <= 10 && (
+                  <span className="bg-yellow-500 text-black px-2 py-0.5 rounded shadow-lg font-black">IMDb {movie.rating}</span>
+                )}
                 <span className="text-white color-white uppercase tracking-widest drop-shadow-md font-bold">{movie.year} • {movie.genre[0]} • {movie.runtime}</span>
               </div>
 
@@ -489,7 +491,7 @@ export default function HeroSection({ movies, affiliateLinks = {} }: HeroSection
                   <a
                     href={resolveWatchUrl(
                       primaryPlatform.name,
-                      localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode] || primaryPlatform.watchUrls?.['IN'] || primaryPlatform.watchUrl, userCountryCode),
+                      localizeTmdbUrl(primaryPlatform.watchUrls?.[userCountryCode || ''] || primaryPlatform.watchUrl, userCountryCode || ''),
                       affiliateLinks
                     )}
                     target="_blank"
