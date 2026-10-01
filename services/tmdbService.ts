@@ -33,10 +33,8 @@ const parseWatchProviders = (watchProvidersObj: any, movieId: number, title?: st
 
   const allProviders: { prov: any; link: string; region: string }[] = [];
 
-  // Iterate over select regions to avoid massive JSON payloads in SSR HTML
-  const topRegions = ['US', 'IN', 'GB', 'CA', 'AU'];
+  // Iterate over all regions instead of a hardcoded subset to support global availability
   for (const region of Object.keys(results)) {
-    if (!topRegions.includes(region)) continue;
 
     const regionData = results[region];
     if (regionData && typeof regionData === 'object') {

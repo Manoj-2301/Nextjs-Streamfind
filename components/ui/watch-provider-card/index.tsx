@@ -78,7 +78,7 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
    * STATE & DATA FETCHING
    * ============================================================
    */
-  const [userCountryCode, setUserCountryCode] = useState<string>('IN');
+  const [userCountryCode, setUserCountryCode] = useState<string | null>(null);
   const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLinks>({});
 
 
@@ -132,28 +132,34 @@ export default function WatchProviderCard({ platform }: WatchProviderCardProps) 
         else if (lang.includes('-AU')) detectedCode = 'AU';
       }
 
-      if (detectedCode) {
-        setUserCountryCode(detectedCode);
-      }
+      // if (detectedCode) {
+      //   setUserCountryCode(detectedCode);
+      // }
     } catch (e) {
       console.error('Error detecting country locally:', e);
+    }
+
+    const cached = sessionStorage.getItem('sf_country');
+    if (cached) {
+      setUserCountryCode(cached);
+      return;
     }
 
     // Server-side IP-based GeoIP lookup to override local detection with absolute accuracy
     fetch('/api/country')
       .then(res => res.json())
       .then(data => {
-        if (data && data.country) {
-          setUserCountryCode(data.country.toUpperCase());
-        }
+        // if (data && data.country) {
+        //   setUserCountryCode(data.country.toUpperCase());
+        // }
       })
       .catch(err => console.error('Error fetching country from API:', err));
   }, []);
 
   const isAvailableInIndia = platform.countries?.includes('IN');
-  const userCountryAvailable = platform.countries?.includes(userCountryCode);
-  const rawWatchUrl = platform.watchUrls?.[userCountryCode] || platform.watchUrls?.['IN'] || platform.watchUrl;
-  const standardWatchUrl = localizeTmdbUrl(rawWatchUrl, userCountryCode);
+  const userCountryAvailable = userCountryCode ? platform.countries?.includes(userCountryCode) : false;
+  const rawWatchUrl = platform.watchUrls?.[userCountryCode || ''] || platform.watchUrl;
+  const standardWatchUrl = localizeTmdbUrl(rawWatchUrl, userCountryCode || '');
   const watchUrl = resolveWatchUrl(platform.name, standardWatchUrl, affiliateLinks);
 
 
